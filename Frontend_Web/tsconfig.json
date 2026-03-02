@@ -5,6 +5,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    "types": ["vite/client"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -26,5 +27,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "src/Pages/AIChatPage.tsx", "src/Pages/CalendarPage.tsx", "src/Pages/ChatRoomsPage.tsx", "src/Pages/ForgotPasswordPage.tsx", "src/Pages/HomePage.tsx", "src/Pages/LandingPage.tsx", "src/Pages/LoginRegisterPage.tsx", "src/Pages/ManagementPage.tsx", "src/Pages/SettingsPage.tsx"]
+  "include": ["src"]
 }

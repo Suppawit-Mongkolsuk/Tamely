@@ -1,0 +1,55 @@
+// ===== Auth Context =====
+// แชร์ auth state ทั่วทั้ง component tree
+
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { useAuth } from '@/hooks';
+import type {
+  User,
+  LoginRequest,
+  RegisterRequest,
+  ForgotPasswordRequest,
+} from '@/types';
+
+interface AuthContextValue {
+  user: User | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  error: string | null;
+  login: (data: LoginRequest) => Promise<unknown>;
+  register: (data: RegisterRequest) => Promise<unknown>;
+  forgotPassword: (data: ForgotPasswordRequest) => Promise<unknown>;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const auth = useAuth();
+
+  // Restore session เมื่อเปิดแอป
+  useEffect(() => {
+    auth.restoreSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const value: AuthContextValue = {
+    user: auth.user,
+    isLoading: auth.isLoading,
+    isAuthenticated: auth.user !== null,
+    error: auth.error,
+    login: auth.login,
+    register: auth.register,
+    forgotPassword: auth.forgotPassword,
+    logout: auth.logout,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuthContext() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuthContext must be used within AuthProvider');
+  }
+  return context;
+}
