@@ -1,9 +1,14 @@
 // ===== useAuth Hook =====
-// จัดการ auth state ทั่วทั้งแอป
+// จัดการ auth state ทั่วทั้งแอป (Cookie-based)
 
 import { useState, useCallback } from 'react';
 import { authService } from '@/services';
-import type { User, LoginRequest, RegisterRequest, ForgotPasswordRequest } from '@/types';
+import type {
+  User,
+  LoginRequest,
+  RegisterRequest,
+  ForgotPasswordRequest,
+} from '@/types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -34,7 +39,8 @@ export function useAuth() {
       setUser(response.user);
       return response;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
+      const message =
+        err instanceof Error ? err.message : 'Registration failed';
       setError(message);
       throw err;
     } finally {
@@ -61,8 +67,21 @@ export function useAuth() {
     setUser(null);
   }, []);
 
-  const restoreSession = useCallback(() => {
-    return authService.restoreSession();
+  // เรียก /auth/me เพื่อเช็คว่า cookie ยังใช้ได้ไหม
+  const restoreSession = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const currentUser = await authService.checkAuth();
+      if (currentUser) {
+        setUser(currentUser);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   return {

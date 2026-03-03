@@ -3,15 +3,11 @@
 export interface User {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
-  avatar?: string;
-  bio?: string;
-  timezone?: string;
-  role: UserRole;
-  status: UserStatus;
-  createdAt: string;
-  updatedAt: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  status?: string;
+  lastSeenAt?: string | null;
 }
 
 export type UserRole = 'owner' | 'admin' | 'member' | 'guest';
@@ -21,15 +17,32 @@ export type UserStatus = 'active' | 'inactive' | 'banned';
 export interface LoginRequest {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 export interface RegisterRequest {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  displayName: string;
 }
 
+// Backend ส่งกลับมาในรูปแบบนี้
+export interface ApiSuccessResponse<T> {
+  success: true;
+  data: T;
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  error: string;
+}
+
+export interface AuthResponseData {
+  token: string;
+  user: User;
+}
+
+// เก็บไว้สำหรับ compatibility
 export interface AuthResponse {
   user: User;
   accessToken: string;

@@ -3,56 +3,62 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppLayout } from './components/layout';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useAuthContext } from '@/contexts';
 
 // ===== Lazy-loaded Pages (code-splitting) =====
 const LoginRegisterPage = lazy(() =>
-  import('./pages/LoginRegisterPage').then((m) => ({
+  import('./Pages/LoginRegisterPage').then((m) => ({
     default: m.LoginRegisterPage,
   })),
 );
 const ForgotPasswordPage = lazy(() =>
-  import('./pages/ForgotPasswordPage').then((m) => ({
+  import('./Pages/ForgotPasswordPage').then((m) => ({
     default: m.ForgotPasswordPage,
   })),
 );
 const LandingPage = lazy(() =>
-  import('./pages/LandingPage').then((m) => ({ default: m.LandingPage })),
+  import('./Pages/LandingPage').then((m) => ({ default: m.LandingPage })),
 );
 const HomePage = lazy(() =>
-  import('./pages/HomePage').then((m) => ({ default: m.HomePage })),
+  import('./Pages/HomePage').then((m) => ({ default: m.HomePage })),
 );
 const ChatRoomsPage = lazy(() =>
-  import('./pages/ChatRoomsPage').then((m) => ({ default: m.ChatRoomsPage })),
+  import('./Pages/ChatRoomsPage').then((m) => ({ default: m.ChatRoomsPage })),
 );
 const AIChatPage = lazy(() =>
-  import('./pages/AIChatPage').then((m) => ({ default: m.AIChatPage })),
+  import('./Pages/AIChatPage').then((m) => ({ default: m.AIChatPage })),
 );
 const CalendarPage = lazy(() =>
-  import('./pages/CalendarPage').then((m) => ({ default: m.CalendarPage })),
+  import('./Pages/CalendarPage').then((m) => ({ default: m.CalendarPage })),
 );
 const ManagementPage = lazy(() =>
-  import('./pages/ManagementPage').then((m) => ({ default: m.ManagementPage })),
+  import('./Pages/ManagementPage').then((m) => ({ default: m.ManagementPage })),
 );
 const SettingsPage = lazy(() =>
-  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+  import('./Pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
 const NotFoundPage = lazy(() =>
-  import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+  import('./Pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('isLoggedIn') === 'true';
-  });
+  const { isAuthenticated, isSessionReady, logout } = useAuthContext();
   const [hasJoinedWorkspace, setHasJoinedWorkspace] = useState(() => {
     return localStorage.getItem('hasJoinedWorkspace') === 'true';
   });
 
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-    localStorage.setItem('isLoggedIn', 'true');
+  // รอจน restoreSession เสร็จ ก่อน render routes
+  if (!isSessionReady) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-muted">
+        <LoadingSpinner size="lg" text="Loading..." />
+      </div>
+    );
+  }
+
+  const handleLoginComplete = () => {
     navigate('/workspace');
   };
 
@@ -62,10 +68,9 @@ function App() {
     navigate('/home');
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
+  const handleLogout = async () => {
+    await logout();
     setHasJoinedWorkspace(false);
-    localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('hasJoinedWorkspace');
     navigate('/login');
   };
@@ -81,13 +86,13 @@ function App() {
       >
         <Routes>
           {/* ===== Public Routes ===== */}
-          {!isLoggedIn ? (
+          {!isAuthenticated ? (
             <>
               <Route
                 path="/login"
                 element={
                   <LoginRegisterPage
-                    onComplete={handleLogin}
+                    onComplete={handleLoginComplete}
                     onForgotPassword={() => navigate('/forgot-password')}
                   />
                 }

@@ -1,7 +1,8 @@
 // ===== API Client =====
 // ตั้งค่า base HTTP client สำหรับเรียก Backend API
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>;
@@ -23,7 +24,10 @@ class ApiClient {
     return this.token;
   }
 
-  private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  private async request<T>(
+    endpoint: string,
+    options: RequestOptions = {},
+  ): Promise<T> {
     const { params, ...fetchOptions } = options;
 
     // สร้าง URL พร้อม query params
@@ -41,17 +45,35 @@ class ApiClient {
     };
 
     if (this.token) {
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
+      (headers as Record<string, string>)['Authorization'] =
+        `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url.toString(), {
-      ...fetchOptions,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        ...fetchOptions,
+        headers,
+        credentials: 'include', // ← ส่ง cookie ทุก request
+      });
+    } catch {
+      // Network error — backend ไม่ได้รัน หรือ CORS block
+      throw new ApiError(
+        0,
+        'ไม่สามารถเชื่อมต่อ server ได้ — กรุณาลองใหม่อีกครั้ง',
+      );
+    }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Network error' }));
-      throw new ApiError(response.status, error.message || 'Something went wrong');
+      let errorMessage = 'เกิดข้อผิดพลาด';
+      try {
+        const errorBody = await response.json();
+        // backend ส่ง { success: false, error: "..." }
+        errorMessage = errorBody.error || errorBody.message || errorMessage;
+      } catch {
+        // response ไม่ใช่ JSON
+      }
+      throw new ApiError(response.status, errorMessage);
     }
 
     return response.json();
