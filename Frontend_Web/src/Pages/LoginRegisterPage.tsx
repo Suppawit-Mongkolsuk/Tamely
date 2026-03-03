@@ -7,11 +7,13 @@ import {
   EyeOff,
   MessageSquare,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuthContext } from '@/contexts';
 
 interface LoginRegisterPageProps {
   onComplete: () => void;
@@ -22,19 +24,76 @@ export function LoginRegisterPage({
   onComplete,
   onForgotPassword,
 }: LoginRegisterPageProps) {
+  const { login, register, isLoading, error } = useAuthContext();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
+    displayName: '',
     email: '',
     password: '',
     confirmPassword: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ตรวจสอบ email format (ต้องมี @ และ TLD อย่างน้อย 2 ตัวอักษร เช่น .com .th)
+  const isValidEmail = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // จำลองการ login/register
-    onComplete();
+    setFormError(null);
+
+    // === Frontend Validation ===
+    if (!formData.email) {
+      setFormError('กรุณากรอกอีเมล');
+      return;
+    }
+    if (!isValidEmail(formData.email)) {
+      setFormError('รูปแบบอีเมลไม่ถูกต้อง (เช่น example@gmail.com)');
+      return;
+    }
+    if (!formData.password) {
+      setFormError('กรุณากรอกรหัสผ่าน');
+      return;
+    }
+    if (formData.password.length < 8) {
+      setFormError('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+      return;
+    }
+
+    try {
+      if (isLogin) {
+        // === Login ===
+        await login({
+          email: formData.email,
+          password: formData.password,
+          rememberMe,
+        });
+      } else {
+        // === Register ===
+        if (!formData.displayName || formData.displayName.trim().length < 2) {
+          setFormError('ชื่อต้องมีอย่างน้อย 2 ตัวอักษร');
+          return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+          setFormError('รหัสผ่านไม่ตรงกัน');
+          return;
+        }
+
+        await register({
+          email: formData.email,
+          password: formData.password,
+          displayName: formData.displayName.trim(),
+        });
+      }
+
+      // สำเร็จ → ไปหน้าถัดไป
+      onComplete();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด';
+      setFormError(message);
+    }
   };
 
   return (
@@ -163,9 +222,9 @@ export function LoginRegisterPage({
                     id="name"
                     type="text"
                     placeholder="กรอกชื่อ-นามสกุล"
-                    value={formData.name}
+                    value={formData.displayName}
                     onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
+                      setFormData({ ...formData, displayName: e.target.value })
                     }
                     className="pl-10"
                     required={!isLogin}
@@ -247,7 +306,12 @@ export function LoginRegisterPage({
             {isLogin && (
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="rounded border-border" />
+                  <input
+                    type="checkbox"
+                    className="rounded border-border"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
                   <span className="text-muted-foreground">จดจำฉันไว้</span>
                 </label>
                 <button
@@ -281,12 +345,29 @@ export function LoginRegisterPage({
               </div>
             )}
 
+            {/* Error Message */}
+            {(formError || error) && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-600">{formError || error}</p>
+              </div>
+            )}
+
             <Button
               type="submit"
               className="w-full bg-linear-to-r from-[#5EBCAD] to-[#46769B] hover:opacity-90 text-white"
               size="lg"
+              disabled={isLoading}
             >
-              {isLogin ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
+              {isLoading ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  กำลังดำเนินการ...
+                </>
+              ) : isLogin ? (
+                'เข้าสู่ระบบ'
+              ) : (
+                'สมัครสมาชิก'
+              )}
             </Button>
           </form>
 
@@ -304,7 +385,14 @@ export function LoginRegisterPage({
 
           {/* Social Login */}
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" type="button" className="w-full">
+            <Button
+              variant="outline"
+              type="button"
+              className="w-full"
+              onClick={() => {
+                window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/oauth/google`;
+              }}
+            >
               <svg className="size-5 mr-2" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
@@ -325,7 +413,14 @@ export function LoginRegisterPage({
               </svg>
               Google
             </Button>
-            <Button variant="outline" type="button" className="w-full">
+            <Button
+              variant="outline"
+              type="button"
+              className="w-full"
+              onClick={() => {
+                window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/oauth/github`;
+              }}
+            >
               <svg
                 className="size-5 mr-2"
                 fill="currentColor"

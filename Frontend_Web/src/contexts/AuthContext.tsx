@@ -1,7 +1,13 @@
 // ===== Auth Context =====
-// แชร์ auth state ทั่วทั้ง component tree
+// แชร์ auth state ทั่วทั้ง component tree (Cookie-based)
 
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useAuth } from '@/hooks';
 import type {
   User,
@@ -14,6 +20,7 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isSessionReady: boolean; // true เมื่อ restoreSession เสร็จแล้ว
   error: string | null;
   login: (data: LoginRequest) => Promise<unknown>;
   register: (data: RegisterRequest) => Promise<unknown>;
@@ -25,10 +32,13 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const [isSessionReady, setIsSessionReady] = useState(false);
 
-  // Restore session เมื่อเปิดแอป
+  // Restore session เมื่อเปิดแอป (async – เรียก GET /auth/me)
   useEffect(() => {
-    auth.restoreSession();
+    auth.restoreSession().finally(() => {
+      setIsSessionReady(true);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -36,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: auth.user,
     isLoading: auth.isLoading,
     isAuthenticated: auth.user !== null,
+    isSessionReady,
     error: auth.error,
     login: auth.login,
     register: auth.register,

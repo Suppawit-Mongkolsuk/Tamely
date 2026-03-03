@@ -1,0 +1,326 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// บทบาทของสมาชิกใน Workspace
+enum WorkspaceRole {
+  OWNER // เจ้าของ Workspace
+  ADMIN // ผู้ดูแลระบบ
+  MODERATOR // ผู้ดูแลห้อง
+  MEMBER // สมาชิกทั่วไป
+}
+
+// ประเภทข้อความในแชท
+enum MessageType {
+  TEXT // ข้อความปกติ
+  SYSTEM // ข้อความระบบ (เช่น "John joined the room")
+}
+
+// ลำดับความสำคัญของ Task
+enum TaskPriority {
+  HIGH // สำคัญมาก
+  MEDIUM // สำคัญปานกลาง
+  LOW // สำคัญน้อย
+}
+
+// สถานะของ Task
+enum TaskStatus {
+  TODO // ยังไม่ได้ทำ
+  IN_PROGRESS // กำลังทำ
+  COMPLETED // เสร็จแล้ว
+}
+
+// ใครสร้าง Task (User เอง หรือ AI สร้างให้)
+enum TaskCreator {
+  USER // ผู้ใช้สร้างเอง
+  AI // AI สร้างให้อัตโนมัติ (เช่น สั่ง AI ว่า "ช่วยลงตาราง meeting พรุ่งนี้บ่าย 2")
+}
+
+// ======================================================
+// 1. USER — ผู้ใช้งานในระบบ
+//    หน้าที่: เก็บข้อมูล Authentication & Profile
+//    ใช้ใน: Login, Register, Profile, ทุกหน้า
+// ======================================================
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique // อีเมลสำหรับ Login (ต้องไม่ซ้ำ)
+  passwordHash String? // รหัสผ่านที่เข้ารหัสแล้ว (nullable สำหรับ OAuth user)
+  Name         String // ชื่อ
+  avatarUrl    String? // URL รูปโปรไฟล์ (nullable)
+  bio          String? // คำอธิบายตัวเอง (nullable)
+  status       String    @default("active") // สถานะ: active, inactive, banned
+  lastSeenAt   DateTime? // เวลาที่ออนไลน์ล่าสุด
+
+  // === OAuth Fields ===
+  provider   String? // "google" | "github" | null (email/password)
+  providerId String? // ID จาก provider (Google sub / GitHub id)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // === Relations ===
+  ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner") // Workspace ที่เป็นเจ้าของ
+  workspaceMembers WorkspaceMember[] // Workspace ที่เป็นสมาชิก
+  createdRooms     Room[]            @relation("RoomCreator") // Room ที่สร้าง
+  roomMembers      RoomMember[] // Room ที่เข้าร่วม
+  sentMessages     Message[] // ข้อความที่ส่ง
+  authoredPosts    Post[] // โพสต์ที่เขียน
+  postComments     PostComment[] // Comment ที่เขียน
+  assignedTasks    Task[]            @relation("TaskAssignee") // Task ที่ได้รับมอบหมาย
+  createdTasks     Task[]            @relation("TaskCreatedByUser") // Task ที่สร้าง
+  aiSummaries      AiSummary[]       @relation("AiSummaryRequestedBy") // AI Summary ที่ขอ
+  aiQueries        AiQuery[] // คำถาม AI ที่ถาม
+
+  @@unique([provider, providerId]) // ป้องกัน OAuth user ซ้ำ
+  @@index([email])
+}
+
+// ======================================================
+// 2. WORKSPACE — กลุ่ม/ทีมงาน
+//    หน้าที่: เก็บข้อมูลกลุ่มทำงาน (คล้าย Discord Server / Slack Workspace)
+//    ใช้ใน: WorkspacePage, ManagementPage, Sidebar
+// ======================================================
+model Workspace {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String // ชื่อ Workspace
+  description String? // คำอธิบาย (nullable)
+  iconUrl     String? // URL ไอคอน (nullable)
+  inviteCode  String   @unique @default(uuid()) // รหัสเชิญเข้า Workspace (ใช้เชิญสมาชิกใหม่)
+  ownerId     String   @db.Uuid // FK → User (เจ้าของ Workspace)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // === Relations ===
+  owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     WorkspaceMember[] // สมาชิกทั้งหมดใน Workspace
+  rooms       Room[] // ห้องแชททั้งหมด
+  posts       Post[] // โพสต์/ประกาศทั้งหมด
+  tasks       Task[] // Task ทั้งหมดใน Workspace (Calendar)
+  aiSummaries AiSummary[] // สรุป AI ของ Workspace
+  aiQueries   AiQuery[] // คำถาม AI ของ Workspace
+
+  @@index([ownerId])
+  @@index([inviteCode])
+}
+
+// ======================================================
+// 3. WORKSPACE MEMBER — สมาชิกใน Workspace
+//    หน้าที่: เก็บความสัมพันธ์ระหว่าง User กับ Workspace + บทบาท
+//    ใช้ใน: ManagementPage → MembersTab, InviteMemberDialog
+// ======================================================
+model WorkspaceMember {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid // FK → Workspace
+  userId      String        @db.Uuid // FK → User
+  role        WorkspaceRole @default(MEMBER) // OWNER / ADMIN / MODERATOR / MEMBER
+  joinedAt    DateTime      @default(now())
+
+  // === Relations ===
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId]) // 1 User = 1 สิทธิ์ต่อ Workspace
+  @@index([userId])
+  @@index([workspaceId])
+}
+
+// ======================================================
+// 4. ROOM — ห้องแชท (Channel)
+//    หน้าที่: เก็บข้อมูลห้องแชทภายใน Workspace (คล้าย Discord Channel)
+//    ใช้ใน: ChatRoomsPage, ChatSidebar, CreateRoomDialog
+// ======================================================
+model Room {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @db.Uuid // FK → Workspace (ห้องนี้อยู่ใน Workspace ไหน)
+  name        String // ชื่อห้อง
+  description String? // คำอธิบายห้อง (nullable)
+  isPrivate   Boolean  @default(false) // true = ห้องส่วนตัว, false = ห้องสาธารณะ
+  createdById String   @db.Uuid // FK → User (คนที่สร้างห้อง)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // === Relations ===
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation("RoomCreator", fields: [createdById], references: [id])
+  members     RoomMember[] // สมาชิกในห้อง
+  messages    Message[] // ข้อความทั้งหมดในห้อง
+  aiSummaries AiSummary[] // สรุป AI ของห้อง
+
+  @@unique([workspaceId, name]) // ชื่อห้องต้องไม่ซ้ำกันใน Workspace เดียวกัน
+  @@index([workspaceId])
+  @@index([createdById])
+}
+
+// ======================================================
+// 5. ROOM MEMBER — สมาชิกในห้องแชท
+//    หน้าที่: เก็บว่า User ไหนอยู่ในห้องไหน
+//    ใช้ใน: ChatDetailPanel, InviteMemberDialog, RemoveMemberDialog
+// ======================================================
+model RoomMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  roomId   String   @db.Uuid // FK → Room
+  userId   String   @db.Uuid // FK → User
+  joinedAt DateTime @default(now())
+
+  // === Relations ===
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId]) // 1 User = 1 ครั้งต่อห้อง
+  @@index([userId])
+  @@index([roomId])
+}
+
+// ======================================================
+// 6. MESSAGE — ข้อความแชท (Real-time ผ่าน Socket.IO)
+//    หน้าที่: เก็บข้อความที่ส่งในห้องแชท
+//    ใช้ใน: ChatWindow, MessageBubble
+// ======================================================
+model Message {
+  id        String      @id @default(uuid()) @db.Uuid
+  roomId    String      @db.Uuid // FK → Room (ส่งในห้องไหน)
+  senderId  String      @db.Uuid // FK → User (ใครส่ง)
+  type      MessageType @default(TEXT) // TEXT = ข้อความปกติ, SYSTEM = ข้อความระบบ
+  content   String // เนื้อหาข้อความ
+  createdAt DateTime    @default(now())
+
+  // === Relations ===
+  room   Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt]) // ค้นหาข้อความในห้องตามเวลา (ใช้บ่อยมาก)
+  @@index([senderId])
+}
+
+// ======================================================
+// 7. POST — โพสต์/ประกาศ (Facebook Feed style)
+//    หน้าที่: เก็บโพสต์ภายใน Workspace (เหมือน Facebook Feed)
+//    ใช้ใน: HomePage (Feed), WorkspacePage
+// ======================================================
+model Post {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @db.Uuid // FK → Workspace (โพสต์อยู่ใน Workspace ไหน)
+  authorId    String   @db.Uuid // FK → User (ใครเขียน)
+  title       String // หัวข้อโพสต์
+  body        String // เนื้อหาโพสต์
+  isPinned    Boolean  @default(false) // true = ปักหมุดไว้ด้านบน
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // === Relations ===
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments  PostComment[] // คอมเมนต์ทั้งหมดของโพสต์
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, isPinned])
+  @@index([authorId])
+}
+
+// ======================================================
+// 8. POST COMMENT — คอมเมนต์ในโพสต์
+//    หน้าที่: เก็บคอมเมนต์ที่อยู่ใต้โพสต์
+//    ใช้ใน: HomePage (Feed) → Comment section
+// ======================================================
+model PostComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @db.Uuid // FK → Post (คอมเมนต์อยู่ใต้โพสต์ไหน)
+  userId    String   @db.Uuid // FK → User (ใครคอมเมนต์)
+  content   String // เนื้อหาคอมเมนต์
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // === Relations ===
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([userId])
+}
+
+// ======================================================
+// 9. TASK — งาน/ปฏิทิน (Calendar + Task management)
+//    หน้าที่: เก็บ Task ที่แสดงในปฏิทิน
+//    - User สร้างเองได้
+//    - AI สร้างให้ได้ (เช่น "AI ช่วยลง meeting พรุ่งนี้ 14:00")
+//    ใช้ใน: CalendarPage, CalendarGrid, TaskList, Dialogs
+// ======================================================
+model Task {
+  id          String       @id @default(uuid()) @db.Uuid
+  workspaceId String       @db.Uuid // FK → Workspace (Task อยู่ใน Workspace ไหน)
+  title       String // ชื่อ Task (เช่น "ประชุมทีม Backend")
+  description String? // รายละเอียด (nullable)
+  date        DateTime // วันที่ของ Task (แสดงในปฏิทิน)
+  priority    TaskPriority @default(MEDIUM) // HIGH / MEDIUM / LOW
+  status      TaskStatus   @default(TODO) // TODO / IN_PROGRESS / COMPLETED
+  assigneeId  String       @db.Uuid // FK → User (มอบหมายให้ใคร)
+  createdById String       @db.Uuid // FK → User (ใครสร้าง Task นี้)
+  createdBy   TaskCreator  @default(USER) // USER = สร้างเอง, AI = AI สร้างให้
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // === Relations ===
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assignee      User      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  createdByUser User      @relation("TaskCreatedByUser", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, date]) // ค้นหา Task ตามวันที่ (Calendar view)
+  @@index([workspaceId, status]) // กรอง Task ตามสถานะ
+  @@index([assigneeId]) // Task ที่มอบหมายให้ User คนนี้
+  @@index([createdById])
+}
+
+// ======================================================
+// 10. AI SUMMARY — สรุปบทสนทนาโดย AI
+//     หน้าที่: Cache สรุปที่ AI สร้างจากข้อความในห้องแชท
+//     ใช้ใน: AIChatPage, ChatDetailPanel
+// ======================================================
+model AiSummary {
+  id            String   @id @default(uuid()) @db.Uuid
+  workspaceId   String?  @db.Uuid // FK → Workspace (nullable: สรุประดับ Workspace)
+  roomId        String?  @db.Uuid // FK → Room (nullable: สรุประดับ Room)
+  requestedById String   @db.Uuid // FK → User (ใครขอสรุป)
+  periodStart   DateTime // ช่วงเวลาเริ่มต้นที่สรุป
+  periodEnd     DateTime // ช่วงเวลาสิ้นสุดที่สรุป
+  summaryText   String // เนื้อหาสรุปที่ AI สร้าง
+  createdAt     DateTime @default(now())
+
+  // === Relations ===
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  room        Room?      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  requestedBy User       @relation("AiSummaryRequestedBy", fields: [requestedById], references: [id])
+
+  @@index([roomId, periodStart, periodEnd])
+  @@index([workspaceId])
+  @@index([requestedById])
+}
+
+// ======================================================
+// 11. AI QUERY — ถาม-ตอบ AI
+//     หน้าที่: เก็บ log คำถาม + คำตอบจาก AI (OpenAI API)
+//     ใช้ใน: AIChatPage
+// ======================================================
+model AiQuery {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @db.Uuid // FK → Workspace
+  userId      String   @db.Uuid // FK → User (ใครถาม)
+  question    String // คำถามที่ User ถาม
+  answer      String // คำตอบที่ AI ตอบ
+  tokensUsed  Int? // จำนวน Token ที่ใช้ (nullable, สำหรับติดตามค่าใช้จ่าย)
+  createdAt   DateTime @default(now())
+
+  // === Relations ===
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
+}
