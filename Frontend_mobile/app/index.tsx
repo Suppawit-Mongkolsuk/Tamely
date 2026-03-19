@@ -1,11 +1,6 @@
-import { Redirect } from "expo-router"
+import { Redirect } from 'expo-router';
+import React from 'react';
 
-export default function Index() {
-  const isLoggedIn = false
-
-  if (isLoggedIn) {
-    return <Redirect href="/(tabs)/feed" />
-  }
-
-  return <Redirect href="/(auth)/login" />
+export default function IndexRoute() {
+  return <Redirect href="/(auth)/login" />;
 }
