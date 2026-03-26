@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { AntDesign } from '@expo/vector-icons';
+import { Button } from '@react-navigation/elements';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -61,7 +62,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             {/* ตัวแบ่ง OR */}
-            <View className="flex-row items-center mb-8">
+            <View className="flex-row items-center mb-8 mt-6">
               <View className="flex-1 h-[1px] bg-gray-200" />
                 <Text className="text-gray-400 px-4 text-sm">or</Text>
               <View className="flex-1 h-[1px] bg-gray-200" />
@@ -79,6 +80,17 @@ export default function LoginScreen() {
                 Continue with Google
             </Text>
           </TouchableOpacity>
+          
+          <View className="flex-row items-center justify-center mt-6">
+              <Text className="text-gray-700 font-medium text-base  text-left">
+                  Don't have an account?
+              </Text>
+              <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+                  <Text className="text-[#425C95] font-bold text-base ml-2">
+                    Register
+                  </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </SafeAreaView>
       </Text>
