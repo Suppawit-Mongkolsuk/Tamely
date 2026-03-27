@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { AntDesign } from '@expo/vector-icons';
 import { Feather } from '@expo/vector-icons';
@@ -16,11 +16,11 @@ export default function RegisterScreen() {
 
     const handleRegister = async () => {
         if (!fullName || !email || !password) {
-            alert("Please fill in all fields");
+            Alert.alert("Error", "Please fill in all fields");
             return;
         }
         if (password !== confirmPassword) {
-            alert("Passwords do not match");
+            Alert.alert("Error", "Passwords do not match");
             return;
         }
 
@@ -34,7 +34,7 @@ export default function RegisterScreen() {
                 body: JSON.stringify({
                     email: email,
                     password: password,
-                    fullName: fullName
+                    Name: fullName 
                 }),
             });
 
@@ -47,12 +47,12 @@ export default function RegisterScreen() {
                     params: { user: JSON.stringify(result.data.user) } 
                 });
             } else {
-                // โชว์ Error กรณีอีเมลซ้ำ หรือข้อมูลผิด
-                alert(result.message || 'Registration failed');
+                console.log("Backend Error:", result);
+                Alert.alert("Registration Failed", result.message || JSON.stringify(result));
             }
         } catch (error) {
             console.error('API Error:', error);
-            alert('Network error. Please check if backend is running.');
+            Alert.alert('Network Error', 'Please check if backend is running.');
         }
     }
     
@@ -123,7 +123,7 @@ export default function RegisterScreen() {
                         </TouchableOpacity>
                     </View>
                     
-                    {/* Confirm Password Input (แก้ให้ใช้ State เปิด/ปิดตาแยกกันแล้ว) */}
+                    {/* Confirm Password Input */}
                     <Text className="text-sm text-gray-700 mb-2 font-medium">Confirm Password</Text>
                     <View className="flex-row items-center border border-gray-300 rounded-xl px-4 py-3 mb-6">
                         <TextInput 
