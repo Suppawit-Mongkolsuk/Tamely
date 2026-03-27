@@ -14,9 +14,46 @@ export default function RegisterScreen() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    const handleRegister = () => {
-        console.log('register with ', fullName, email);
-        router.push('/login');
+    const handleRegister = async () => {
+        if (!fullName || !email || !password) {
+            alert("Please fill in all fields");
+            return;
+        }
+        if (password !== confirmPassword) {
+            alert("Passwords do not match");
+            return;
+        }
+
+        try {
+            console.log('Sending register request...');
+            const response = await fetch('http://10.0.2.2:8080/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password,
+                    fullName: fullName
+                }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                console.log('Register Success:', result.data.user);
+                router.replace({ 
+                    pathname: '/test-auth', 
+                    params: { user: JSON.stringify(result.data.user) } 
+                });
+            } else {
+                // โชว์ Error กรณีอีเมลซ้ำ หรือข้อมูลผิด
+                alert(result.message || 'Registration failed');
+            }
+        } catch (error) {
+            console.error('API Error:', error);
+            alert('Network error. Please check if backend is running.');
+        }
     }
     
     return (
@@ -135,7 +172,6 @@ export default function RegisterScreen() {
                             <Text className="text-[#3b82f6] font-bold">Login</Text>
                         </TouchableOpacity>
                     </View>
-                    
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>

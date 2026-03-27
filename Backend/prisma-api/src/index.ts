@@ -79,8 +79,8 @@ app.use(errorHandler);
 // ========================
 // Start Server
 // ========================
-server.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+server.listen(Number(port), '0.0.0.0', () => {
+  console.log(`Server running on port ${port} (0.0.0.0)`);
 });
 
 // Graceful shutdown — ปิด Prisma เมื่อ server หยุด

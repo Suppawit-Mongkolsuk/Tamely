@@ -10,16 +10,47 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSignIn = () => {
-    console.log('SignIn with:', email);
-    // router.push('/enter-code');
-  };
+  const handleSignIn = async () => {
+      if (!email || !password) {
+          alert("Please enter email and password");
+          return;
+      }
+
+      try {
+          console.log('Sending login request...');
+          const response = await fetch('http://10.0.2.2:8080/api/auth/login', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                  email: email,
+                  password: password
+              }),
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+              console.log('Login Success:', result.data.user);
+              router.replace({ 
+                  pathname: '/test-auth', 
+                  params: { user: JSON.stringify(result.data.user) } 
+              });
+          } else {
+              alert(result.message || 'Invalid credentials');
+          }
+      } catch (error) {
+          console.error('API Error:', error);
+          alert('Network error. Please check if backend is running.');
+      }
+  }
 
   return (
+    <SafeAreaView className="flex-1 bg-white">
     <KeyboardAvoidingView>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
         <Text style={{ fontSize: 24, fontWeight: 'bold', color: 'red' }}>
-          <SafeAreaView className="flex-1 bg-white">
             <View className="flex-1 px-8 justify-center ">
               {/* รูปโลโก้ */}
               <Image 
@@ -92,9 +123,9 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          </SafeAreaView>
         </Text>
       </View>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
