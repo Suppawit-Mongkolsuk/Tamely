@@ -1,9 +1,14 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { AntDesign } from '@expo/vector-icons';
 import { Button } from '@react-navigation/elements';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { useEffect } from 'react';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -11,9 +16,54 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: '1086895750541-60k3q4ntds11ksnmjfvan0htdofgr4e1.apps.googleusercontent.com',
+  });
+
+  const sendGoogleTokenToBackend = async (accessToken: string) => {
+    try {
+      const res = await fetch('http://10.0.2.2:8080/api/oauth/google/mobile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+            accessToken: accessToken 
+        }),
+      });
+      
+      const result = await res.json();
+      if (res.ok) {
+        console.log('Google Login Success:', result.data.user);
+        router.replace({ 
+            pathname: '/test-auth', 
+            params: { user: JSON.stringify(result.data.user) }
+        });
+      } 
+      else {
+        console.log("Backend Error:", result);
+      } 
+    } catch (error) {
+      console.error('API Error:', error);
+      Alert.alert('Network Error', 'ไม่สามารถเชื่อมต่อกับ Backend ได้');
+    };
+  };
+
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      console.log('Google Auth Success! ได้ Token มาแล้ว');
+      
+      if (authentication?.accessToken) {
+          sendGoogleTokenToBackend(authentication.accessToken);
+      }
+    }
+  }, [response]);
+
   const handleSignIn = () => {
     console.log('SignIn with:', email);
-    router.replace({ pathname: './test-auth'});
+    router.replace({ pathname: './'});
   };
 
   return (
@@ -69,7 +119,8 @@ export default function LoginScreen() {
         {/* ปุ่ม LOGIN WITH GOOGLE */}
         <TouchableOpacity 
         className="flex-row items-center justify-center border border-gray-300 rounded-xl py-3 px-4 bg-white"
-        onPress={() => console.log('Start Google Login Flow')}>
+        //disabled={!request}
+        onPress={() => promptAsync()}>
         {/* โลโก้ Google */}
           <AntDesign name="google" size={24} color="#0f0758" style={{ marginRight: 12 }} />
 
