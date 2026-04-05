@@ -10,7 +10,7 @@ export function errorHandler(
 ) {
   console.error('Error:', err);
 
-  // 1) JSON body พัง
+  // JSON body พัง
   if (
     err instanceof SyntaxError &&
     (err as any).status === 400 &&
@@ -19,7 +19,7 @@ export function errorHandler(
     return res.status(400).json({ success: false, error: 'Invalid JSON body' });
   }
 
-  // 2) Validation / Unauthorized
+  // Validation
   if (err.name === 'ValidationError') {
     return res.status(400).json({ success: false, error: err.message });
   }
@@ -27,7 +27,7 @@ export function errorHandler(
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
 
-  // 3) JWT
+  // JWT
   if (err instanceof jwt.TokenExpiredError) {
     return res.status(401).json({ success: false, error: 'Token expired' });
   }
@@ -35,7 +35,7 @@ export function errorHandler(
     return res.status(401).json({ success: false, error: 'Invalid token' });
   }
 
-  // 4) Prisma
+  // Prisma
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') {
       return res
@@ -53,13 +53,12 @@ export function errorHandler(
         .json({ success: false, error: 'Foreign key constraint failed' });
     }
   }
-
   if (err instanceof Prisma.PrismaClientInitializationError) {
     return res
       .status(503)
       .json({ success: false, error: 'Database connection failed' });
   }
 
-  // 5) fallback
+  // Fallback
   res.status(500).json({ success: false, error: 'Internal Server Error' });
 }

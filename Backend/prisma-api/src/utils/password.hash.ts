@@ -3,9 +3,9 @@ import bcrypt from 'bcrypt';
 const SALT_ROUNDS = 12;
 
 /**
- * Hash password using bcrypt
- * @param plainText - Plain text password to hash
- * @returns Hashed password
+ * Hash password
+ * @param plainText
+ * @returns
  */
 export const hashPassword = async (plainText: string): Promise<string> => {
   try {
@@ -17,9 +17,9 @@ export const hashPassword = async (plainText: string): Promise<string> => {
 
 /**
  * Compare password with hash
- * @param plainText - Plain text password to compare
- * @param hash - Hashed password from database
- * @returns true if password matches, false otherwise
+ * @param plainText
+ * @param hash
+ * @returns
  */
 export const comparePassword = async (
   plainText: string,

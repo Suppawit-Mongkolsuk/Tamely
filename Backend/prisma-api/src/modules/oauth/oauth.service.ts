@@ -1,6 +1,3 @@
-// ===== OAuth Service =====
-// หา user จาก OAuth provider หรือสร้างใหม่
-
 import { prisma } from '../../index';
 
 interface OAuthUserData {
@@ -11,12 +8,7 @@ interface OAuthUserData {
   avatarUrl: string | null;
 }
 
-/**
- * หา user ที่เชื่อมกับ OAuth provider นี้ หรือสร้างใหม่
- * - ถ้า provider + providerId ตรงกัน → return user เดิม
- * - ถ้า email ตรงกัน (เคยสมัครด้วย password) → link OAuth เข้ากับ user เดิม
- * - ถ้าไม่มีเลย → สร้าง user ใหม่ (ไม่มี password)
- */
+// ใช้เมือ่อ login ด้วย OAuth
 export const findOrCreateOAuthUser = async (data: OAuthUserData) => {
   // 1. หาจาก provider + providerId
   const existingOAuth = await prisma.user.findFirst({

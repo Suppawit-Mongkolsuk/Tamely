@@ -14,9 +14,7 @@ passport.deserializeUser((id: string, done) => {
   done(null, { id });
 });
 
-// ========================
 // Google OAuth Strategy
-// ========================
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   // DEBUG — ลบได้ทีหลัง
   console.log(

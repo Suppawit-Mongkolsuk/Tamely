@@ -1,9 +1,3 @@
-// ===== OAuth Routes =====
-// GET /api/oauth/google        → redirect ไป Google login
-// GET /api/oauth/google/callback → Google ส่งกลับมา
-// GET /api/oauth/github        → redirect ไป GitHub login
-// GET /api/oauth/github/callback → GitHub ส่งกลับมา
-
 import { Router, Request, Response, NextFunction } from 'express';
 import passport from './oauth.config';
 import { signToken, setTokenCookie } from '../../utils/jwt.utils';
@@ -14,9 +8,7 @@ const CLIENT_URL = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')[0]
   .trim();
 
-// ========================
 // Google OAuth
-// ========================
 router.get(
   '/google',
   passport.authenticate('google', {
@@ -46,9 +38,7 @@ router.get(
   },
 );
 
-// ========================
 // GitHub OAuth
-// ========================
 router.get(
   '/github',
   passport.authenticate('github', {

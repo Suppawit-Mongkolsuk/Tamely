@@ -17,6 +17,9 @@ export const register = async (
   res: Response,
 ): Promise<void> => {
   try {
+    // 🚨 ติดเครื่องดักฟังไว้ตรงนี้!
+    console.log("🚨 Incoming Data:", req.body);
+
     // 1. Validate input
     const validation = validateRegisterInput(
       req.body.email,
