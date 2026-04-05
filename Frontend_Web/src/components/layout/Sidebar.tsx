@@ -6,7 +6,6 @@ import {
   FolderKanban,
   Settings,
   Calendar,
-  LogOut,
 } from 'lucide-react';
 import { useAuthContext } from '@/contexts';
 
@@ -83,30 +82,26 @@ export function Sidebar({ isOpen, onLogout }: SidebarProps) {
 
       {/* User info */}
       <div className="p-4 border-t border-white/10">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate('/settings')}
+          className="w-full flex items-center gap-3 rounded-lg hover:bg-white/10 transition-colors p-1"
+        >
           {user?.avatarUrl ? (
             <img
               src={user.avatarUrl}
               alt={displayName}
-              className="size-10 rounded-full object-cover"
+              className="size-10 rounded-full object-cover shrink-0"
             />
           ) : (
-            <div className="size-10 rounded-full bg-[#5EBCAD] flex items-center justify-center">
+            <div className="size-10 rounded-full bg-[#5EBCAD] flex items-center justify-center shrink-0">
               <span>{initials}</span>
             </div>
           )}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 text-left">
             <p className="text-sm truncate">{displayName}</p>
-            <p className="text-xs text-white/60">{user?.email ?? ''}</p>
+            <p className="text-xs text-white/60 truncate">{user?.email ?? ''}</p>
           </div>
-          <button
-            onClick={onLogout}
-            title="Logout"
-            className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <LogOut className="size-4" />
-          </button>
-        </div>
+        </button>
       </div>
     </aside>
   );

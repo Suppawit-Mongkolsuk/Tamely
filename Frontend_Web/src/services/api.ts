@@ -107,6 +107,48 @@ class ApiClient {
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
+
+  /**
+   * อัปโหลดไฟล์ด้วย multipart/form-data
+   * ไม่ใช้ Content-Type: application/json — ให้ browser ตั้ง boundary เอง
+   */
+  async upload<T>(endpoint: string, formData: FormData): Promise<T> {
+    const url = new URL(`${this.baseUrl}${endpoint}`);
+
+    const headers: HeadersInit = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+    //  ห้ามตั้ง Content-Type เอง — fetch จะตั้ง multipart/form-data + boundary ให้อัตโนมัติ
+
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method: 'POST',
+        headers,
+        body: formData,
+        credentials: 'include',
+      });
+    } catch {
+      throw new ApiError(
+        0,
+        'ไม่สามารถเชื่อมต่อ server ได้ — กรุณาลองใหม่อีกครั้ง',
+      );
+    }
+
+    if (!response.ok) {
+      let errorMessage = 'เกิดข้อผิดพลาด';
+      try {
+        const errorBody = await response.json();
+        errorMessage = errorBody.error || errorBody.message || errorMessage;
+      } catch {
+        // response ไม่ใช่ JSON
+      }
+      throw new ApiError(response.status, errorMessage);
+    }
+
+    return response.json();
+  }
 }
 
 export class ApiError extends Error {

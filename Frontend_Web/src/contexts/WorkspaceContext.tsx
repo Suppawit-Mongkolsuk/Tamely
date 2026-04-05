@@ -13,6 +13,7 @@ interface WorkspaceContextValue {
   workspaces: Workspace[];
   currentWorkspace: Workspace | null;
   isLoading: boolean;
+  isWorkspaceReady: boolean;
   fetchWorkspaces: () => Promise<Workspace[] | undefined>;
   selectWorkspace: (id: string) => Promise<Workspace>;
   createWorkspace: (data: CreateWorkspaceRequest) => Promise<Workspace>;

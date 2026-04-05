@@ -14,4 +14,13 @@ router.post('/reset-password', authController.resetPassword);
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getMe);
 
+// Profile routes (ต้อง login)
+router.patch('/profile', authenticate, authController.updateProfile);
+router.post(
+  '/avatar',
+  authenticate,
+  authController.avatarUpload.single('avatar'),
+  authController.uploadAvatar,
+);
+
 export default router;

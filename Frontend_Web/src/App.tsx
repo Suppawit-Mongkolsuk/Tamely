@@ -48,12 +48,12 @@ const NotFoundPage = lazy(() =>
 
 function App() {
   const { isAuthenticated, isSessionReady, logout } = useAuthContext();
-  const { currentWorkspace, clearCurrentWorkspace } = useWorkspaceContext();
+  const { currentWorkspace, clearCurrentWorkspace, isWorkspaceReady } = useWorkspaceContext();
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  if (!isSessionReady) {
+  if (!isSessionReady || (isAuthenticated && !isWorkspaceReady)) {
     return (
       <div className="flex h-screen items-center justify-center bg-muted">
         <LoadingSpinner size="lg" text="Loading..." />
@@ -159,7 +159,7 @@ function App() {
           )}
         </Routes>
       </Suspense>
-      <Toaster richColors />
+      <Toaster richColors position="top-center" />
     </>
   );
 }

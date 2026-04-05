@@ -3,6 +3,10 @@ import { RegisterPayload, LoginPayload } from '../../types';
 import { hashPassword, comparePassword } from '../../utils/password.hash';
 import { signResetToken, verifyResetToken } from '../../utils/jwt.utils';
 import { sendPasswordResetEmail } from '../../utils/email.service';
+import {
+  uploadAvatar,
+  deleteOldAvatar,
+} from '../../utils/supabase-storage';
 
 /**
  * Register new user
@@ -175,4 +179,78 @@ export const resetPassword = async (token: string, newPassword: string) => {
   });
 
   return { message: 'Password has been reset successfully.' };
+};
+
+// ======================================================
+// UPDATE PROFILE
+// ======================================================
+
+interface UpdateProfileData {
+  displayName?: string;
+  bio?: string;
+}
+
+/**
+ * อัปเดตข้อมูลโปรไฟล์ (displayName, bio)
+ */
+export const updateProfile = async (
+  userId: string,
+  data: UpdateProfileData,
+) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error('User not found');
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(data.displayName !== undefined && { Name: data.displayName }),
+      ...(data.bio !== undefined && { bio: data.bio }),
+    },
+  });
+
+  return {
+    id: updated.id,
+    email: updated.email,
+    displayName: updated.Name,
+    avatarUrl: updated.avatarUrl,
+    bio: updated.bio,
+  };
+};
+
+/**
+ * อัปโหลด avatar ของ user ไปยัง Supabase Storage แล้วอัปเดต avatarUrl ใน DB
+ */
+export const updateUserAvatar = async (
+  userId: string,
+  fileBuffer: Buffer,
+  mimeType: string,
+  originalName: string,
+) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error('User not found');
+
+  // ลบรูปเก่า (ถ้ามี)
+  await deleteOldAvatar(user.avatarUrl);
+
+  // อัปโหลดรูปใหม่
+  const publicUrl = await uploadAvatar(
+    userId,
+    fileBuffer,
+    mimeType,
+    originalName,
+  );
+
+  // อัปเดต URL ใน DB
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl: publicUrl },
+  });
+
+  return {
+    id: updated.id,
+    email: updated.email,
+    displayName: updated.Name,
+    avatarUrl: updated.avatarUrl,
+    bio: updated.bio,
+  };
 };

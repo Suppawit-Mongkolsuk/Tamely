@@ -7,6 +7,7 @@ import {
 } from '../../utils/jwt.utils';
 import { validateRegisterInput, validateLoginInput } from './auth.validation';
 import * as authService from './auth.service';
+import multer from 'multer';
 
 /**
  * POST /api/auth/register
@@ -180,5 +181,84 @@ export const resetPassword = async (
     const statusCode =
       message.includes('invalid') || message.includes('expired') ? 400 : 500;
     res.status(statusCode).json({ success: false, error: message });
+  }
+};
+
+// ========================
+// Multer — รับ file upload ในหน่วยความจำ (max 2 MB)
+// ========================
+export const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('รองรับเฉพาะ JPG, PNG, GIF'));
+    }
+  },
+});
+
+/**
+ * PATCH /api/auth/profile
+ * อัปเดตข้อมูลโปรไฟล์ (displayName, bio)
+ */
+export const updateProfile = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const { displayName, bio } = req.body;
+    const user = await authService.updateProfile(req.userId, {
+      displayName,
+      bio,
+    });
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to update profile';
+    res.status(400).json({ success: false, error: message });
+  }
+};
+
+/**
+ * POST /api/auth/avatar
+ * อัปโหลด avatar (multipart/form-data)
+ */
+export const uploadAvatar = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+
+    const user = await authService.updateUserAvatar(
+      req.userId,
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+    );
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to upload avatar';
+    res.status(400).json({ success: false, error: message });
   }
 };
