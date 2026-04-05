@@ -8,6 +8,7 @@ import {
   Brain,
   Hash,
   Loader2,
+  LogOut,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,11 +27,12 @@ import { toast } from 'sonner';
 
 interface LandingPageProps {
   onComplete: () => void;
+  onLogout?: () => void;
 }
 
 const COLORS = WORKSPACE_COLORS;
 
-export function LandingPage({ onComplete }: LandingPageProps) {
+export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
   const {
     workspaces,
     isLoading,
@@ -97,7 +99,16 @@ export function LandingPage({ onComplete }: LandingPageProps) {
     <div className="min-h-screen bg-linear-to-br from-[#003366] via-[#174978] to-[#2F5F8A] flex items-center justify-center p-6">
       <div className="w-full max-w-6xl">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 relative">
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2 text-white/70 hover:text-white text-sm transition-colors group"
+            >
+              <LogOut className="size-4 group-hover:-translate-x-0.5 transition-transform" />
+              <span>ออกจากระบบ</span>
+            </button>
+          )}
           <div className="inline-flex items-center justify-center size-16 rounded-xl bg-white/10 backdrop-blur-sm mb-4">
             <MessageSquare className="size-8 text-white" />
           </div>
@@ -108,71 +119,7 @@ export function LandingPage({ onComplete }: LandingPageProps) {
         </div>
 
         <div className="space-y-6">
-          {/* Existing Workspaces */}
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="size-8 text-white animate-spin" />
-            </div>
-          ) : workspaces.length > 0 ? (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-white mb-0.5 text-xl">Workspace ของคุณ</h2>
-                  <p className="text-white/60 text-sm">เลือก workspace เพื่อเข้าสู่ระบบ</p>
-                </div>
-                <div className="text-white/60 text-sm">{workspaces.length} workspace</div>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-4">
-                {workspaces.map((ws, idx) => (
-                  <button
-                    key={ws.id}
-                    onClick={() => handleSelectWorkspace(ws.id)}
-                    className="group relative bg-white/95 backdrop-blur-sm rounded-lg p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 text-left overflow-hidden"
-                  >
-                    <div className="flex justify-center mb-3">
-                      <div
-                        className="size-14 rounded-lg flex items-center justify-center text-white text-xl"
-                        style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                      >
-                        {ws.name.charAt(0)}
-                      </div>
-                    </div>
-                    <div className="text-center mb-3">
-                      <h3 className="text-base mb-1 group-hover:text-[#003366] transition-colors font-medium">
-                        {ws.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {ws.description || 'No description'}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground border-t pt-3">
-                      <div className="flex items-center gap-1">
-                        <Users className="size-3" />
-                        <span>{ws.memberCount ?? 0}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Hash className="size-3" />
-                        <span>{ws.roomCount ?? 0}</span>
-                      </div>
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-[#5EBCAD] to-[#75A2BF] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {/* Divider */}
-          {workspaces.length > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-white/20" />
-              <span className="text-white/60 text-sm">หรือ</span>
-              <div className="flex-1 h-px bg-white/20" />
-            </div>
-          )}
-
-          {/* Actions */}
+          {/* Actions — สร้าง / เข้าร่วม (แสดงก่อนเสมอ) */}
           <div className="grid md:grid-cols-2 gap-4">
             <Card className="p-6 bg-white/95 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
               <div className="flex flex-col items-center text-center h-full">
@@ -215,30 +162,66 @@ export function LandingPage({ onComplete }: LandingPageProps) {
             </Card>
           </div>
 
-          {/* Features */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center text-white p-4 bg-white/5 rounded-lg backdrop-blur-sm hover:bg-white/10 transition-colors">
-              <div className="inline-flex items-center justify-center size-10 rounded-lg bg-white/10 backdrop-blur-sm mb-3">
-                <Users className="size-5" />
-              </div>
-              <h4 className="text-white text-sm mb-1">ทำงานร่วมกัน</h4>
-              <p className="text-white/70 text-xs">แชทแบบเรียลไทม์</p>
+          {/* Divider */}
+          {workspaces.length > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/20" />
+              <span className="text-white/60 text-sm">Workspace ของคุณ</span>
+              <div className="flex-1 h-px bg-white/20" />
             </div>
-            <div className="text-center text-white p-4 bg-white/5 rounded-lg backdrop-blur-sm hover:bg-white/10 transition-colors">
-              <div className="inline-flex items-center justify-center size-10 rounded-lg bg-white/10 backdrop-blur-sm mb-3">
-                <Brain className="size-5" />
-              </div>
-              <h4 className="text-white text-sm mb-1">AI-Powered</h4>
-              <p className="text-white/70 text-xs">สรุปและวิเคราะห์</p>
+          )}
+
+          {/* Existing Workspaces */}
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="size-8 text-white animate-spin" />
             </div>
-            <div className="text-center text-white p-4 bg-white/5 rounded-lg backdrop-blur-sm hover:bg-white/10 transition-colors">
-              <div className="inline-flex items-center justify-center size-10 rounded-lg bg-white/10 backdrop-blur-sm mb-3">
-                <Sparkles className="size-5" />
+          ) : workspaces.length > 0 ? (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-white/60 text-sm">เลือก workspace เพื่อเข้าสู่ระบบ</p>
+                <div className="text-white/60 text-sm">{workspaces.length} workspace</div>
               </div>
-              <h4 className="text-white text-sm mb-1">จัดการง่าย</h4>
-              <p className="text-white/70 text-xs">ครบทุกฟีเจอร์</p>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                {workspaces.map((ws, idx) => (
+                  <button
+                    key={ws.id}
+                    onClick={() => handleSelectWorkspace(ws.id)}
+                    className="group relative bg-white/95 backdrop-blur-sm rounded-lg p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 text-left overflow-hidden"
+                  >
+                    <div className="flex justify-center mb-3">
+                      <div
+                        className="size-14 rounded-lg flex items-center justify-center text-white text-xl"
+                        style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                      >
+                        {ws.name.charAt(0)}
+                      </div>
+                    </div>
+                    <div className="text-center mb-3">
+                      <h3 className="text-base mb-1 group-hover:text-[#003366] transition-colors font-medium">
+                        {ws.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground line-clamp-1">
+                        {ws.description || 'No description'}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground border-t pt-3">
+                      <div className="flex items-center gap-1">
+                        <Users className="size-3" />
+                        <span>{ws.memberCount ?? 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Hash className="size-3" />
+                        <span>{ws.roomCount ?? 0}</span>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-[#5EBCAD] to-[#75A2BF] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
 

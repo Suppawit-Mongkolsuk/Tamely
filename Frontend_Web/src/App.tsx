@@ -136,7 +136,7 @@ function App() {
             <>
               <Route
                 path="/workspace"
-                element={<LandingPage onComplete={handleJoinWorkspace} />}
+                element={<LandingPage onComplete={handleJoinWorkspace} onLogout={handleLogout} />}
               />
               <Route path="*" element={<Navigate to="/workspace" replace />} />
             </>
