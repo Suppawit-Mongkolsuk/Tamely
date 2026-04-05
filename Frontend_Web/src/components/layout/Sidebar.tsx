@@ -1,4 +1,3 @@
-// ===== Sidebar Component =====
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -9,6 +8,7 @@ import {
   Calendar,
   LogOut,
 } from 'lucide-react';
+import { useAuthContext } from '@/contexts';
 
 const navigation = [
   { id: 'home', path: '/home', name: 'Home / Feed', icon: Home },
@@ -37,6 +37,15 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onLogout }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuthContext();
+
+  const displayName = user?.displayName ?? 'User';
+  const initials = displayName
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <aside
@@ -75,12 +84,20 @@ export function Sidebar({ isOpen, onLogout }: SidebarProps) {
       {/* User info */}
       <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-[#5EBCAD] flex items-center justify-center">
-            <span>JD</span>
-          </div>
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={displayName}
+              className="size-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="size-10 rounded-full bg-[#5EBCAD] flex items-center justify-center">
+              <span>{initials}</span>
+            </div>
+          )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm truncate">John Doe</p>
-            <p className="text-xs text-white/60">Admin</p>
+            <p className="text-sm truncate">{displayName}</p>
+            <p className="text-xs text-white/60">{user?.email ?? ''}</p>
           </div>
           <button
             onClick={onLogout}

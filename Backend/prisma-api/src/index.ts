@@ -13,7 +13,13 @@ import { PrismaClient } from '@prisma/client';
 // Routes
 import authRoutes from './modules/auth/auth.routes';
 import oauthRoutes from './modules/oauth/oauth.routes';
+import workspaceRoutes from './modules/workspace/workspace.routes';
+import roomRoutes from './modules/room/room.routes';
+import messageRoutes from './modules/message/message.routes';
+import postRoutes from './modules/post/post.routes';
+import taskRoutes from './modules/task/task.routes';
 import passport from './modules/oauth/oauth.config';
+import { initSocketIO } from './modules/chat/chat.gateway';
 
 // Middlewares
 import { errorHandler } from './middlewares/error';
@@ -22,7 +28,7 @@ export const prisma = new PrismaClient();
 
 const app = express();
 const server = http.createServer(app);
-const port = process.env.PORT || 8080;
+const initialPort = Number(process.env.PORT) || 8080;
 
 // ========================
 // Global Middlewares
@@ -69,7 +75,12 @@ app.get('/health', async (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/oauth', oauthRoutes); // OAuth routes (Google, GitHub)
+app.use('/api/oauth', oauthRoutes);
+app.use('/api/workspaces', workspaceRoutes);
+app.use('/api', roomRoutes);
+app.use('/api', messageRoutes);
+app.use('/api', postRoutes);
+app.use('/api', taskRoutes);
 
 // ========================
 // Error Handler (ต้องอยู่ท้ายสุดเสมอ)
@@ -77,11 +88,31 @@ app.use('/api/oauth', oauthRoutes); // OAuth routes (Google, GitHub)
 app.use(errorHandler);
 
 // ========================
+// Socket.IO
+// ========================
+initSocketIO(server, allowedOrigins);
+
+// ========================
 // Start Server
 // ========================
-server.listen(Number(port), '0.0.0.0', () => {
-  console.log(`Server running on port ${port} (0.0.0.0)`);
-});
+
+const startServer = (port: number) => {
+  server
+    .once('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.warn(`Port ${port} is in use, trying ${port + 1}...`);
+        startServer(port + 1);
+        return;
+      }
+      throw error;
+    })
+    .listen(port, () => {
+      console.log(`Server running on http://localhost:${port}`);
+    });
+};
+
+startServer(initialPort);
+
 
 // Graceful shutdown — ปิด Prisma เมื่อ server หยุด
 process.on('SIGINT', async () => {

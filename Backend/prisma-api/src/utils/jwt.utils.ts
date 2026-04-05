@@ -89,3 +89,31 @@ export const extractToken = (authHeader?: string): string | null => {
   if (parts.length !== 2 || parts[0] !== 'Bearer') return null;
   return parts[1];
 };
+
+// ===== Password Reset Token (อายุ 15 นาที) =====
+
+/**
+ * สร้าง JWT สำหรับ reset password (อายุ 15 นาที)
+ * payload รวม userId + purpose: 'reset' เพื่อป้องกัน token ประเภทอื่นมาใช้ซ้ำ
+ */
+export const signResetToken = (userId: string): string => {
+  return jwt.sign({ userId, purpose: 'reset' }, SECRET, { expiresIn: '15m' } as any);
+};
+
+/**
+ * ตรวจสอบ reset token
+ * @returns userId ถ้า valid
+ * @throws Error ถ้า token หมดอายุ / ไม่ใช่ reset token
+ */
+export const verifyResetToken = (token: string): string => {
+  let payload: { userId: string; purpose: string };
+  try {
+    payload = jwt.verify(token, SECRET) as typeof payload;
+  } catch {
+    throw new Error('Reset link is invalid or has expired. Please request a new one.');
+  }
+  if (payload.purpose !== 'reset') {
+    throw new Error('Invalid reset token.');
+  }
+  return payload.userId;
+};

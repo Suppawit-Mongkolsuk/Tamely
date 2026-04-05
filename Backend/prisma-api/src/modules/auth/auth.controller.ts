@@ -120,3 +120,65 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
     res.status(404).json({ success: false, error: message });
   }
 };
+
+/**
+ * POST /api/auth/forgot-password
+ * ขอ reset token สำหรับ email ที่ระบุ
+ * Body: { email: string }
+ */
+export const forgotPassword = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ success: false, error: 'Email is required.' });
+      return;
+    }
+
+    const result = await authService.forgotPassword(email.trim().toLowerCase());
+    res.json({ success: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Request failed';
+    res.status(500).json({ success: false, error: message });
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * รีเซ็ตรหัสผ่านด้วย token ที่ได้รับ
+ * Body: { token: string, newPassword: string }
+ */
+export const resetPassword = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ success: false, error: 'Reset token is required.' });
+      return;
+    }
+    if (!newPassword || typeof newPassword !== 'string') {
+      res.status(400).json({ success: false, error: 'New password is required.' });
+      return;
+    }
+    if (newPassword.length < 8) {
+      res
+        .status(400)
+        .json({ success: false, error: 'Password must be at least 8 characters.' });
+      return;
+    }
+
+    const result = await authService.resetPassword(token, newPassword);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Reset failed';
+    // 400 สำหรับ token invalid/expired, 500 สำหรับ error อื่น
+    const statusCode =
+      message.includes('invalid') || message.includes('expired') ? 400 : 500;
+    res.status(statusCode).json({ success: false, error: message });
+  }
+};

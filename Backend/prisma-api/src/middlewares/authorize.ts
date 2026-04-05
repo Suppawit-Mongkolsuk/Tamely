@@ -1,8 +1,6 @@
 import { Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../types';
-
-const prisma = new PrismaClient();
+import { prisma } from '../index';
 
 /**
  * ตรวจสอบว่า user เป็น admin ของ workspace ไหม
