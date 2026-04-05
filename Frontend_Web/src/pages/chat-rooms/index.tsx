@@ -1,60 +1,152 @@
-// ===== ChatRoomsPage — Orchestrator =====
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChatSidebar } from './ChatSidebar';
 import { ChatWindow, ChatEmptyState } from './ChatWindow';
 import { ChatDetailPanel } from './ChatDetailPanel';
 import { InviteMemberDialog } from './InviteMemberDialog';
 import { RemoveMemberDialog } from './RemoveMemberDialog';
 import { LeaveRoomDialog } from './LeaveRoomDialog';
-import {
-  mockRooms,
-  mockDirectMessages,
-  mockRoomMessages,
-  mockDmMessages,
-  mockMembers,
-  mockAvailableUsers,
-} from './mock-data';
-import type { ChatTab, Member } from './types';
+import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
+import { useAuthContext } from '@/contexts';
+import { chatService } from '@/services/chat.service';
+import type { RoomResponse, MessageResponse } from '@/services/chat.service';
+import { connectSocket, disconnectSocket } from '@/lib/socket';
+import type { ChatRoom, Message, Member, ChatTab } from './types';
+import { toast } from 'sonner';
+
+function mapRoom(r: RoomResponse): ChatRoom {
+  return {
+    id: r.id,
+    name: r.name,
+    workspace: '',
+    unread: 0,
+    lastMessage: r.description ?? '',
+    lastMessageTime: new Date(r.createdAt).toLocaleDateString(),
+  };
+}
+
+function mapMessage(m: MessageResponse, myId: string): Message {
+  return {
+    id: m.id,
+    sender: m.sender.Name,
+    avatar: m.sender.Name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2),
+    content: m.content,
+    timestamp: new Date(m.createdAt).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    isOwn: m.senderId === myId,
+  };
+}
 
 export function ChatRoomsPage() {
-  // --- Navigation ---
+  const { currentWorkspace } = useWorkspaceContext();
+  const { user } = useAuthContext();
+  const wsId = currentWorkspace?.id;
+  const myId = user?.id ?? '';
+
+  const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState('');
+  const [selectedDM, setSelectedDM] = useState('');
   const [activeTab, setActiveTab] = useState<ChatTab>('rooms');
-  const [selectedRoom, setSelectedRoom] = useState<string>('1');
-  const [selectedDM, setSelectedDM] = useState<string>('');
+  const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [members, setMembers] = useState<Member[]>([]);
 
-  // --- Dialog states ---
   const [isCreateRoomDialogOpen, setIsCreateRoomDialogOpen] = useState(false);
-  const [isInviteMemberDialogOpen, setIsInviteMemberDialogOpen] =
-    useState(false);
-  const [isRemoveMemberDialogOpen, setIsRemoveMemberDialogOpen] =
-    useState(false);
+  const [isInviteMemberDialogOpen, setIsInviteMemberDialogOpen] = useState(false);
+  const [isRemoveMemberDialogOpen, setIsRemoveMemberDialogOpen] = useState(false);
   const [isLeaveRoomDialogOpen, setIsLeaveRoomDialogOpen] = useState(false);
-
-  // --- Invite dialog state ---
-  const [selectedUsersToInvite, setSelectedUsersToInvite] = useState<string[]>(
-    [],
-  );
+  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
+  const [selectedUsersToInvite, setSelectedUsersToInvite] = useState<string[]>([]);
   const [inviteSearchQuery, setInviteSearchQuery] = useState('');
 
-  // --- Remove member state ---
-  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
+  const socketRef = useRef<ReturnType<typeof connectSocket> | null>(null);
 
-  // --- Derived data ---
-  const currentRoom = mockRooms.find((r) => r.id === selectedRoom);
-  const currentDM = mockDirectMessages.find((dm) => dm.id === selectedDM);
-  const currentMessages =
-    activeTab === 'rooms' ? mockRoomMessages : mockDmMessages[selectedDM] || [];
+  const fetchRooms = useCallback(async () => {
+    if (!wsId) return;
+    try {
+      const data = await chatService.getRooms(wsId);
+      setRooms(data.map(mapRoom));
+      if (data.length > 0 && !selectedRoom) {
+        setSelectedRoom(data[0].id);
+      }
+    } catch {
+      toast.error('โหลดห้องแชทไม่สำเร็จ');
+    }
+  }, [wsId, selectedRoom]);
 
-  const currentMemberIds = mockMembers.map((m) => m.id);
-  const availableUsers = mockAvailableUsers.filter(
-    (user) => !currentMemberIds.includes(user.id),
+  const fetchMessages = useCallback(
+    async (roomId: string) => {
+      try {
+        const res = await chatService.getMessages(roomId, { limit: 50 });
+        setMessages(res.data.map((m) => mapMessage(m, myId)));
+      } catch {
+        toast.error('โหลดข้อความไม่สำเร็จ');
+      }
+    },
+    [myId],
   );
 
-  // --- Handlers ---
+  const fetchRoomDetail = useCallback(async (roomId: string) => {
+    try {
+      const detail = await chatService.getRoomById(roomId);
+      setMembers(
+        (detail.members ?? []).map((m) => ({
+          id: m.user.id,
+          name: m.user.Name,
+          role: 'member' as const,
+          status: 'online' as const,
+          avatar: m.user.Name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2),
+        })),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
+
+  useEffect(() => {
+    if (!selectedRoom) return;
+    fetchMessages(selectedRoom);
+    fetchRoomDetail(selectedRoom);
+
+    const socket = connectSocket();
+    socketRef.current = socket;
+    socket.emit('join_room', selectedRoom);
+
+    socket.on('message_received', (msg: MessageResponse) => {
+      setMessages((prev) => [...prev, mapMessage(msg, myId)]);
+    });
+
+    return () => {
+      socket.emit('leave_room', selectedRoom);
+      socket.off('message_received');
+    };
+  }, [selectedRoom, fetchMessages, fetchRoomDetail, myId]);
+
+  useEffect(() => {
+    return () => {
+      disconnectSocket();
+    };
+  }, []);
+
   const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
+    if (!messageInput.trim() || !selectedRoom) return;
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      socket.emit('send_message', {
+        roomId: selectedRoom,
+        content: messageInput,
+      });
+    } else {
+      chatService.sendMessage(selectedRoom, messageInput).then((msg) => {
+        setMessages((prev) => [...prev, mapMessage(msg, myId)]);
+      });
+    }
     setMessageInput('');
   };
 
@@ -63,78 +155,54 @@ export function ChatRoomsPage() {
     setSelectedDM('');
   };
 
-  const handleSelectDM = (id: string) => {
-    setSelectedDM(id);
-    setSelectedRoom('');
-  };
-
-  const toggleUserSelection = (userId: string) => {
-    setSelectedUsersToInvite((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId],
-    );
-  };
-
-  const handleInviteMembers = () => {
-    console.log('Inviting users:', selectedUsersToInvite);
-    setSelectedUsersToInvite([]);
-    setInviteSearchQuery('');
-    setIsInviteMemberDialogOpen(false);
-  };
-
-  const handleRemoveMember = () => {
-    if (memberToRemove) {
-      console.log('Removing member:', memberToRemove.name);
-      setMemberToRemove(null);
-      setIsRemoveMemberDialogOpen(false);
+  const handleLeaveRoom = async () => {
+    if (!selectedRoom || !myId) return;
+    try {
+      await chatService.leaveRoom(selectedRoom, myId);
+      setSelectedRoom('');
+      fetchRooms();
+      setIsLeaveRoomDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'ออกจากห้องไม่สำเร็จ');
     }
   };
 
-  const handleLeaveRoom = () => {
-    console.log('Leaving room:', currentRoom?.name);
-    setIsLeaveRoomDialogOpen(false);
-  };
-
-  const hasSelection = !!(selectedRoom || selectedDM);
+  const currentRoom = rooms.find((r) => r.id === selectedRoom);
+  const hasSelection = !!selectedRoom;
 
   return (
     <div className="flex h-full bg-muted">
-      {/* Left Sidebar */}
       <ChatSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        rooms={mockRooms}
-        directMessages={mockDirectMessages}
+        rooms={rooms}
+        directMessages={[]}
         selectedRoom={selectedRoom}
         selectedDM={selectedDM}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSelectRoom={handleSelectRoom}
-        onSelectDM={handleSelectDM}
+        onSelectDM={(id: string) => setSelectedDM(id)}
         isCreateRoomOpen={isCreateRoomDialogOpen}
         onCreateRoomOpenChange={setIsCreateRoomDialogOpen}
       />
 
-      {/* Center — Chat Area */}
       {hasSelection ? (
         <>
           <ChatWindow
             activeTab={activeTab}
             currentRoom={currentRoom}
-            currentDM={currentDM}
-            messages={currentMessages}
+            currentDM={undefined}
+            messages={messages}
             messageInput={messageInput}
             onMessageInputChange={setMessageInput}
             onSendMessage={handleSendMessage}
           />
-
-          {/* Right Sidebar — Details */}
           <ChatDetailPanel
             activeTab={activeTab}
             currentRoom={currentRoom}
-            currentDM={currentDM}
-            members={mockMembers}
+            currentDM={undefined}
+            members={members}
             onInviteMember={() => setIsInviteMemberDialogOpen(true)}
             onRemoveMember={(member) => {
               setMemberToRemove(member);
@@ -147,16 +215,22 @@ export function ChatRoomsPage() {
         <ChatEmptyState activeTab={activeTab} />
       )}
 
-      {/* Dialogs */}
       <InviteMemberDialog
         open={isInviteMemberDialogOpen}
         onOpenChange={setIsInviteMemberDialogOpen}
         currentRoom={currentRoom}
-        availableUsers={availableUsers}
+        availableUsers={[]}
         selectedUsers={selectedUsersToInvite}
-        onToggleUser={toggleUserSelection}
+        onToggleUser={(id) =>
+          setSelectedUsersToInvite((p) =>
+            p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
+          )
+        }
         onClearSelection={() => setSelectedUsersToInvite([])}
-        onInvite={handleInviteMembers}
+        onInvite={() => {
+          setSelectedUsersToInvite([]);
+          setIsInviteMemberDialogOpen(false);
+        }}
         searchQuery={inviteSearchQuery}
         onSearchChange={setInviteSearchQuery}
       />
@@ -166,7 +240,10 @@ export function ChatRoomsPage() {
         onOpenChange={setIsRemoveMemberDialogOpen}
         currentRoom={currentRoom}
         member={memberToRemove}
-        onConfirm={handleRemoveMember}
+        onConfirm={() => {
+          setMemberToRemove(null);
+          setIsRemoveMemberDialogOpen(false);
+        }}
         onCancel={() => {
           setIsRemoveMemberDialogOpen(false);
           setMemberToRemove(null);

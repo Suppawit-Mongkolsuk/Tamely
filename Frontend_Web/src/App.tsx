@@ -1,11 +1,11 @@
-import { lazy, Suspense, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppLayout } from './components/layout';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useAuthContext } from '@/contexts';
+import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 
-// ===== Lazy-loaded Pages (code-splitting) =====
 const LoginRegisterPage = lazy(() =>
   import('./Pages/LoginRegisterPage').then((m) => ({
     default: m.LoginRegisterPage,
@@ -14,6 +14,11 @@ const LoginRegisterPage = lazy(() =>
 const ForgotPasswordPage = lazy(() =>
   import('./Pages/ForgotPasswordPage').then((m) => ({
     default: m.ForgotPasswordPage,
+  })),
+);
+const ResetPasswordPage = lazy(() =>
+  import('./Pages/ResetPasswordPage').then((m) => ({
+    default: m.ResetPasswordPage,
   })),
 );
 const LandingPage = lazy(() =>
@@ -43,13 +48,11 @@ const NotFoundPage = lazy(() =>
 
 function App() {
   const { isAuthenticated, isSessionReady, logout } = useAuthContext();
-  const [hasJoinedWorkspace, setHasJoinedWorkspace] = useState(() => {
-    return localStorage.getItem('hasJoinedWorkspace') === 'true';
-  });
+  const { currentWorkspace, clearCurrentWorkspace } = useWorkspaceContext();
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // รอจน restoreSession เสร็จ ก่อน render routes
   if (!isSessionReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-muted">
@@ -59,21 +62,31 @@ function App() {
   }
 
   const handleLoginComplete = () => {
+    // Force workspace selection every new login session
+    clearCurrentWorkspace();
     navigate('/workspace');
   };
 
   const handleJoinWorkspace = () => {
-    setHasJoinedWorkspace(true);
-    localStorage.setItem('hasJoinedWorkspace', 'true');
     navigate('/home');
   };
 
   const handleLogout = async () => {
     await logout();
-    setHasJoinedWorkspace(false);
-    localStorage.removeItem('hasJoinedWorkspace');
+    clearCurrentWorkspace();
     navigate('/login');
   };
+
+  // หลังรีเซ็ตรหัสผ่านสำเร็จ — ล้าง session เก่าออกก่อนไปหน้า login
+  const handlePasswordResetSuccess = async () => {
+    if (isAuthenticated) {
+      await logout();
+      clearCurrentWorkspace();
+    }
+    navigate('/login', { replace: true });
+  };
+
+  const hasWorkspace = currentWorkspace !== null;
 
   return (
     <>
@@ -85,7 +98,27 @@ function App() {
         }
       >
         <Routes>
-          {/* ===== Public Routes ===== */}
+          {/* ── Public routes: เข้าได้เสมอ ไม่ว่าจะล็อกอินหรือไม่ ── */}
+          <Route
+            path="/reset-password"
+            element={
+              <ResetPasswordPage
+                token={searchParams.get('token') ?? ''}
+                onBack={() => navigate('/login')}
+                onSuccess={handlePasswordResetSuccess}
+              />
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <ForgotPasswordPage
+                onBack={() => navigate('/login')}
+                onResetToken={(token) => navigate(`/reset-password?token=${token}`)}
+              />
+            }
+          />
+
           {!isAuthenticated ? (
             <>
               <Route
@@ -97,16 +130,9 @@ function App() {
                   />
                 }
               />
-              <Route
-                path="/forgot-password"
-                element={
-                  <ForgotPasswordPage onBack={() => navigate('/login')} />
-                }
-              />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </>
-          ) : !hasJoinedWorkspace ? (
-            /* ===== Workspace Selection ===== */
+          ) : !hasWorkspace ? (
             <>
               <Route
                 path="/workspace"
@@ -115,7 +141,6 @@ function App() {
               <Route path="*" element={<Navigate to="/workspace" replace />} />
             </>
           ) : (
-            /* ===== Protected Routes (with Layout) ===== */
             <>
               <Route element={<AppLayout onLogout={handleLogout} />}>
                 <Route path="/home" element={<HomePage />} />

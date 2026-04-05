@@ -4,6 +4,38 @@
 export const APP_NAME = 'TamelyChat';
 export const APP_DESCRIPTION = 'AI-Powered Workspace';
 
+// ===== Brand Colors =====
+// ใช้ค่าคงที่นี้แทน hard-code สีในทุก component
+export const BRAND_COLORS = {
+  primary: '#003366',
+  primaryHover: '#174978',
+  secondary: '#2F5F8A',
+  accent: '#46769B',
+  teal: '#5EBCAD',
+  lightBlue: '#75A2BF',
+} as const;
+
+// Workspace color palette (ใช้สำหรับ avatar workspace)
+export const WORKSPACE_COLORS = [
+  BRAND_COLORS.teal,
+  BRAND_COLORS.accent,
+  BRAND_COLORS.lightBlue,
+  BRAND_COLORS.primary,
+  BRAND_COLORS.secondary,
+] as const;
+
+// ===== Tailwind Gradient Classes =====
+// ใช้ class เหล่านี้แทน hard-code gradient ซ้ำๆ
+export const GRADIENT = {
+  /** gradient จาก teal → accent (ใช้ใน AI avatar, ปุ่มหลัก) */
+  tealToBlue: 'bg-gradient-to-r from-[#5EBCAD] to-[#46769B]',
+  tealToBlueLinear: 'bg-linear-to-r from-[#5EBCAD] to-[#46769B]',
+  /** gradient พื้นหลัง login / landing */
+  darkBlue: 'bg-linear-to-br from-[#003366] via-[#174978] to-[#2F5F8A]',
+  /** gradient AI message bubble */
+  tealToBlueRounded: 'bg-linear-to-br from-[#5EBCAD] to-[#46769B]',
+} as const;
+
 // ===== Navigation =====
 export const NAV_ITEMS = [
   { key: 'home', label: 'Home', icon: 'Home' },

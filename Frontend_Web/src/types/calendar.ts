@@ -1,34 +1,27 @@
-// ===== Calendar & Task Types =====
-
 export interface Task {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   date: string;
-  priority: TaskPriority;
-  status: TaskStatus;
-  assigneeId: string;
-  assignee: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    avatar?: string;
-  };
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
+  assigneeId?: string;
+  assignee?: { id: string; Name: string; avatarUrl?: string | null };
   workspaceId: string;
+  createdBy: 'USER' | 'AI';
   createdAt: string;
   updatedAt: string;
 }
 
-export type TaskPriority = 'high' | 'medium' | 'low';
-
-export type TaskStatus = 'todo' | 'in-progress' | 'completed';
+export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
 
 export interface CreateTaskRequest {
   title: string;
   description?: string;
   date: string;
-  priority: TaskPriority;
-  assigneeId: string;
+  priority?: TaskPriority;
+  assigneeId?: string;
 }
 
 export interface UpdateTaskRequest {

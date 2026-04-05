@@ -7,7 +7,9 @@ import type { Workspace, CreateWorkspaceRequest, JoinWorkspaceRequest } from '@/
 
 export function useWorkspace() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
+  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchWorkspaces = useCallback(async () => {
@@ -44,6 +46,10 @@ export function useWorkspace() {
     return ws;
   }, []);
 
+  const clearCurrentWorkspace = useCallback(() => {
+    setCurrentWorkspace(null);
+  }, []);
+
   return {
     workspaces,
     currentWorkspace,
@@ -52,5 +58,6 @@ export function useWorkspace() {
     selectWorkspace,
     createWorkspace,
     joinWorkspace,
+    clearCurrentWorkspace,
   };
 }

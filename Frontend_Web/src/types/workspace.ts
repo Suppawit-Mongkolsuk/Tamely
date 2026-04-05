@@ -1,14 +1,16 @@
-// ===== Workspace Types =====
-
 export interface Workspace {
   id: string;
   name: string;
-  description?: string;
-  avatar?: string;
+  description?: string | null;
+  iconUrl?: string | null;
   ownerId: string;
   inviteCode: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  role?: WorkspaceMemberRole;
+  memberCount?: number;
+  roomCount?: number;
 }
 
 export interface WorkspaceMember {
@@ -19,15 +21,13 @@ export interface WorkspaceMember {
   joinedAt: string;
   user: {
     id: string;
-    firstName: string;
-    lastName: string;
+    Name: string;
     email: string;
-    avatar?: string;
-    status: 'active' | 'inactive';
+    avatarUrl?: string | null;
   };
 }
 
-export type WorkspaceMemberRole = 'owner' | 'admin' | 'moderator' | 'member';
+export type WorkspaceMemberRole = 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
 
 export interface CreateWorkspaceRequest {
   name: string;
@@ -40,5 +40,5 @@ export interface JoinWorkspaceRequest {
 
 export interface InviteMemberRequest {
   email: string;
-  role: WorkspaceMemberRole;
+  role?: WorkspaceMemberRole;
 }
