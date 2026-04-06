@@ -19,6 +19,7 @@ interface WorkspaceContextValue {
   createWorkspace: (data: CreateWorkspaceRequest) => Promise<Workspace>;
   joinWorkspace: (data: JoinWorkspaceRequest) => Promise<Workspace>;
   clearCurrentWorkspace: () => void;
+  updateCurrentWorkspace: (ws: Workspace) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);

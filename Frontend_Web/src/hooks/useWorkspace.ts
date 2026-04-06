@@ -85,6 +85,10 @@ export function useWorkspace() {
     setCurrentWorkspace(null);
   }, [setCurrentWorkspace]);
 
+  const updateCurrentWorkspace = useCallback((ws: Workspace) => {
+    setCurrentWorkspace(ws);
+  }, [setCurrentWorkspace]);
+
   return {
     workspaces,
     currentWorkspace,
@@ -95,5 +99,6 @@ export function useWorkspace() {
     createWorkspace,
     joinWorkspace,
     clearCurrentWorkspace,
+    updateCurrentWorkspace,
   };
 }

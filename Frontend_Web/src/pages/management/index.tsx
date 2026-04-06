@@ -7,11 +7,18 @@ import { RoomsTab } from './RoomsTab';
 import { WorkspaceSettingsTab } from './WorkspaceSettingsTab';
 import { InviteDialog, CreateRoomDialog, CreateRoleDialog } from './Dialogs';
 import { mockTeamMembers, mockRooms, mockRoles } from './mock-data';
+import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
+import type { Workspace } from '@/types';
 
 export function ManagementPage() {
+  const { currentWorkspace, updateCurrentWorkspace } = useWorkspaceContext();
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
   const [showCreateRoleDialog, setShowCreateRoleDialog] = useState(false);
+
+  const handleWorkspaceUpdated = (updated: Workspace) => {
+    updateCurrentWorkspace(updated);
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -56,7 +63,9 @@ export function ManagementPage() {
         <TabsContent value="workspace">
           <WorkspaceSettingsTab
             roles={mockRoles}
+            workspace={currentWorkspace}
             onCreateRole={() => setShowCreateRoleDialog(true)}
+            onWorkspaceUpdated={handleWorkspaceUpdated}
           />
         </TabsContent>
       </Tabs>
