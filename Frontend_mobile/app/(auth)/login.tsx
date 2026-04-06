@@ -16,9 +16,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
+  {/*const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: '1086895750541-60k3q4ntds11ksnmjfvan0htdofgr4e1.apps.googleusercontent.com',
-  });
+  });*/}
 
   const sendGoogleTokenToBackend = async (accessToken: string) => {
     try {
@@ -49,21 +49,39 @@ export default function LoginScreen() {
     };
   };
 
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      console.log('Google Auth Success! ได้ Token มาแล้ว');
-      
-      if (authentication?.accessToken) {
-          sendGoogleTokenToBackend(authentication.accessToken);
-      }
-    }
-  }, [response]);
-
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     console.log('SignIn with:', email);
-    router.replace({ pathname: './'});
+    
+    try {
+      const res = await fetch('http://10.0.2.2:8080/api/auth/login', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+            email: email,
+            password: password
+        }),
+      });
+      
+      const result = await res.json();
+      
+      if (res.ok) {
+        console.log('Login Success:', result);
+        const userData = result.user || result.data?.user || result; 
+
+        router.replace({ 
+            pathname: '/test-auth',
+            params: { user: JSON.stringify(userData) } 
+        });
+      } else {
+        console.log("Backend Error:", result);
+        Alert.alert('Login Failed', 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      }
+    } catch (error) {
+      console.error('API Error:', error);
+      Alert.alert('Network Error', 'ไม่สามารถเชื่อมต่อกับ Backend ได้');
+    }
   };
 
   return (
@@ -120,7 +138,7 @@ export default function LoginScreen() {
         <TouchableOpacity 
         className="flex-row items-center justify-center border border-gray-300 rounded-xl py-3 px-4 bg-white"
         //disabled={!request}
-        onPress={() => promptAsync()}>
+        >
         {/* โลโก้ Google */}
           <AntDesign name="google" size={24} color="#0f0758" style={{ marginRight: 12 }} />
 

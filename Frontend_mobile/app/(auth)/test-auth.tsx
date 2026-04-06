@@ -35,7 +35,8 @@ export default function TestAuthScreen() {
             <Text className="font-bold">Name: </Text> {String(user?.fullName || '-')}
           </Text>
           <Text className="text-base text-gray-700 mb-2">
-            <Text className="font-bold">Email: </Text> {String(user?.email || '-')}
+            {/* 🔴 ดักจับทั้ง user.email และ user.mail */}
+            <Text className="font-bold">Email: </Text> {String(user?.email || user?.mail || '-')}
           </Text>
         </View>
       ) : (
@@ -47,7 +48,7 @@ export default function TestAuthScreen() {
 
       <TouchableOpacity 
         className="mt-8 bg-red-500 px-8 py-4 rounded-xl"
-        onPress={() => router.replace('/test-auth')}
+        onPress={() => router.replace('/login')}
       >
         <Text className="text-white font-bold text-lg">Back to Login</Text>
       </TouchableOpacity>

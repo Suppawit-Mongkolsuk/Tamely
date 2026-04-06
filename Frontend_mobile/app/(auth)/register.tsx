@@ -34,7 +34,7 @@ export default function RegisterScreen() {
                 body: JSON.stringify({
                     email: email,
                     password: password,
-                    displayName: fullName // ✅ ตรงนี้แหละครับกุญแจสำคัญ! ส่งชื่อ displayName ไป
+                    displayName: fullName 
                 }),
             });
 
@@ -43,7 +43,7 @@ export default function RegisterScreen() {
             if (response.ok) {
                 console.log('Register Success:', result.data.user);
                 router.replace({ 
-                    pathname: '/test-auth', 
+                    pathname: '/login', 
                     params: { user: JSON.stringify(result.data.user) } 
                 });
             } else {
