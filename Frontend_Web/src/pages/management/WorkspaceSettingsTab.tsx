@@ -1,5 +1,6 @@
 // ===== Workspace Settings Tab =====
-import { Plus, Edit, Upload, Save } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Edit, Upload, Save, Copy, Check, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,17 +9,152 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { workspaceService } from '@/services/workspace.service';
+import type { Workspace } from '@/types';
 import type { Role } from './types';
 
 interface WorkspaceSettingsTabProps {
   roles: Role[];
+  workspace: Workspace | null;
   onCreateRole: () => void;
+  onWorkspaceUpdated?: (updated: Workspace) => void;
+}
+
+/* ---------- Invite Code Section ---------- */
+function InviteCodeSection({
+  workspace,
+  onWorkspaceUpdated,
+}: {
+  workspace: Workspace;
+  onWorkspaceUpdated?: (updated: Workspace) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(workspace.inviteCode);
+    setCopied(true);
+    toast.success('คัดลอกรหัสเชิญแล้ว');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRegenerate = async () => {
+    setShowConfirm(false);
+    setRegenerating(true);
+    try {
+      const result = await workspaceService.regenerateInviteCode(workspace.id);
+      toast.success('สร้างรหัสเชิญใหม่สำเร็จ');
+      if (onWorkspaceUpdated) {
+        onWorkspaceUpdated({ ...workspace, inviteCode: result.inviteCode });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        <Label>รหัสเชิญ (Invite Code)</Label>
+        <p className="text-xs text-muted-foreground">
+          แชร์รหัสนี้ให้คนที่ต้องการเข้าร่วม workspace
+        </p>
+        <div className="flex gap-2 mt-1.5">
+          <Input
+            readOnly
+            value={workspace.inviteCode}
+            className="font-mono text-sm bg-muted"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleCopy}
+            title="คัดลอกรหัส"
+          >
+            {copied ? (
+              <Check className="size-4 text-green-600" />
+            ) : (
+              <Copy className="size-4" />
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowConfirm(true)}
+            disabled={regenerating}
+            title="สร้างรหัสใหม่"
+          >
+            <RefreshCw className={`size-4 ${regenerating ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+      </div>
+
+      {/* Confirm Regenerate Dialog */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>สร้างรหัสเชิญใหม่?</DialogTitle>
+            <DialogDescription>
+              รหัสเชิญเดิมจะใช้งานไม่ได้อีกต่อไปทันที
+              คนที่ยังไม่ได้เข้าร่วมจะต้องใช้รหัสใหม่แทน
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              ยกเลิก
+            </Button>
+            <Button
+              className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+              onClick={handleRegenerate}
+            >
+              <RefreshCw className="size-4 mr-2" />
+              สร้างรหัสใหม่
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 export function WorkspaceSettingsTab({
   roles,
+  workspace,
   onCreateRole,
+  onWorkspaceUpdated,
 }: WorkspaceSettingsTabProps) {
+  const [name, setName] = useState(workspace?.name ?? '');
+  const [description, setDescription] = useState(workspace?.description ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!workspace) return;
+    setSaving(true);
+    try {
+      const updated = await workspaceService.updateWorkspace(workspace.id, {
+        name,
+        description,
+      });
+      toast.success('บันทึกการเปลี่ยนแปลงสำเร็จ');
+      onWorkspaceUpdated?.(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid lg:grid-cols-2 gap-6">
@@ -32,7 +168,7 @@ export function WorkspaceSettingsTab({
               <Label>ไอคอน Workspace</Label>
               <div className="flex items-center gap-4 mt-2">
                 <div className="size-20 rounded-xl bg-[#003366] flex items-center justify-center text-white text-2xl">
-                  E
+                  {workspace?.name?.[0]?.toUpperCase() ?? 'W'}
                 </div>
                 <div>
                   <Button variant="outline" size="sm" className="mb-2">
@@ -53,7 +189,8 @@ export function WorkspaceSettingsTab({
               <Label htmlFor="workspace-name">ชื่อ Workspace</Label>
               <Input
                 id="workspace-name"
-                defaultValue="Engineering Team"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="mt-1.5"
               />
             </div>
@@ -63,30 +200,31 @@ export function WorkspaceSettingsTab({
               <Label htmlFor="workspace-desc">คำอธิบาย</Label>
               <Textarea
                 id="workspace-desc"
-                defaultValue="Development and technical discussions"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 className="mt-1.5"
                 rows={3}
               />
             </div>
 
-            {/* Workspace URL */}
-            <div>
-              <Label htmlFor="workspace-url">URL Workspace</Label>
-              <div className="flex gap-2 mt-1.5">
-                <span className="inline-flex items-center px-3 rounded-lg border border-border bg-muted text-sm text-muted-foreground">
-                  tamelychat.com/
-                </span>
-                <Input
-                  id="workspace-url"
-                  defaultValue="engineering"
-                  className="flex-1"
+            {/* Invite Code */}
+            {workspace && (
+              <>
+                <Separator />
+                <InviteCodeSection
+                  workspace={workspace}
+                  onWorkspaceUpdated={onWorkspaceUpdated}
                 />
-              </div>
-            </div>
+              </>
+            )}
 
-            <Button className="w-full bg-[#5EBCAD] hover:bg-[#5EBCAD]/90">
+            <Button
+              className="w-full bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+              onClick={handleSave}
+              disabled={saving || !workspace}
+            >
               <Save className="size-4 mr-2" />
-              บันทึกการเปลี่ยนแปลง
+              {saving ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
             </Button>
           </div>
         </Card>
