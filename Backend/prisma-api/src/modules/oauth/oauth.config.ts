@@ -18,14 +18,14 @@ passport.deserializeUser((id: string, done) => {
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   // DEBUG — ลบได้ทีหลัง
   console.log(
-    '🔍 GOOGLE_CLIENT_ID:',
+    'GOOGLE_CLIENT_ID:',
     process.env.GOOGLE_CLIENT_ID.substring(0, 20) + '...',
   );
   console.log(
-    '🔍 GOOGLE_CLIENT_SECRET:',
+    'GOOGLE_CLIENT_SECRET:',
     process.env.GOOGLE_CLIENT_SECRET.substring(0, 10) + '...',
   );
-  console.log('🔍 GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL);
+  console.log('GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL);
 
   passport.use(
     new GoogleStrategy(
@@ -55,65 +55,16 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           // ส่ง user object ที่มี id field (ไม่จำเป็นต้องเป็น full user)
           done(null, { id: user.id });
         } catch (error) {
-          console.error('❌ Google OAuth error:', error);
+          console.error(' Google OAuth error:', error);
           done(error as Error, undefined);
         }
       },
     ),
   );
-  console.log('✅ Google OAuth strategy configured');
+  console.log('Google OAuth strategy configured');
 } else {
   console.log(
-    '⚠️  Google OAuth not configured (missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)',
+    'Google OAuth not configured (missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)',
   );
 }
-
-// GitHub OAuth Strategy
-if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-  passport.use(
-    new GitHubStrategy(
-      {
-        clientID: process.env.GITHUB_CLIENT_ID,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        callbackURL:
-          process.env.GITHUB_CALLBACK_URL ||
-          'http://localhost:8080/api/oauth/github/callback',
-        scope: ['user:email'],
-      },
-      async (
-        _accessToken: string,
-        _refreshToken: string,
-        profile: any,
-        done: (error: Error | null, user?: any) => void,
-      ) => {
-        try {
-          // GitHub อาจไม่ส่ง email ตรงๆ ต้องดูจาก emails array
-          const email =
-            profile.emails?.[0]?.value || `${profile.username}@github.local`;
-
-          const user = await findOrCreateOAuthUser({
-            provider: 'github',
-            providerId: String(profile.id),
-            email,
-            name:
-              profile.displayName || profile.username || email.split('@')[0],
-            avatarUrl: profile.photos?.[0]?.value || null,
-          });
-
-          // ส่ง user object ที่มี id field
-          done(null, { id: user.id });
-        } catch (error) {
-          console.error('❌ GitHub OAuth error:', error);
-          done(error as Error, undefined);
-        }
-      },
-    ),
-  );
-  console.log('✅ GitHub OAuth strategy configured');
-} else {
-  console.log(
-    '⚠️  GitHub OAuth not configured (missing GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET)',
-  );
-}
-
 export default passport;

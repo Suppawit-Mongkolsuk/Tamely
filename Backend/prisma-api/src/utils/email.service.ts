@@ -2,15 +2,6 @@ import { Resend } from 'resend';
 
 // ===================================================
 // Email Service (Resend)
-// ===================================================
-// สมัคร API key ได้ที่ https://resend.com (free: 3,000 emails/เดือน)
-// แล้วใส่ใน .env:
-//   RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
-//   EMAIL_FROM=noreply@yourdomain.com
-// ===================================================
-
-//   Lazy init — ไม่สร้าง instance ตอน module โหลด
-//    ป้องกัน crash เมื่อ RESEND_API_KEY ยังว่างอยู่
 let _resend: Resend | null = null;
 function getResend(): Resend {
   if (!_resend) {
