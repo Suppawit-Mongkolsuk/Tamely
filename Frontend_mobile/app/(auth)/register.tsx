@@ -43,7 +43,7 @@ export default function RegisterScreen() {
             if (response.ok) {
                 console.log('Register Success:', result.data.user);
                 router.replace({ 
-                    pathname: '/login', 
+                    pathname: '/test-auth', 
                     params: { user: JSON.stringify(result.data.user) } 
                 });
             } else {

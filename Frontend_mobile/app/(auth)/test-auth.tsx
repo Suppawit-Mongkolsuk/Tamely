@@ -48,7 +48,7 @@ export default function TestAuthScreen() {
 
       <TouchableOpacity 
         className="mt-8 bg-red-500 px-8 py-4 rounded-xl"
-        onPress={() => router.replace('/login')}
+        onPress={() => router.replace('/(auth)/login')}
       >
         <Text className="text-white font-bold text-lg">Back to Login</Text>
       </TouchableOpacity>

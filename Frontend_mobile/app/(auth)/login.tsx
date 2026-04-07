@@ -1,52 +1,69 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; 
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
-import { Button } from '@react-navigation/elements';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { useEffect } from 'react';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// TODO: สร้าง Android OAuth Client ID ใน Google Cloud Console แล้วใส่ตรงนี้
+// https://console.cloud.google.com/apis/credentials
+// ประเภท: Android → ใส่ package name + SHA-1 fingerprint
+const ANDROID_CLIENT_ID = 'YOUR_ANDROID_CLIENT_ID';
+const WEB_CLIENT_ID = '1086895750541-60k3q4ntds11ksnmjfvan0htdofgr4e1.apps.googleusercontent.com';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  {/*const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: '1086895750541-60k3q4ntds11ksnmjfvan0htdofgr4e1.apps.googleusercontent.com',
-  });*/}
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: ANDROID_CLIENT_ID,
+    webClientId: WEB_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const accessToken = response.authentication?.accessToken;
+      if (accessToken) {
+        sendGoogleTokenToBackend(accessToken);
+      }
+    } else if (response?.type === 'error') {
+      setGoogleLoading(false);
+      Alert.alert('Google Login Failed', response.error?.message ?? 'เกิดข้อผิดพลาด');
+    } else if (response?.type === 'dismiss' || response?.type === 'cancel') {
+      setGoogleLoading(false);
+    }
+  }, [response]);
 
   const sendGoogleTokenToBackend = async (accessToken: string) => {
     try {
       const res = await fetch('http://10.0.2.2:8080/api/oauth/google/mobile', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-            accessToken: accessToken 
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken }),
       });
-      
+
       const result = await res.json();
       if (res.ok) {
         console.log('Google Login Success:', result.data.user);
-        router.replace({ 
-            pathname: '/test-auth', 
-            params: { user: JSON.stringify(result.data.user) }
+        router.replace({
+          pathname: '/(workspace)/workspace',
+          params: { user: JSON.stringify(result.data.user), token: result.data.token },
         });
-      } 
-      else {
-        console.log("Backend Error:", result);
-      } 
+      } else {
+        Alert.alert('Login Failed', result.error ?? 'เกิดข้อผิดพลาด');
+      }
     } catch (error) {
       console.error('API Error:', error);
       Alert.alert('Network Error', 'ไม่สามารถเชื่อมต่อกับ Backend ได้');
-    };
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSignIn = async () => {
@@ -68,11 +85,12 @@ export default function LoginScreen() {
       
       if (res.ok) {
         console.log('Login Success:', result);
-        const userData = result.user || result.data?.user || result; 
+        const userData = result.data?.user ?? result.user ?? result;
+        const token = result.data?.token ?? result.token ?? '';
 
-        router.replace({ 
-            pathname: '/test-auth',
-            params: { user: JSON.stringify(userData) } 
+        router.replace({
+            pathname: '/(workspace)/workspace',
+            params: { user: JSON.stringify(userData), token }
         });
       } else {
         console.log("Backend Error:", result);
@@ -135,18 +153,23 @@ export default function LoginScreen() {
         </View>
 
         {/* ปุ่ม LOGIN WITH GOOGLE */}
-        <TouchableOpacity 
-        className="flex-row items-center justify-center border border-gray-300 rounded-xl py-3 px-4 bg-white"
-        //disabled={!request}
+        <TouchableOpacity
+          className="flex-row items-center justify-center border border-gray-300 rounded-xl py-3 px-4 bg-white"
+          disabled={!request || googleLoading}
+          onPress={() => {
+            setGoogleLoading(true);
+            promptAsync();
+          }}
         >
-        {/* โลโก้ Google */}
-          <AntDesign name="google" size={24} color="#0f0758" style={{ marginRight: 12 }} />
-
-        {/* ข้อความปุ่ม */}
-        <Text className="text-gray-700 font-medium text-base">
-            Continue with Google
-        </Text>
-      </TouchableOpacity>
+          {googleLoading ? (
+            <ActivityIndicator size="small" color="#425C95" style={{ marginRight: 12 }} />
+          ) : (
+            <AntDesign name="google" size={24} color="#0f0758" style={{ marginRight: 12 }} />
+          )}
+          <Text className="text-gray-700 font-medium text-base">
+            {googleLoading ? 'Signing in...' : 'Continue with Google'}
+          </Text>
+        </TouchableOpacity>
       
       <View className="flex-row items-center justify-center mt-6">
           <Text className="text-gray-700 font-medium text-base  text-left">

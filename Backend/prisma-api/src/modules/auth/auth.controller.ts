@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import multer from 'multer';
 import { AuthRequest, LoginResponse } from '../../types';
 import {
   signToken,
@@ -7,7 +8,8 @@ import {
 } from '../../utils/jwt.utils';
 import { validateRegisterInput, validateLoginInput } from './auth.validation';
 import * as authService from './auth.service';
-import multer from 'multer';
+
+export const avatarUpload = multer({ storage: multer.memoryStorage() });
 
 /**
  * POST /api/auth/register
@@ -18,7 +20,6 @@ export const register = async (
   res: Response,
 ): Promise<void> => {
   try {
-    // 🚨 ติดเครื่องดักฟังไว้ตรงนี้!
     console.log("🚨 Incoming Data:", req.body);
 
     // 1. Validate input
@@ -103,6 +104,75 @@ export const logout = (req: AuthRequest, res: Response): void => {
 };
 
 /**
+ * POST /api/auth/forgot-password
+ */
+export const forgotPassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await authService.forgotPassword(req.body.email);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed';
+    res.status(400).json({ success: false, error: message });
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ */
+export const resetPassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await authService.resetPassword(req.body.token, req.body.newPassword);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed';
+    res.status(400).json({ success: false, error: message });
+  }
+};
+
+/**
+ * PATCH /api/auth/profile
+ */
+export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+    const result = await authService.updateProfile(req.userId, req.body);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed';
+    res.status(400).json({ success: false, error: message });
+  }
+};
+
+/**
+ * POST /api/auth/avatar
+ */
+export const uploadAvatar = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+    const result = await authService.updateUserAvatar(
+      req.userId,
+      req.file.buffer,
+      req.file.mimetype,
+      req.file.originalname,
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed';
+    res.status(400).json({ success: false, error: message });
+  }
+};
+
+/**
  * GET /api/auth/me
  * ดูข้อมูลตัวเอง (ต้อง login)
  */
@@ -119,146 +189,5 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
     const message =
       error instanceof Error ? error.message : 'Failed to fetch user';
     res.status(404).json({ success: false, error: message });
-  }
-};
-
-/**
- * POST /api/auth/forgot-password
- * ขอ reset token สำหรับ email ที่ระบุ
- * Body: { email: string }
- */
-export const forgotPassword = async (
-  req: AuthRequest,
-  res: Response,
-): Promise<void> => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== 'string') {
-      res.status(400).json({ success: false, error: 'Email is required.' });
-      return;
-    }
-
-    const result = await authService.forgotPassword(email.trim().toLowerCase());
-    res.json({ success: true, data: result });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Request failed';
-    res.status(500).json({ success: false, error: message });
-  }
-};
-
-/**
- * POST /api/auth/reset-password
- * รีเซ็ตรหัสผ่านด้วย token ที่ได้รับ
- * Body: { token: string, newPassword: string }
- */
-export const resetPassword = async (
-  req: AuthRequest,
-  res: Response,
-): Promise<void> => {
-  try {
-    const { token, newPassword } = req.body;
-
-    if (!token || typeof token !== 'string') {
-      res.status(400).json({ success: false, error: 'Reset token is required.' });
-      return;
-    }
-    if (!newPassword || typeof newPassword !== 'string') {
-      res.status(400).json({ success: false, error: 'New password is required.' });
-      return;
-    }
-    if (newPassword.length < 8) {
-      res
-        .status(400)
-        .json({ success: false, error: 'Password must be at least 8 characters.' });
-      return;
-    }
-
-    const result = await authService.resetPassword(token, newPassword);
-    res.json({ success: true, data: result });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Reset failed';
-    // 400 สำหรับ token invalid/expired, 500 สำหรับ error อื่น
-    const statusCode =
-      message.includes('invalid') || message.includes('expired') ? 400 : 500;
-    res.status(statusCode).json({ success: false, error: message });
-  }
-};
-
-// ========================
-// Multer — รับ file upload ในหน่วยความจำ (max 2 MB)
-// ========================
-export const avatarUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
-  fileFilter: (_req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/gif'];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('รองรับเฉพาะ JPG, PNG, GIF'));
-    }
-  },
-});
-
-/**
- * PATCH /api/auth/profile
- * อัปเดตข้อมูลโปรไฟล์ (displayName, bio)
- */
-export const updateProfile = async (
-  req: AuthRequest,
-  res: Response,
-): Promise<void> => {
-  try {
-    if (!req.userId) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
-    const { displayName, bio } = req.body;
-    const user = await authService.updateProfile(req.userId, {
-      displayName,
-      bio,
-    });
-
-    res.json({ success: true, data: user });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to update profile';
-    res.status(400).json({ success: false, error: message });
-  }
-};
-
-/**
- * POST /api/auth/avatar
- * อัปโหลด avatar (multipart/form-data)
- */
-export const uploadAvatar = async (
-  req: AuthRequest,
-  res: Response,
-): Promise<void> => {
-  try {
-    if (!req.userId) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
-    const file = req.file;
-    if (!file) {
-      res.status(400).json({ success: false, error: 'No file uploaded' });
-      return;
-    }
-
-    const user = await authService.updateUserAvatar(
-      req.userId,
-      file.buffer,
-      file.mimetype,
-      file.originalname,
-    );
-
-    res.json({ success: true, data: user });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to upload avatar';
-    res.status(400).json({ success: false, error: message });
   }
 };
