@@ -165,7 +165,7 @@ export default function WorkspaceScreen() {
               />
             )}
             ListEmptyComponent={
-              <Text className="text-center text-gray-400 mt-10">ยังไม่มี Workspace</Text>
+              <Text className="text-center text-gray-400 mt-10">ยังไม่มี Workspaceหรอ สร้างสิ</Text>
             }
             refreshControl={
               <RefreshControl refreshing={isRefreshing} onRefresh={() => {
