@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, Image, TouchableOpacity, TextInput,
-  FlatList, ActivityIndicator, RefreshControl, Alert
+  FlatList, ActivityIndicator, RefreshControl, Alert,
+  Modal, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Search, Plus } from 'lucide-react-native';
+import { Search, Plus, X, Shield } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import WorkspaceCard from '../../components/ui/WorkspaceCard';
 import DecorativeBubble from '../../components/ui/DecBubble';
@@ -40,9 +41,22 @@ export default function WorkspaceScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [description, setDescription] = useState('');
+  const [firstRoom, setFirstRoom] = useState('General');
+  const [isCreating, setIsCreating] = useState(false);
 
   const rawToken = params.token;
   const token = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
+
+  const handleTokenExpired = () => {
+    Alert.alert(
+      'Session หมดอายุ',
+      'กรุณา Login ใหม่อีกครั้ง',
+      [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
+    );
+  };
 
   const fetchWorkspaces = async () => {
     if (!token) {
@@ -66,6 +80,8 @@ export default function WorkspaceScreen() {
 
       if (response.ok) {
         setWorkspaces(result.data || result);
+      } else if (response.status === 401) {
+        handleTokenExpired();
       } else {
         Alert.alert('Error', result.error ?? 'โหลด Workspace ไม่สำเร็จ');
       }
@@ -85,6 +101,57 @@ export default function WorkspaceScreen() {
     fetchWorkspaces();
   }, [token]);
 
+  const closeModal = () => {
+    setShowCreateModal(false);
+    setWorkspaceName('');
+    setDescription('');
+    setFirstRoom('General');
+  };
+
+  const handleCreateWorkspace = async () => {
+    if (!workspaceName.trim()) {
+      Alert.alert('กรุณากรอกชื่อ Workspace');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const res = await fetchWithTimeout(
+        `${API_BASE}/api/workspaces`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true',
+          },
+          body: JSON.stringify({
+            name: workspaceName.trim(),
+            description: description.trim(),
+            firstRoom: firstRoom.trim() || 'General',
+          }),
+        }
+      );
+
+      const raw = await res.text();
+      const result = JSON.parse(raw);
+
+      if (res.ok) {
+        closeModal();
+        fetchWorkspaces();
+      } else if (res.status === 401) {
+        closeModal();
+        handleTokenExpired();
+      } else {
+        Alert.alert('Error', result.error ?? 'สร้าง Workspace ไม่สำเร็จ');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'สร้าง Workspace ไม่สำเร็จ');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const filteredWorkspaces = workspaces.filter((ws: WorkspaceData) =>
     ws.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -92,6 +159,7 @@ export default function WorkspaceScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
 
+      {/* ส่วน Header */}
       <LinearGradient
         colors={['#152C53', '#234476', '#42639B']}
         style={{
@@ -106,14 +174,13 @@ export default function WorkspaceScreen() {
         <DecorativeBubble size={20} top={5} right={10} opacity={0.07} />
         <DecorativeBubble size={45} bottom={-13} left={-10} opacity={0.08} />
 
-        {/* 🟢 ส่วนที่ปรับปรุง: กล่องควบคุมขนาดโลโก้แบบ Manual */}
-        <View 
-          style={{ 
-            width: '60%',     
-            aspectRatio: 3.5 / 1,  
-            marginTop: 56,         
-            marginBottom: 24, 
-            alignSelf: 'flex-start'
+        <View
+          style={{
+            width: '60%',
+            aspectRatio: 3.5 / 1,
+            marginTop: 56,
+            marginBottom: 24,
+            alignSelf: 'flex-start',
           }}
         >
           <Image
@@ -125,7 +192,7 @@ export default function WorkspaceScreen() {
               width: 300,
               height: 330,
             }}
-           resizeMode="contain"
+            resizeMode="contain"
           />
         </View>
 
@@ -171,6 +238,7 @@ export default function WorkspaceScreen() {
         </Text>
       </LinearGradient>
 
+      {/* ส่วน Content */}
       <View className="flex-1 px-6 pt-6">
 
         <View className="flex-row gap-4 mb-8">
@@ -187,7 +255,7 @@ export default function WorkspaceScreen() {
 
           <TouchableOpacity
             className="flex-1 bg-green-50 border-2 border-dashed border-green-200 rounded-3xl p-6 items-center justify-center shadow-sm"
-            onPress={() => router.push('/(workspace)/createWorkspace')}
+            onPress={() => setShowCreateModal(true)}
           >
             <View className="w-12 h-12 bg-green-100 rounded-2xl items-center justify-center mb-3">
               <Plus size={24} color="#16a34a" />
@@ -248,6 +316,191 @@ export default function WorkspaceScreen() {
           />
         )}
       </View>
+
+      {/* Modal สร้าง Workspace */}
+      <Modal
+        visible={showCreateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+            activeOpacity={1}
+            onPress={closeModal}
+          />
+
+          <View
+            style={{
+              backgroundColor: '#fff',
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              paddingHorizontal: 24,
+              paddingTop: 24,
+              paddingBottom: 36,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: 6,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>
+                  สร้าง Workspace ใหม่
+                </Text>
+                <Text style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>
+                  ตั้งค่า workspace ใหม่สำหรับทีมของคุณ
+                </Text>
+              </View>
+              <TouchableOpacity onPress={closeModal} style={{ padding: 4 }}>
+                <X size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ height: 1, backgroundColor: '#f3f4f6', marginVertical: 16 }} />
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                ชื่อ Workspace
+              </Text>
+              <TextInput
+                value={workspaceName}
+                onChangeText={setWorkspaceName}
+                placeholder="เช่น ทีมพัฒนาผลิตภัณฑ์"
+                placeholderTextColor="#d1d5db"
+                autoFocus
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: workspaceName ? '#425C95' : '#e5e7eb',
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 15,
+                  color: '#111827',
+                  marginBottom: 6,
+                }}
+              />
+              <Text style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>
+                ชื่อที่จะแสดงสำหรับพื้นที่ทำงานของคุณ
+              </Text>
+
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                คำอธิบาย (ไม่บังคับ)
+              </Text>
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                placeholder="อธิบายวัตถุประสงค์ของ workspace นี้"
+                placeholderTextColor="#d1d5db"
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: description ? '#425C95' : '#e5e7eb',
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 15,
+                  color: '#111827',
+                  marginBottom: 16,
+                }}
+              />
+
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                ชื่อห้องแรก
+              </Text>
+              <TextInput
+                value={firstRoom}
+                onChangeText={setFirstRoom}
+                placeholder="General"
+                placeholderTextColor="#d1d5db"
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: firstRoom ? '#425C95' : '#e5e7eb',
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 15,
+                  color: '#111827',
+                  marginBottom: 6,
+                }}
+              />
+              <Text style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>
+                ห้องแชทแรกที่จะสร้างใน workspace นี้
+              </Text>
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  backgroundColor: '#eff6ff',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 24,
+                  gap: 10,
+                }}
+              >
+                <Shield size={18} color="#425C95" style={{ marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#1e40af', marginBottom: 4 }}>
+                    คุณจะได้รับสิทธิ์ Admin อัตโนมัติ
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#3b82f6', lineHeight: 18 }}>
+                    คุณสามารถเชิญสมาชิก สร้างห้องเพิ่มเติม และจัดการสิทธิ์ได้ภายหลัง
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity
+                  onPress={closeModal}
+                  style={{
+                    flex: 1,
+                    borderWidth: 1.5,
+                    borderColor: '#e5e7eb',
+                    borderRadius: 12,
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#6b7280', fontWeight: '600', fontSize: 15 }}>
+                    ยกเลิก
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleCreateWorkspace}
+                  disabled={isCreating || !workspaceName.trim()}
+                  style={{
+                    flex: 2,
+                    backgroundColor: workspaceName.trim() ? '#425C95' : '#d1d5db',
+                    borderRadius: 12,
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                  }}
+                >
+                  {isCreating ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                      สร้าง Workspace
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </SafeAreaView>
   );
 }

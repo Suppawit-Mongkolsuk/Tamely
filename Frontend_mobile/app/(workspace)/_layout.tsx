@@ -5,6 +5,7 @@ export default function WorkspaceLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="workspace" />
+      <Stack.Screen name="enter-code" />
     </Stack>
   );
 }
