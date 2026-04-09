@@ -1,2 +1,2 @@
-// Re-export from decomposed sub-components
-export { ChatRoomsPage } from './chat-rooms';
+// Re-export from features
+export { ChatRoomsPage } from '@/features/chat-rooms';

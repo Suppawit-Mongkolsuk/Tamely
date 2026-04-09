@@ -1,5 +1,6 @@
 import { LucideIcon, Lightbulb } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
 
 export interface QuickAction {
@@ -30,18 +31,19 @@ export function AIChatSidebar({ quickActions, onActionClick }: AIChatSidebarProp
         {quickActions.map((action, index) => {
           const Icon = action.icon;
           return (
-            <button
+            <Button
               key={index}
+              variant="ghost"
               onClick={() => onActionClick(action.prompt)}
-              className="w-full p-3 bg-white rounded-lg hover:shadow-md transition-all text-left group"
+              className="w-full h-auto p-3 bg-white rounded-lg hover:shadow-md transition-all justify-start group"
             >
               <div className="flex items-center gap-3">
-                <div className="size-10 rounded-lg bg-linear-to-br from-[#5EBCAD]/10 to-[#46769B]/10 flex items-center justify-center group-hover:from-[#5EBCAD]/20 group-hover:to-[#46769B]/20 transition-colors">
+                <div className="size-10 rounded-lg bg-linear-to-br from-[#5EBCAD]/10 to-[#46769B]/10 flex items-center justify-center group-hover:from-[#5EBCAD]/20 group-hover:to-[#46769B]/20 transition-colors shrink-0">
                   <Icon className="size-5 text-[#003366]" />
                 </div>
                 <span className="text-sm">{action.label}</span>
               </div>
-            </button>
+            </Button>
           );
         })}
       </div>

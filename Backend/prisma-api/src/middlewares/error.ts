@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
+import { AppError } from '../types';
 
 export function errorHandler(
   err: any,
@@ -9,6 +10,11 @@ export function errorHandler(
   next: NextFunction,
 ) {
   console.error('Error:', err);
+
+  // AppError — HTTP errors ที่ throw จาก service layer
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({ success: false, error: err.message });
+  }
 
   // JSON body พัง
   if (

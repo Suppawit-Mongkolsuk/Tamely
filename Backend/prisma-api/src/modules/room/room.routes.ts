@@ -1,20 +1,63 @@
 import { Router } from 'express';
+import { Response } from 'express';
 import { authenticate } from '../../middlewares/auth';
-import * as roomController from './room.controller';
+import { validateRequest, asyncHandler } from '../../middlewares/validate';
+import { AuthRequest } from '../../types';
+import { CreateRoomSchema, AddMemberSchema } from './room.model';
+import * as roomService from './room.service';
 
 const router = Router();
-
 router.use(authenticate);
 
-router.post('/workspaces/:wsId/rooms', roomController.create);
-router.get('/workspaces/:wsId/rooms', roomController.list);
+const param = (value: string | string[] | undefined): string =>
+  Array.isArray(value) ? value[0] : (value ?? '');
 
-router.get('/rooms/:id', roomController.getById);
-router.patch('/rooms/:id', roomController.update);
-router.delete('/rooms/:id', roomController.remove);
+// POST /api/workspaces/:wsId/rooms
+router.post('/workspaces/:wsId/rooms', validateRequest(CreateRoomSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const room = await roomService.createRoom(param(req.params.wsId), req.userId!, req.body);
+  res.status(201).json({ success: true, data: room });
+}));
 
-router.post('/rooms/:id/join', roomController.join);
-router.post('/rooms/:id/members', roomController.addMember);
-router.delete('/rooms/:id/members/:userId', roomController.removeMember);
+// GET /api/workspaces/:wsId/rooms
+router.get('/workspaces/:wsId/rooms', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const rooms = await roomService.getRooms(param(req.params.wsId), req.userId!);
+  res.json({ success: true, data: rooms });
+}));
+
+// GET /api/rooms/:id
+router.get('/rooms/:id', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const room = await roomService.getRoomById(param(req.params.id), req.userId!);
+  res.json({ success: true, data: room });
+}));
+
+// PATCH /api/rooms/:id
+router.patch('/rooms/:id', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const room = await roomService.updateRoom(param(req.params.id), req.userId!, req.body);
+  res.json({ success: true, data: room });
+}));
+
+// DELETE /api/rooms/:id
+router.delete('/rooms/:id', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  await roomService.deleteRoom(param(req.params.id), req.userId!);
+  res.json({ success: true, message: 'Room deleted' });
+}));
+
+// POST /api/rooms/:id/join
+router.post('/rooms/:id/join', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const member = await roomService.joinRoom(param(req.params.id), req.userId!);
+  res.json({ success: true, data: member });
+}));
+
+// POST /api/rooms/:id/members
+router.post('/rooms/:id/members', validateRequest(AddMemberSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const member = await roomService.addRoomMember(param(req.params.id), req.userId!, req.body.userId);
+  res.status(201).json({ success: true, data: member });
+}));
+
+// DELETE /api/rooms/:id/members/:userId
+router.delete('/rooms/:id/members/:userId', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  await roomService.removeRoomMember(param(req.params.id), req.userId!, param(req.params.userId));
+  res.json({ success: true, message: 'Member removed from room' });
+}));
 
 export default router;

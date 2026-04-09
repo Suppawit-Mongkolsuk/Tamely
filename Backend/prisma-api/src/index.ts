@@ -18,6 +18,7 @@ import roomRoutes from './modules/room/room.routes';
 import messageRoutes from './modules/message/message.routes';
 import postRoutes from './modules/post/post.routes';
 import taskRoutes from './modules/task/task.routes';
+import notificationRoutes from './modules/notification/notification.routes';
 import passport from './modules/oauth/oauth.config';
 import { initSocketIO } from './modules/chat/chat.gateway';
 
@@ -81,6 +82,7 @@ app.use('/api', roomRoutes);
 app.use('/api', messageRoutes);
 app.use('/api', postRoutes);
 app.use('/api', taskRoutes);
+app.use('/api', notificationRoutes);
 
 // ========================
 // Error Handler (ต้องอยู่ท้ายสุดเสมอ)

@@ -1,38 +1,27 @@
-import { prisma } from '../../index';
-import { CreateTaskPayload, UpdateTaskPayload } from '../../types';
-import { TaskStatus, TaskCreator } from '@prisma/client';
+import { AppError } from '../../types';
+import { TypePayloadCreateTask, TypePayloadUpdateTask } from './task.model';
+import * as taskRepository from './task.repository';
 
-const assigneeSelect = { id: true, Name: true, avatarUrl: true } as const;
-const creatorSelect = { id: true, Name: true } as const;
+/* ======================= CREATE ======================= */
 
 export const createTask = async (
   workspaceId: string,
   userId: string,
-  data: CreateTaskPayload,
+  data: TypePayloadCreateTask,
 ) => {
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-  });
-  if (!member) throw new Error('You are not a member of this workspace');
+  const member = await taskRepository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
-  return prisma.task.create({
-    data: {
-      workspaceId,
-      title: data.title,
-      description: data.description,
-      date: new Date(data.date),
-      priority: data.priority ?? 'MEDIUM',
-      status: TaskStatus.TODO,
-      assigneeId: data.assigneeId ?? userId,
-      createdById: userId,
-      createdBy: TaskCreator.USER,
-    },
-    include: {
-      assignee: { select: assigneeSelect },
-      createdByUser: { select: creatorSelect },
-    },
+  return taskRepository.create(workspaceId, userId, {
+    title: data.title,
+    description: data.description,
+    date: new Date(data.date),
+    priority: data.priority ?? 'MEDIUM',
+    assigneeId: data.assigneeId,
   });
 };
+
+/* ======================= READ ======================= */
 
 export const getTasks = async (
   workspaceId: string,
@@ -44,43 +33,24 @@ export const getTasks = async (
     priority?: string;
   },
 ) => {
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-  });
-  if (!member) throw new Error('You are not a member of this workspace');
+  const member = await taskRepository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
-  const where: Record<string, unknown> = { workspaceId };
-
-  if (filters.month && filters.year) {
-    const start = new Date(filters.year, filters.month - 1, 1);
-    const end = new Date(filters.year, filters.month, 0, 23, 59, 59, 999);
-    where.date = { gte: start, lte: end };
-  }
-  if (filters.status) where.status = filters.status;
-  if (filters.priority) where.priority = filters.priority;
-
-  return prisma.task.findMany({
-    where,
-    include: {
-      assignee: { select: assigneeSelect },
-      createdByUser: { select: creatorSelect },
-    },
-    orderBy: { date: 'asc' },
-  });
+  return taskRepository.findMany(workspaceId, filters);
 };
+
+/* ======================= UPDATE ======================= */
 
 export const updateTask = async (
   taskId: string,
   userId: string,
-  data: UpdateTaskPayload,
+  data: TypePayloadUpdateTask,
 ) => {
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error('Task not found');
+  const task = await taskRepository.findById(taskId);
+  if (!task) throw new AppError(404, 'Task not found');
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId: task.workspaceId, userId } },
-  });
-  if (!member) throw new Error('You are not a member of this workspace');
+  const member = await taskRepository.findWorkspaceMember(task.workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
   const updateData: Record<string, unknown> = {};
   if (data.title !== undefined) updateData.title = data.title;
@@ -90,24 +60,17 @@ export const updateTask = async (
   if (data.status !== undefined) updateData.status = data.status;
   if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId;
 
-  return prisma.task.update({
-    where: { id: taskId },
-    data: updateData,
-    include: {
-      assignee: { select: assigneeSelect },
-      createdByUser: { select: creatorSelect },
-    },
-  });
+  return taskRepository.update(taskId, updateData);
 };
 
-export const deleteTask = async (taskId: string, userId: string) => {
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error('Task not found');
+/* ======================= DELETE ======================= */
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId: task.workspaceId, userId } },
-  });
-  if (!member) throw new Error('You are not a member of this workspace');
+export const deleteTask = async (taskId: string, userId: string) => {
+  const task = await taskRepository.findById(taskId);
+  if (!task) throw new AppError(404, 'Task not found');
+
+  const member = await taskRepository.findWorkspaceMember(task.workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
   if (
     task.createdById !== userId &&
@@ -115,8 +78,8 @@ export const deleteTask = async (taskId: string, userId: string) => {
     member.role !== 'OWNER' &&
     member.role !== 'ADMIN'
   ) {
-    throw new Error('Not authorized to delete this task');
+    throw new AppError(403, 'Not authorized to delete this task');
   }
 
-  await prisma.task.delete({ where: { id: taskId } });
+  await taskRepository.remove(taskId);
 };

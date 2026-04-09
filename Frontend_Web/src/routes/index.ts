@@ -5,6 +5,7 @@ export const ROUTES = {
   // Public routes (ไม่ต้อง login)
   LOGIN: '/login',
   FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD: '/reset-password',
 
   // Workspace selection (login แล้ว แต่ยังไม่เลือก workspace)
   WORKSPACE: '/workspace',
@@ -24,8 +25,12 @@ export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];
 export const PUBLIC_ROUTES: RoutePath[] = [
   ROUTES.LOGIN,
   ROUTES.FORGOT_PASSWORD,
+  ROUTES.RESET_PASSWORD,
 ];
 
 export function isPublicRoute(path: string): boolean {
   return (PUBLIC_ROUTES as string[]).includes(path);
 }
+
+export { router } from './router';
+export { RequireAuth, RequireWorkspace, RedirectIfAuthenticated } from '../components/common/ProtectedRoute';

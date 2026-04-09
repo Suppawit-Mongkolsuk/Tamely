@@ -15,7 +15,8 @@ router.get(
   passport.authenticate('google', {
     session: false,
     scope: ['profile', 'email'],
-  }),
+    prompt: 'select_account', // บังคับให้เลือกบัญชีทุกครั้ง
+  } as any),
 );
 
 router.get(
@@ -39,32 +40,5 @@ router.get(
   },
 );
 
-// GitHub OAuth
-router.get(
-  '/github',
-  passport.authenticate('github', {
-    session: false,
-    scope: ['user:email'],
-  }),
-);
-
-router.get(
-  '/github/callback',
-  passport.authenticate('github', {
-    session: false,
-    failureRedirect: `${CLIENT_URL}/login?error=github_failed`,
-  }),
-  (req: Request, res: Response) => {
-    const user = req.user as { id: string };
-    if (!user) {
-      return res.redirect(`${CLIENT_URL}/login?error=no_user`);
-    }
-
-    const token = signToken(user.id, true);
-    setTokenCookie(res, token, true);
-
-    res.redirect(`${CLIENT_URL}/workspace`);
-  },
-);
-
 export default router;
+
