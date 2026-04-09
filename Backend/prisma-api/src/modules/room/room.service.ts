@@ -1,54 +1,35 @@
-import { prisma } from '../../index';
-import { CreateRoomPayload, UpdateRoomPayload } from '../../types';
 import { WorkspaceRole } from '@prisma/client';
+import { AppError } from '../../types';
+import { TypePayloadCreateRoom, TypePayloadUpdateRoom } from './room.model';
+import * as roomRepository from './room.repository';
+
+/* ======================= HELPERS ======================= */
 
 const assertWorkspaceMember = async (workspaceId: string, userId: string) => {
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-  });
-  if (!member) throw new Error('You are not a member of this workspace');
+  const member = await roomRepository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
   return member;
 };
+
+/* ======================= CREATE ======================= */
 
 export const createRoom = async (
   workspaceId: string,
   userId: string,
-  data: CreateRoomPayload,
+  data: TypePayloadCreateRoom,
 ) => {
   await assertWorkspaceMember(workspaceId, userId);
 
-  const room = await prisma.room.create({
-    data: {
-      workspaceId,
-      name: data.name,
-      description: data.description,
-      isPrivate: data.isPrivate ?? false,
-      createdById: userId,
-      members: {
-        create: { userId },
-      },
-    },
-    include: {
-      _count: { select: { members: true } },
-      createdBy: { select: { id: true, Name: true, avatarUrl: true } },
-    },
-  });
-
+  const room = await roomRepository.create(workspaceId, userId, data);
   return { ...room, memberCount: room._count.members };
 };
+
+/* ======================= READ ======================= */
 
 export const getRooms = async (workspaceId: string, userId: string) => {
   await assertWorkspaceMember(workspaceId, userId);
 
-  const rooms = await prisma.room.findMany({
-    where: { workspaceId, isActive: true },
-    include: {
-      _count: { select: { members: true } },
-      createdBy: { select: { id: true, Name: true, avatarUrl: true } },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
+  const rooms = await roomRepository.findMany(workspaceId);
   return rooms.map((r) => ({
     ...r,
     memberCount: r._count.members,
@@ -56,130 +37,88 @@ export const getRooms = async (workspaceId: string, userId: string) => {
 };
 
 export const getRoomById = async (roomId: string, userId: string) => {
-  const room = await prisma.room.findUnique({
-    where: { id: roomId },
-    include: {
-      _count: { select: { members: true } },
-      createdBy: { select: { id: true, Name: true, avatarUrl: true } },
-      members: {
-        include: {
-          user: {
-            select: { id: true, Name: true, email: true, avatarUrl: true },
-          },
-        },
-      },
-    },
-  });
-  if (!room) throw new Error('Room not found');
+  const room = await roomRepository.findById(roomId);
+  if (!room) throw new AppError(404, 'Room not found');
 
   await assertWorkspaceMember(room.workspaceId, userId);
 
-  return {
-    ...room,
-    memberCount: room._count.members,
-  };
+  return { ...room, memberCount: room._count.members };
 };
+
+/* ======================= UPDATE ======================= */
 
 export const updateRoom = async (
   roomId: string,
   userId: string,
-  data: UpdateRoomPayload,
+  data: TypePayloadUpdateRoom,
 ) => {
-  const room = await prisma.room.findUnique({ where: { id: roomId } });
-  if (!room) throw new Error('Room not found');
+  const room = await roomRepository.findByIdSimple(roomId);
+  if (!room) throw new AppError(404, 'Room not found');
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: { workspaceId: room.workspaceId, userId },
-    },
-  });
+  const member = await roomRepository.findWorkspaceMember(room.workspaceId, userId);
   if (
     !member ||
     (member.role !== WorkspaceRole.OWNER &&
       member.role !== WorkspaceRole.ADMIN &&
       room.createdById !== userId)
   ) {
-    throw new Error('Only workspace owner/admin or room creator can update');
+    throw new AppError(403, 'Only workspace owner/admin or room creator can update');
   }
 
-  return prisma.room.update({
-    where: { id: roomId },
-    data,
-    include: {
-      _count: { select: { members: true } },
-    },
-  });
+  return roomRepository.update(roomId, data);
 };
+
+/* ======================= DELETE ======================= */
 
 export const deleteRoom = async (roomId: string, userId: string) => {
-  const room = await prisma.room.findUnique({ where: { id: roomId } });
-  if (!room) throw new Error('Room not found');
+  const room = await roomRepository.findByIdSimple(roomId);
+  if (!room) throw new AppError(404, 'Room not found');
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: { workspaceId: room.workspaceId, userId },
-    },
-  });
+  const member = await roomRepository.findWorkspaceMember(room.workspaceId, userId);
   if (
     !member ||
     (member.role !== WorkspaceRole.OWNER &&
       member.role !== WorkspaceRole.ADMIN &&
       room.createdById !== userId)
   ) {
-    throw new Error('Only workspace owner/admin or room creator can delete');
+    throw new AppError(403, 'Only workspace owner/admin or room creator can delete');
   }
 
-  await prisma.room.delete({ where: { id: roomId } });
+  await roomRepository.remove(roomId);
 };
+
+/* ======================= MEMBERS ======================= */
 
 export const addRoomMember = async (
   roomId: string,
-  requesterId: string,
+  _requesterId: string,
   targetUserId: string,
 ) => {
-  const room = await prisma.room.findUnique({ where: { id: roomId } });
-  if (!room) throw new Error('Room not found');
+  const room = await roomRepository.findByIdSimple(roomId);
+  if (!room) throw new AppError(404, 'Room not found');
 
   await assertWorkspaceMember(room.workspaceId, targetUserId);
 
-  const existing = await prisma.roomMember.findUnique({
-    where: { roomId_userId: { roomId, userId: targetUserId } },
-  });
-  if (existing) throw new Error('User is already a member of this room');
+  const existing = await roomRepository.findRoomMember(roomId, targetUserId);
+  if (existing) throw new AppError(409, 'User is already a member of this room');
 
-  return prisma.roomMember.create({
-    data: { roomId, userId: targetUserId },
-    include: {
-      user: {
-        select: { id: true, Name: true, email: true, avatarUrl: true },
-      },
-    },
-  });
+  return roomRepository.createRoomMember(roomId, targetUserId);
 };
 
 export const joinRoom = async (roomId: string, userId: string) => {
-  const room = await prisma.room.findUnique({ where: { id: roomId } });
-  if (!room) throw new Error('Room not found');
+  const room = await roomRepository.findByIdSimple(roomId);
+  if (!room) throw new AppError(404, 'Room not found');
 
   if (room.isPrivate) {
-    throw new Error('Cannot join a private room without an invitation');
+    throw new AppError(403, 'Cannot join a private room without an invitation');
   }
 
   await assertWorkspaceMember(room.workspaceId, userId);
 
-  const existing = await prisma.roomMember.findUnique({
-    where: { roomId_userId: { roomId, userId } },
-  });
-  if (existing) throw new Error('You are already a member of this room');
+  const existing = await roomRepository.findRoomMember(roomId, userId);
+  if (existing) throw new AppError(409, 'You are already a member of this room');
 
-  return prisma.roomMember.create({
-    data: { roomId, userId },
-    include: {
-      user: {
-        select: { id: true, Name: true, email: true, avatarUrl: true },
-      },
-    },
-  });
+  return roomRepository.createRoomMember(roomId, userId);
 };
 
 export const removeRoomMember = async (
@@ -187,25 +126,19 @@ export const removeRoomMember = async (
   requesterId: string,
   targetUserId: string,
 ) => {
-  const room = await prisma.room.findUnique({ where: { id: roomId } });
-  if (!room) throw new Error('Room not found');
+  const room = await roomRepository.findByIdSimple(roomId);
+  if (!room) throw new AppError(404, 'Room not found');
 
   if (requesterId !== targetUserId) {
-    const member = await prisma.workspaceMember.findUnique({
-      where: {
-        workspaceId_userId: { workspaceId: room.workspaceId, userId: requesterId },
-      },
-    });
+    const member = await roomRepository.findWorkspaceMember(room.workspaceId, requesterId);
     if (
       !member ||
       (member.role !== WorkspaceRole.OWNER &&
         member.role !== WorkspaceRole.ADMIN)
     ) {
-      throw new Error('Only workspace owner/admin can remove others');
+      throw new AppError(403, 'Only workspace owner/admin can remove others');
     }
   }
 
-  await prisma.roomMember.delete({
-    where: { roomId_userId: { roomId, userId: targetUserId } },
-  });
+  await roomRepository.deleteRoomMember(roomId, targetUserId);
 };

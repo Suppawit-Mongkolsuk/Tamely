@@ -1,47 +1,35 @@
-import { prisma } from '../../index';
-import { CreatePostPayload, UpdatePostPayload } from '../../types';
 import { WorkspaceRole } from '@prisma/client';
+import { AppError } from '../../types';
+import { TypePayloadCreatePost, TypePayloadUpdatePost } from './post.model';
+import * as postRepository from './post.repository';
 
-const authorSelect = {
-  id: true,
-  Name: true,
-  avatarUrl: true,
-} as const;
+/* ======================= HELPERS ======================= */
 
 const assertWorkspaceMember = async (workspaceId: string, userId: string) => {
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-  });
-  if (!member) throw new Error('You are not a member of this workspace');
+  const member = await postRepository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
   return member;
 };
+
+/* ======================= CREATE ======================= */
 
 export const createPost = async (
   workspaceId: string,
   userId: string,
-  data: CreatePostPayload,
+  data: TypePayloadCreatePost,
 ) => {
   const member = await assertWorkspaceMember(workspaceId, userId);
   if (
     member.role !== WorkspaceRole.OWNER &&
     member.role !== WorkspaceRole.ADMIN
   ) {
-    throw new Error('Only owner or admin can create posts');
+    throw new AppError(403, 'Only owner or admin can create posts');
   }
 
-  return prisma.post.create({
-    data: {
-      workspaceId,
-      authorId: userId,
-      title: data.title,
-      body: data.body,
-    },
-    include: {
-      author: { select: authorSelect },
-      _count: { select: { comments: true } },
-    },
-  });
+  return postRepository.create(workspaceId, userId, data);
 };
+
+/* ======================= READ ======================= */
 
 export const getPosts = async (
   workspaceId: string,
@@ -53,19 +41,7 @@ export const getPosts = async (
   const limit = Math.min(options.limit ?? 20, 50);
   const offset = options.offset ?? 0;
 
-  const [posts, total] = await Promise.all([
-    prisma.post.findMany({
-      where: { workspaceId },
-      include: {
-        author: { select: authorSelect },
-        _count: { select: { comments: true } },
-      },
-      orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
-      take: limit,
-      skip: offset,
-    }),
-    prisma.post.count({ where: { workspaceId } }),
-  ]);
+  const { posts, total } = await postRepository.findMany(workspaceId, { limit, offset });
 
   return {
     data: posts.map((p) => ({ ...p, commentCount: p._count.comments })),
@@ -75,107 +51,83 @@ export const getPosts = async (
   };
 };
 
+/* ======================= UPDATE ======================= */
+
 export const updatePost = async (
   postId: string,
   userId: string,
-  data: UpdatePostPayload,
+  data: TypePayloadUpdatePost,
 ) => {
-  const post = await prisma.post.findUnique({ where: { id: postId } });
-  if (!post) throw new Error('Post not found');
+  const post = await postRepository.findById(postId);
+  if (!post) throw new AppError(404, 'Post not found');
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: { workspaceId: post.workspaceId, userId },
-    },
-  });
-  if (!member) throw new Error('You are not a member of this workspace');
+  const member = await postRepository.findWorkspaceMember(post.workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
   if (
     post.authorId !== userId &&
     member.role !== WorkspaceRole.OWNER &&
     member.role !== WorkspaceRole.ADMIN
   ) {
-    throw new Error('Only the author or admin can edit this post');
+    throw new AppError(403, 'Only the author or admin can edit this post');
   }
 
-  return prisma.post.update({
-    where: { id: postId },
-    data,
-    include: {
-      author: { select: authorSelect },
-      _count: { select: { comments: true } },
-    },
-  });
+  return postRepository.update(postId, data);
 };
+
+/* ======================= DELETE ======================= */
 
 export const deletePost = async (postId: string, userId: string) => {
-  const post = await prisma.post.findUnique({ where: { id: postId } });
-  if (!post) throw new Error('Post not found');
+  const post = await postRepository.findById(postId);
+  if (!post) throw new AppError(404, 'Post not found');
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: { workspaceId: post.workspaceId, userId },
-    },
-  });
-  if (!member) throw new Error('You are not a member of this workspace');
+  const member = await postRepository.findWorkspaceMember(post.workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
   if (
     post.authorId !== userId &&
     member.role !== WorkspaceRole.OWNER &&
     member.role !== WorkspaceRole.ADMIN
   ) {
-    throw new Error('Only the author or admin can delete this post');
+    throw new AppError(403, 'Only the author or admin can delete this post');
   }
 
-  await prisma.post.delete({ where: { id: postId } });
+  await postRepository.remove(postId);
 };
 
-export const togglePin = async (postId: string, userId: string, isPinned: boolean) => {
-  const post = await prisma.post.findUnique({ where: { id: postId } });
-  if (!post) throw new Error('Post not found');
+/* ======================= PIN ======================= */
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: { workspaceId: post.workspaceId, userId },
-    },
-  });
+export const togglePin = async (postId: string, userId: string, isPinned: boolean) => {
+  const post = await postRepository.findById(postId);
+  if (!post) throw new AppError(404, 'Post not found');
+
+  const member = await postRepository.findWorkspaceMember(post.workspaceId, userId);
   if (
     !member ||
     (member.role !== WorkspaceRole.OWNER && member.role !== WorkspaceRole.ADMIN)
   ) {
-    throw new Error('Only owner or admin can pin/unpin posts');
+    throw new AppError(403, 'Only owner or admin can pin/unpin posts');
   }
 
-  return prisma.post.update({
-    where: { id: postId },
-    data: { isPinned },
-  });
+  return postRepository.updatePin(postId, isPinned);
 };
+
+/* ======================= COMMENTS ======================= */
 
 export const getComments = async (
   postId: string,
   userId: string,
   options: { limit?: number; offset?: number },
 ) => {
-  const post = await prisma.post.findUnique({ where: { id: postId } });
-  if (!post) throw new Error('Post not found');
+  const post = await postRepository.findById(postId);
+  if (!post) throw new AppError(404, 'Post not found');
 
   await assertWorkspaceMember(post.workspaceId, userId);
 
   const limit = Math.min(options.limit ?? 50, 100);
   const offset = options.offset ?? 0;
 
-  const [comments, total] = await Promise.all([
-    prisma.postComment.findMany({
-      where: { postId },
-      include: { user: { select: authorSelect } },
-      orderBy: { createdAt: 'asc' },
-      take: limit,
-      skip: offset,
-    }),
-    prisma.postComment.count({ where: { postId } }),
-  ]);
-
+  const { comments, total } = await postRepository.findComments(postId, { limit, offset });
   return { data: comments, total, limit, offset };
 };
 
@@ -184,32 +136,19 @@ export const addComment = async (
   userId: string,
   content: string,
 ) => {
-  const post = await prisma.post.findUnique({ where: { id: postId } });
-  if (!post) throw new Error('Post not found');
+  const post = await postRepository.findById(postId);
+  if (!post) throw new AppError(404, 'Post not found');
 
   await assertWorkspaceMember(post.workspaceId, userId);
 
-  return prisma.postComment.create({
-    data: { postId, userId, content },
-    include: { user: { select: authorSelect } },
-  });
+  return postRepository.createComment(postId, userId, content);
 };
 
 export const deleteComment = async (commentId: string, userId: string) => {
-  const comment = await prisma.postComment.findUnique({
-    where: { id: commentId },
-    include: { post: true },
-  });
-  if (!comment) throw new Error('Comment not found');
+  const comment = await postRepository.findCommentById(commentId);
+  if (!comment) throw new AppError(404, 'Comment not found');
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: {
-        workspaceId: comment.post.workspaceId,
-        userId,
-      },
-    },
-  });
+  const member = await postRepository.findWorkspaceMember(comment.post.workspaceId, userId);
 
   if (
     comment.userId !== userId &&
@@ -217,8 +156,8 @@ export const deleteComment = async (commentId: string, userId: string) => {
       (member.role !== WorkspaceRole.OWNER &&
         member.role !== WorkspaceRole.ADMIN))
   ) {
-    throw new Error('Only the author or admin can delete this comment');
+    throw new AppError(403, 'Only the author or admin can delete this comment');
   }
 
-  await prisma.postComment.delete({ where: { id: commentId } });
+  await postRepository.removeComment(commentId);
 };

@@ -1,0 +1,134 @@
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Pin, Loader2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
+import { apiClient } from '@/services/api';
+import type { ApiSuccessResponse } from '@/types';
+import { toast } from 'sonner';
+import { PostCard, type PostData } from '@/components/feed/PostCard';
+import { CreatePostDialog } from '@/components/feed/CreatePostDialog';
+
+export function HomePage() {
+  const { currentWorkspace } = useWorkspaceContext();
+  const wsId = currentWorkspace?.id;
+
+  const [posts, setPosts] = useState<PostData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newBody, setNewBody] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchPosts = useCallback(async () => {
+    if (!wsId) return;
+    setLoading(true);
+    try {
+      const res = await apiClient.get<{
+        success: boolean;
+        data: PostData[];
+        total: number;
+      }>(`/workspaces/${wsId}/posts`);
+      setPosts(res.data);
+    } catch {
+      toast.error('โหลดโพสต์ไม่สำเร็จ');
+    } finally {
+      setLoading(false);
+    }
+  }, [wsId]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  const handleCreate = async () => {
+    if (!wsId || !newTitle.trim() || !newBody.trim()) return;
+    setSubmitting(true);
+    try {
+      await apiClient.post<ApiSuccessResponse<PostData>>(
+        `/workspaces/${wsId}/posts`,
+        { title: newTitle, body: newBody },
+      );
+      setIsCreateDialogOpen(false);
+      setNewTitle('');
+      setNewBody('');
+      fetchPosts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'สร้างโพสต์ไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const pinnedPosts = posts.filter((p) => p.isPinned);
+  const regularPosts = posts.filter((p) => !p.isPinned);
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-muted-foreground">
+            Stay updated with the latest announcements
+          </p>
+        </div>
+        <Button
+          className="bg-primary hover:bg-primary/90"
+          onClick={() => setIsCreateDialogOpen(true)}
+        >
+          <Plus className="size-4 mr-2" />
+          Create Announcement
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : posts.length === 0 ? (
+        <Card className="p-12 text-center">
+          <p className="text-muted-foreground">
+            ยังไม่มีโพสต์ใน workspace นี้ เริ่มสร้างโพสต์แรกเลย!
+          </p>
+        </Card>
+      ) : (
+        <>
+          {pinnedPosts.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Pin className="size-4 text-[#003366]" />
+                <h3 className="text-[#003366]">Pinned Announcements</h3>
+              </div>
+              <div className="grid gap-4">
+                {pinnedPosts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {pinnedPosts.length > 0 && (
+              <h3 className="text-foreground">Recent Announcements</h3>
+            )}
+            <div className="grid gap-4">
+              {regularPosts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <CreatePostDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        title={newTitle}
+        onTitleChange={setNewTitle}
+        body={newBody}
+        onBodyChange={setNewBody}
+        onSubmit={handleCreate}
+        submitting={submitting}
+      />
+    </div>
+  );
+}

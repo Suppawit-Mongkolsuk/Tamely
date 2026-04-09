@@ -1,2 +1,2 @@
-// Re-export from decomposed sub-components
-export { ManagementPage } from './management';
+// Re-export from features
+export { ManagementPage } from '@/features/management';

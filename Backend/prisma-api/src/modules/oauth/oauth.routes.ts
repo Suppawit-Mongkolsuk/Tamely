@@ -14,7 +14,8 @@ router.get(
   passport.authenticate('google', {
     session: false,
     scope: ['profile', 'email'],
-  }),
+    prompt: 'select_account', // บังคับให้เลือกบัญชีทุกครั้ง
+  } as any),
 );
 
 router.get(
@@ -37,4 +38,6 @@ router.get(
     res.redirect(`${CLIENT_URL}/workspace`);
   },
 );
+
+export default router;
 

@@ -1,5 +1,6 @@
 import { Pin, Users, Calendar, MoreVertical } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export interface PostData {
   id: string;
@@ -31,9 +32,9 @@ export function PostCard({ post }: PostCardProps) {
               <Pin className="size-4 text-[#003366] fill-[#003366]" />
             )}
             <h4 className="flex-1">{post.title}</h4>
-            <button className="p-1 hover:bg-muted rounded">
+            <Button variant="ghost" size="icon" className="size-7">
               <MoreVertical className="size-4 text-muted-foreground" />
-            </button>
+            </Button>
           </div>
 
           <p className="text-sm text-muted-foreground leading-relaxed">
