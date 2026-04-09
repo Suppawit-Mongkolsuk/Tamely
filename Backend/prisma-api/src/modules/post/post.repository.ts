@@ -13,6 +13,13 @@ export const findWorkspaceMember = async (workspaceId: string, userId: string) =
   });
 };
 
+export const findWorkspaceMemberWithUser = async (workspaceId: string, userId: string) => {
+  return prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+    include: { user: { select: { id: true, Name: true } } },
+  });
+};
+
 /* ======================= CREATE ======================= */
 
 export const create = async (
@@ -26,6 +33,7 @@ export const create = async (
       authorId: userId,
       title: data.title,
       body: data.body,
+      imageUrls: data.imageUrls ?? [],
     },
     include: {
       author: { select: authorSelect },

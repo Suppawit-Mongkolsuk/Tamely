@@ -2,6 +2,7 @@ import { WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
 import { TypePayloadCreatePost, TypePayloadUpdatePost } from './post.model';
 import * as postRepository from './post.repository';
+import { processAndCreateMentionNotifications } from '../notification/notification.service';
 
 /* ======================= HELPERS ======================= */
 
@@ -26,7 +27,24 @@ export const createPost = async (
     throw new AppError(403, 'Only owner or admin can create posts');
   }
 
-  return postRepository.create(workspaceId, userId, data);
+  const post = await postRepository.create(workspaceId, userId, data);
+
+  // Process @mentions → สร้าง notification (ถ้ามีการ @ เท่านั้น)
+  const memberWithUser = await postRepository.findWorkspaceMemberWithUser(workspaceId, userId);
+  if (memberWithUser) {
+    await processAndCreateMentionNotifications({
+      workspaceId,
+      senderId: userId,
+      senderName: memberWithUser.user.Name,
+      text: data.body,
+      postId: post.id,
+      context: 'post',
+    }).catch((err) => {
+      console.error('Failed to process mention notifications for post:', err);
+    });
+  }
+
+  return post;
 };
 
 /* ======================= READ ======================= */
@@ -141,7 +159,25 @@ export const addComment = async (
 
   await assertWorkspaceMember(post.workspaceId, userId);
 
-  return postRepository.createComment(postId, userId, content);
+  const comment = await postRepository.createComment(postId, userId, content);
+
+  // Process @mentions → สร้าง notification (ถ้ามีการ @ เท่านั้น)
+  const memberWithUser = await postRepository.findWorkspaceMemberWithUser(post.workspaceId, userId);
+  if (memberWithUser) {
+    await processAndCreateMentionNotifications({
+      workspaceId: post.workspaceId,
+      senderId: userId,
+      senderName: memberWithUser.user.Name,
+      text: content,
+      postId: post.id,
+      commentId: comment.id,
+      context: 'comment',
+    }).catch((err) => {
+      console.error('Failed to process mention notifications for comment:', err);
+    });
+  }
+
+  return comment;
 };
 
 export const deleteComment = async (commentId: string, userId: string) => {

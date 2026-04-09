@@ -11,6 +11,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 export const AVATAR_BUCKET = 'avatars';
+export const POST_IMAGES_BUCKET = 'post-images';
 
 /** สร้าง auth headers ที่รองรับทั้ง Legacy JWT (eyJ...) และ New format (sb_secret_...) */
 function authHeaders(): Record<string, string> {
@@ -79,4 +80,40 @@ export async function deleteOldAvatar(avatarUrl: string | null): Promise<void> {
   } catch (err) {
     console.warn('Failed to delete old avatar:', err);
   }
+}
+
+/**
+ * อัปโหลดรูปภาพโพสต์ไปยัง Supabase Storage
+ */
+export async function uploadPostImage(
+  postId: string,
+  fileBuffer: Buffer,
+  mimeType: string,
+  originalName: string,
+): Promise<string> {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Supabase ยังไม่ได้ตั้งค่า');
+  }
+
+  const ext = originalName.split('.').pop() || 'jpg';
+  const filePath = `${postId}/${Date.now()}.${ext}`;
+  const uploadUrl = `${supabaseUrl}/storage/v1/object/${POST_IMAGES_BUCKET}/${filePath}`;
+
+  const response = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': mimeType,
+      'x-upsert': 'true',
+    },
+    body: fileBuffer,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error('Supabase upload error:', response.status, errText);
+    throw new Error('ไม่สามารถอัปโหลดรูปภาพโพสต์ได้');
+  }
+
+  return `${supabaseUrl}/storage/v1/object/public/${POST_IMAGES_BUCKET}/${filePath}`;
 }

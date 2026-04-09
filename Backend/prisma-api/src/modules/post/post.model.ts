@@ -6,11 +6,13 @@ export type TypePayloadCreatePost = {
   workspaceId: string;
   title: string;
   body: string;
+  imageUrls?: string[];
 };
 
 export type TypePayloadUpdatePost = {
   title?: string;
   body?: string;
+  imageUrls?: string[];
 };
 
 /* ======================= HELPERS ======================= */
@@ -36,6 +38,11 @@ export const CreatePostSchema = z.object({
       .string({ message: "กรุณากรอกเนื้อหาโพสต์" })
       .min(1, { message: "เนื้อหาต้องมีอย่างน้อย 1 ตัวอักษร" })
       .transform((v) => v.trim()),
+    imageUrls: z
+      .array(z.string().url({ message: "URL รูปภาพไม่ถูกต้อง" }))
+      .max(10, { message: "แนบรูปได้ไม่เกิน 10 รูป" })
+      .optional()
+      .default([]),
   }),
 });
 
@@ -56,6 +63,10 @@ export const UpdatePostSchema = z.object({
       .string()
       .min(1, { message: "เนื้อหาต้องมีอย่างน้อย 1 ตัวอักษร" })
       .transform((v) => v.trim())
+      .optional(),
+    imageUrls: z
+      .array(z.string().url({ message: "URL รูปภาพไม่ถูกต้อง" }))
+      .max(10, { message: "แนบรูปได้ไม่เกิน 10 รูป" })
       .optional(),
   }),
 });

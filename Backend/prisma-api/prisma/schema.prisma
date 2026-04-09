@@ -42,6 +42,12 @@ enum TaskCreator {
   AI // AI สร้างให้อัตโนมัติ (เช่น สั่ง AI ว่า "ช่วยลงตาราง meeting พรุ่งนี้บ่าย 2")
 }
 
+// ประเภทการ Mention (@ tag)
+enum MentionTargetType {
+  USER // @ ชื่อผู้ใช้โดยตรง
+  ROLE // @ ยศ เช่น @Admin, @Moderator → แจ้งเตือนทุกคนที่มียศนั้น
+}
+
 // ======================================================
 // 1. USER — ผู้ใช้งานในระบบ
 //    หน้าที่: เก็บข้อมูล Authentication & Profile
@@ -76,6 +82,8 @@ model User {
   createdTasks     Task[]            @relation("TaskCreatedByUser") // Task ที่สร้าง
   aiSummaries      AiSummary[]       @relation("AiSummaryRequestedBy") // AI Summary ที่ขอ
   aiQueries        AiQuery[] // คำถาม AI ที่ถาม
+  receivedNotifications Notification[] @relation("NotificationReceiver") // แจ้งเตือนที่ได้รับ (ถูก @)
+  sentNotifications     Notification[] @relation("NotificationSender") // แจ้งเตือนที่ trigger (คน @)
 
   @@unique([provider, providerId]) // ป้องกัน OAuth user ซ้ำ
   @@index([email])
@@ -105,6 +113,7 @@ model Workspace {
   tasks       Task[] // Task ทั้งหมดใน Workspace (Calendar)
   aiSummaries AiSummary[] // สรุป AI ของ Workspace
   aiQueries   AiQuery[] // คำถาม AI ของ Workspace
+  notifications Notification[] // แจ้งเตือนทั้งหมดใน Workspace
 
   @@index([ownerId])
   @@index([inviteCode])
@@ -211,6 +220,7 @@ model Post {
   authorId    String   @db.Uuid // FK → User (ใครเขียน)
   title       String // หัวข้อโพสต์
   body        String // เนื้อหาโพสต์
+  imageUrls   String[] @default([]) // URL รูปภาพที่แนบมากับโพสต์
   isPinned    Boolean  @default(false) // true = ปักหมุดไว้ด้านบน
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -219,6 +229,7 @@ model Post {
   workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments  PostComment[] // คอมเมนต์ทั้งหมดของโพสต์
+  notifications Notification[] // แจ้งเตือนที่เกิดจากโพสต์นี้
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, isPinned])
@@ -241,6 +252,7 @@ model PostComment {
   // === Relations ===
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifications Notification[] // แจ้งเตือนที่เกิดจากคอมเมนต์นี้
 
   @@index([postId, createdAt])
   @@index([userId])
@@ -323,4 +335,36 @@ model AiQuery {
 
   @@index([workspaceId, createdAt])
   @@index([userId, createdAt])
+}
+
+// ======================================================
+// 12. NOTIFICATION — แจ้งเตือนการ @ mention
+//     หน้าที่: เก็บแจ้งเตือนเมื่อถูก @ ในโพสต์หรือคอมเมนต์
+//     - @ ชื่อผู้ใช้ → แจ้งเตือนเฉพาะคนนั้น
+//     - @ ยศ (ADMIN, MODERATOR ฯลฯ) → แจ้งเตือนทุกคนที่มียศนั้น
+//     ใช้ใน: AlertsPage (Mobile), NotificationBell (Web)
+// ======================================================
+model Notification {
+  id          String            @id @default(uuid()) @db.Uuid
+  workspaceId String            @db.Uuid // FK → Workspace (เกิดขึ้นใน Workspace ไหน)
+  userId      String            @db.Uuid // FK → User (คนที่ได้รับ notification)
+  senderId    String            @db.Uuid // FK → User (คนที่ trigger = คน @)
+  type        MentionTargetType // USER = @ ชื่อตรง, ROLE = @ ยศ
+  targetRole  WorkspaceRole? // ยศที่ถูก @ (nullable: มีค่าเฉพาะเมื่อ type = ROLE)
+  postId      String?           @db.Uuid // FK → Post (โพสต์ที่เกิดเหตุ, nullable)
+  commentId   String?           @db.Uuid // FK → PostComment (คอมเมนต์ที่เกิดเหตุ, nullable)
+  content     String // ข้อความสรุป เช่น "John mentioned you in a post"
+  isRead      Boolean           @default(false) // อ่านแล้วหรือยัง
+  createdAt   DateTime          @default(now())
+
+  // === Relations ===
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User         @relation("NotificationReceiver", fields: [userId], references: [id], onDelete: Cascade)
+  sender    User         @relation("NotificationSender", fields: [senderId], references: [id], onDelete: Cascade)
+  post      Post?        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment   PostComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt]) // ดึง notification ที่ยังไม่อ่านของ user
+  @@index([workspaceId])
+  @@index([senderId])
 }

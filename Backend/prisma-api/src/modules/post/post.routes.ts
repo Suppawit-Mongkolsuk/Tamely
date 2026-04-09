@@ -1,13 +1,28 @@
 import { Router } from 'express';
 import { Response } from 'express';
+import multer from 'multer';
 import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
 import { AuthRequest } from '../../types';
 import { CreatePostSchema, TogglePinSchema, AddCommentSchema } from './post.model';
 import * as postService from './post.service';
+import { uploadPostImage } from '../../utils/supabase-storage';
 
 const router = Router();
 router.use(authenticate);
+
+// Multer — รับ file upload ในหน่วยความจำ (max 5 MB ต่อรูป, สูงสุด 10 รูป)
+const postImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('รองรับเฉพาะไฟล์รูปภาพเท่านั้น'));
+    }
+  },
+});
 
 const param = (value: string | string[] | undefined): string =>
   Array.isArray(value) ? value[0] : (value ?? '');
@@ -65,5 +80,27 @@ router.delete('/comments/:id', asyncHandler(async (req: AuthRequest, res: Respon
   await postService.deleteComment(param(req.params.id), req.userId!);
   res.json({ success: true, message: 'Comment deleted' });
 }));
+
+// POST /api/posts/upload-images — อัปโหลดรูปภาพสำหรับโพสต์ (สูงสุด 10 รูป)
+router.post(
+  '/posts/upload-images',
+  postImageUpload.array('images', 10),
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      res.status(400).json({ success: false, message: 'ไม่พบไฟล์รูปภาพ' });
+      return;
+    }
+
+    const postId = req.body.postId || `temp-${req.userId}-${Date.now()}`;
+    const uploadedUrls = await Promise.all(
+      files.map((file) =>
+        uploadPostImage(postId, file.buffer, file.mimetype, file.originalname),
+      ),
+    );
+
+    res.status(201).json({ success: true, data: { urls: uploadedUrls } });
+  }),
+);
 
 export default router;
