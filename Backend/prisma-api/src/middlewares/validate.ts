@@ -12,7 +12,11 @@ import { AppError, AuthRequest } from '../types';
 export const validateRequest =
   (schema: ZodSchema) =>
   (req: Request, res: Response, next: NextFunction): void => {
-    const result = schema.safeParse({ body: req.body });
+    const result = schema.safeParse({
+      body: req.body,
+      params: req.params,
+      query: req.query,
+    });
 
     if (!result.success) {
       const firstError = result.error.issues[0]?.message ?? 'Invalid input';

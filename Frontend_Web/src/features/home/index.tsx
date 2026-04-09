@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Pin, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
@@ -8,16 +9,23 @@ import type { ApiSuccessResponse } from '@/types';
 import { toast } from 'sonner';
 import { PostCard, type PostData } from '@/components/feed/PostCard';
 import { CreatePostDialog } from '@/components/feed/CreatePostDialog';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 export function HomePage() {
   const { currentWorkspace } = useWorkspaceContext();
+  const { user } = useAuthContext();
   const wsId = currentWorkspace?.id;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightPostId = searchParams.get('post');
+  const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [posts, setPosts] = useState<PostData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchPosts = useCallback(async () => {
@@ -41,19 +49,57 @@ export function HomePage() {
     fetchPosts();
   }, [fetchPosts]);
 
+  /* ── Scroll to highlighted post (from notification click) ── */
+  useEffect(() => {
+    if (!highlightPostId || loading) return;
+    const el = postRefs.current[highlightPostId];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // ล้าง ?post= param หลัง 2.5 วิ เพื่อไม่ให้ highlight ค้าง
+      const timer = setTimeout(() => {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('post');
+          return next;
+        });
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightPostId, loading, setSearchParams]);
+
   const handleCreate = async () => {
-    if (!wsId || !newTitle.trim() || !newBody.trim()) return;
+    if (!wsId || !newBody.trim()) return;
     setSubmitting(true);
+
     try {
+      // 1. Upload images ก่อน (ถ้ามี)
+      let imageUrls: string[] = [];
+      if (newImages.length > 0) {
+        setUploadingImages(true);
+        const formData = new FormData();
+        newImages.forEach((file) => formData.append('images', file));
+
+        const uploadRes = await apiClient.upload<{
+          success: boolean;
+          data: { urls: string[] };
+        }>('/posts/upload-images', formData);
+        imageUrls = uploadRes.data.urls;
+        setUploadingImages(false);
+      }
+
+      // 2. สร้างโพสต์
       await apiClient.post<ApiSuccessResponse<PostData>>(
         `/workspaces/${wsId}/posts`,
-        { title: newTitle, body: newBody },
+        { title: newBody.substring(0, 100), body: newBody, imageUrls },
       );
+
       setIsCreateDialogOpen(false);
       setNewTitle('');
       setNewBody('');
+      setNewImages([]);
       fetchPosts();
     } catch (err) {
+      setUploadingImages(false);
       toast.error(err instanceof Error ? err.message : 'สร้างโพสต์ไม่สำเร็จ');
     } finally {
       setSubmitting(false);
@@ -62,6 +108,14 @@ export function HomePage() {
 
   const pinnedPosts = posts.filter((p) => p.isPinned);
   const regularPosts = posts.filter((p) => !p.isPinned);
+
+  const handleDeletePost = (postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  };
+
+  const handleTogglePin = (postId: string, isPinned: boolean) => {
+    setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, isPinned } : p));
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -100,7 +154,19 @@ export function HomePage() {
               </div>
               <div className="grid gap-4">
                 {pinnedPosts.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <div
+                    key={post.id}
+                    ref={(el) => { postRefs.current[post.id] = el; }}
+                  >
+                    <PostCard
+                      post={post}
+                      currentUserId={user?.id}
+                      currentUserRole={currentWorkspace?.role}
+                      onDelete={handleDeletePost}
+                      onTogglePin={handleTogglePin}
+                      highlighted={highlightPostId === post.id}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
@@ -112,7 +178,19 @@ export function HomePage() {
             )}
             <div className="grid gap-4">
               {regularPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
+                <div
+                  key={post.id}
+                  ref={(el) => { postRefs.current[post.id] = el; }}
+                >
+                  <PostCard
+                    post={post}
+                    currentUserId={user?.id}
+                    currentUserRole={currentWorkspace?.role}
+                    onDelete={handleDeletePost}
+                    onTogglePin={handleTogglePin}
+                    highlighted={highlightPostId === post.id}
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -126,8 +204,12 @@ export function HomePage() {
         onTitleChange={setNewTitle}
         body={newBody}
         onBodyChange={setNewBody}
+        images={newImages}
+        onImagesChange={setNewImages}
+        uploadingImages={uploadingImages}
         onSubmit={handleCreate}
         submitting={submitting}
+        workspaceId={wsId}
       />
     </div>
   );

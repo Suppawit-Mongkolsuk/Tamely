@@ -2,6 +2,7 @@
 import { useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { navigation } from './Sidebar';
+import { NotificationBell } from './NotificationBell';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -24,6 +25,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
       <div className="flex-1">
         <h2 className="text-foreground">{currentNav?.name || 'Home / Feed'}</h2>
       </div>
+      <NotificationBell />
     </header>
   );
 }
