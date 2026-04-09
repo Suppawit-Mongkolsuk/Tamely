@@ -16,6 +16,8 @@ interface WorkspaceData {
   iconUrl?: string | null;
   memberCount?: number;
   role?: string;
+  planType?: 'Pro' | 'Enterprise' | null;
+  unreadCount?: number;
 }
 
 const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
@@ -83,41 +85,6 @@ export default function WorkspaceScreen() {
     fetchWorkspaces();
   }, [token]);
 
-  const handleCreateWorkspace = async () => {
-    Alert.prompt(
-      'Create New Workspace',
-      'Enter workspace name',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Create',
-          onPress: async (name?: string) => {
-            if (!name) return;
-            try {
-              const res = await fetchWithTimeout(
-                `${API_BASE}/api/workspaces`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                    'ngrok-skip-browser-warning': 'true',
-                  },
-                  body: JSON.stringify({ name }),
-                }
-              );
-              if (res.ok) {
-                fetchWorkspaces();
-              }
-            } catch (err) {
-              Alert.alert('Error', 'สร้าง Workspace ไม่สำเร็จ');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const filteredWorkspaces = workspaces.filter((ws: WorkspaceData) =>
     ws.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -125,32 +92,43 @@ export default function WorkspaceScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
 
-      {/* ส่วน Header แบบ Figma */}
       <LinearGradient
-        colors={['#1e3a5f', '#2d5087', '#425C95']}
+        colors={['#152C53', '#234476', '#42639B']}
         style={{
-          height: 180,          // กำหนด height ตายตัว
+          height: 180,
           paddingHorizontal: 24,
           position: 'relative',
         }}
+        start={{ x: 0, y: 1 }}
+        end={{ x: 1, y: 1 }}
       >
         <DecorativeBubble size={35} top={-5} right={-8} opacity={0.12} />
-        <DecorativeBubble size={20} top={5}  right={10} opacity={0.07} />
+        <DecorativeBubble size={20} top={5} right={10} opacity={0.07} />
+        <DecorativeBubble size={45} bottom={-13} left={-10} opacity={0.08} />
 
-        {/* Logo วาง absolute ซ้ายบน */}
-        <Image
-          source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
-          style={{
-            position: 'absolute',
-            top: -100,
-            left: -50,
-            width: 300,
-            height: 330,
+        {/* 🟢 ส่วนที่ปรับปรุง: กล่องควบคุมขนาดโลโก้แบบ Manual */}
+        <View 
+          style={{ 
+            width: '60%',     
+            aspectRatio: 3.5 / 1,  
+            marginTop: 56,         
+            marginBottom: 24, 
+            alignSelf: 'flex-start'
           }}
-          resizeMode="contain"
-        />
+        >
+          <Image
+            source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
+            style={{
+              position: 'absolute',
+              top: -140,
+              left: -65,
+              width: 300,
+              height: 330,
+            }}
+           resizeMode="contain"
+          />
+        </View>
 
-        {/* Logout วาง absolute ขวาบน */}
         <TouchableOpacity
           style={{
             position: 'absolute',
@@ -168,33 +146,33 @@ export default function WorkspaceScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Title + Subtitle วาง absolute ล่างซ้าย */}
-        <Text style={{
-          position: 'absolute',
-          bottom: 32,
-          left: 24,
-          fontSize: 28,
-          fontWeight: '800',
-          color: '#fff',
-          marginBottom: 6,
-        }}>
+        <Text
+          style={{
+            position: 'absolute',
+            bottom: 32,
+            left: 24,
+            fontSize: 28,
+            fontWeight: '800',
+            color: '#fff',
+          }}
+        >
           Choose a Workspace
         </Text>
-        <Text style={{
-          position: 'absolute',
-          bottom: 10,
-          left: 24,
-          color: 'rgba(255,255,255,0.7)',
-          fontSize: 14,
-        }}>
+        <Text
+          style={{
+            position: 'absolute',
+            bottom: 10,
+            left: 24,
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: 14,
+          }}
+        >
           Select a workspace to continue or start a new one
         </Text>
       </LinearGradient>
 
-      {/* ส่วน Content ด้านล่าง */}
       <View className="flex-1 px-6 pt-6">
 
-        {/* ปุ่มด้านบน: Join และ New */}
         <View className="flex-row gap-4 mb-8">
           <TouchableOpacity
             className="flex-1 bg-white border-2 border-dashed border-blue-200 rounded-3xl p-6 items-center justify-center shadow-sm"
@@ -209,7 +187,7 @@ export default function WorkspaceScreen() {
 
           <TouchableOpacity
             className="flex-1 bg-green-50 border-2 border-dashed border-green-200 rounded-3xl p-6 items-center justify-center shadow-sm"
-            onPress={handleCreateWorkspace}
+            onPress={() => router.push('/(workspace)/createWorkspace')}
           >
             <View className="w-12 h-12 bg-green-100 rounded-2xl items-center justify-center mb-3">
               <Plus size={24} color="#16a34a" />
@@ -219,7 +197,6 @@ export default function WorkspaceScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ช่อง Search */}
         <View className="flex-row items-center bg-gray-50 rounded-2xl px-4 py-3 mb-6 border border-gray-100">
           <Search size={20} color="#9ca3af" />
           <TextInput
@@ -230,7 +207,6 @@ export default function WorkspaceScreen() {
           />
         </View>
 
-        {/* ส่วนแสดงรายการข้อมูลจริง */}
         {isLoading ? (
           <ActivityIndicator size="large" color="#425C95" className="mt-10" />
         ) : (
@@ -245,7 +221,9 @@ export default function WorkspaceScreen() {
                 memberCount={item.memberCount || 0}
                 lastActive="Active now"
                 isAdmin={item.role === 'OWNER' || item.role === 'ADMIN'}
-                onPress={(id) =>
+                planType={item.planType ?? null}
+                unreadCount={item.unreadCount ?? 0}
+                onPress={(id: string) =>
                   router.push({
                     pathname: '/(tabs)/feed',
                     params: { workspaceId: id },
@@ -255,7 +233,7 @@ export default function WorkspaceScreen() {
             )}
             ListEmptyComponent={
               <Text className="text-center text-gray-400 mt-10">
-                ยังไม่มี Workspaceหรอ สร้างสิ
+                ยังไม่มี Workspace หรอ สร้างสิ
               </Text>
             }
             refreshControl={
