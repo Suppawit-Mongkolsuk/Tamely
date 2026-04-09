@@ -67,46 +67,4 @@ router.get(
   },
 );
 
-// Mobile Google OAuth — รับ accessToken จาก expo-auth-session แล้วคืน JWT
-router.post('/google/mobile', async (req: Request, res: Response) => {
-  try {
-    const { accessToken } = req.body;
-    if (!accessToken) {
-      res.status(400).json({ success: false, error: 'accessToken is required' });
-      return;
-    }
-
-    // Verify token กับ Google userinfo API
-    const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    if (!googleRes.ok) {
-      res.status(401).json({ success: false, error: 'Invalid Google access token' });
-      return;
-    }
-
-    const googleUser = await googleRes.json() as {
-      sub: string;
-      email: string;
-      name: string;
-      picture?: string;
-    };
-
-    const user = await findOrCreateOAuthUser({
-      provider: 'google',
-      providerId: googleUser.sub,
-      email: googleUser.email,
-      name: googleUser.name,
-      avatarUrl: googleUser.picture ?? null,
-    });
-
-    const token = signToken(user.id, true);
-    res.json({ success: true, data: { token, user } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Google mobile auth failed';
-    res.status(500).json({ success: false, error: message });
-  }
-});
-
 export default router;
