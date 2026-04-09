@@ -34,7 +34,7 @@ export default function RegisterScreen() {
                 body: JSON.stringify({
                     email: email,
                     password: password,
-                    displayName: fullName // ✅ ตรงนี้แหละครับกุญแจสำคัญ! ส่งชื่อ displayName ไป
+                    displayName: fullName 
                 }),
             });
 
