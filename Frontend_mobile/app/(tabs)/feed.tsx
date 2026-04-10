@@ -6,8 +6,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Pin, MessageCircle, ImageIcon, X, Send, MoreHorizontal } from 'lucide-react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import Header from '../../components/ui/Header';
+
 
 /* ======================= TYPES ======================= */
 
@@ -79,9 +80,10 @@ interface PostCardProps {
   token: string;
   onDeleted: () => void;
   onEdit: (post: Post) => void;
+  onPress: () => void;
 }
 
-function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdit }: PostCardProps) {
+function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdit, onPress }: PostCardProps) {
   const canManage = isAdminOrOwner || post.author.id === currentUserId;
 
   const handleMorePress = () => {
@@ -142,6 +144,7 @@ function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdi
 
   return (
     <TouchableOpacity
+      onPress={onPress}
       style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: post.isPinned ? '#dbeafe' : '#f3f4f6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}
       activeOpacity={0.8}
     >
@@ -489,6 +492,11 @@ export default function FeedScreen() {
                     token={token}
                     onDeleted={() => loadPosts(true)}
                     onEdit={handleEdit}
+                    onPress={() => router.push({         
+                      pathname: '/(tabs)/post-detail',
+                      params: { post: JSON.stringify(post) },
+                    })}
+
                   />
                 ))}
               </>
@@ -509,6 +517,10 @@ export default function FeedScreen() {
             token={token}
             onDeleted={() => loadPosts(true)}
             onEdit={handleEdit}
+            onPress={() => router.push({
+              pathname: '/(tabs)/post-detail',
+              params: { post: JSON.stringify(item) },
+            })}
           />
         ) : null}
         ListEmptyComponent={
