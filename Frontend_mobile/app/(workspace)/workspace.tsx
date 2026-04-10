@@ -298,6 +298,7 @@ export default function WorkspaceScreen() {
                       wsId: id,
                       token: token,
                       user: params.user,
+                      role: item.role,
                     },
                   })
                 }

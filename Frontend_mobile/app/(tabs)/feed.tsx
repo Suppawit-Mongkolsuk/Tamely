@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   FlatList, RefreshControl, Modal, KeyboardAvoidingView,
-  Platform, ScrollView, Alert,
+  Platform, ScrollView, Alert, ActionSheetIOS,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Pin, MessageCircle, ImageIcon, X, Send } from 'lucide-react-native';
+import { Search, Pin, MessageCircle, ImageIcon, X, Send, MoreHorizontal } from 'lucide-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import Header from '../../components/ui/Header';
+
+/* ======================= TYPES ======================= */
 
 interface Author {
   id: string;
@@ -34,7 +36,11 @@ interface PostsResponse {
   offset: number;
 }
 
+/* ======================= CONFIG ======================= */
+
 const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+
+/* ======================= HELPERS ======================= */
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -66,26 +72,110 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 
 /* ======================= POST CARD ======================= */
 
-function PostCard({ post }: { post: Post }) {
+interface PostCardProps {
+  post: Post;
+  currentUserId: string;
+  isAdminOrOwner: boolean;
+  token: string;
+  onDeleted: () => void;
+  onEdit: (post: Post) => void;
+}
+
+function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdit }: PostCardProps) {
+  const canManage = isAdminOrOwner || post.author.id === currentUserId;
+
+  const handleMorePress = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['ยกเลิก', 'แก้ไขโพสต์', 'ลบโพสต์'],
+          destructiveButtonIndex: 2,
+          cancelButtonIndex: 0,
+        },
+        (index) => {
+          if (index === 1) onEdit(post);
+          if (index === 2) confirmDelete();
+        },
+      );
+    } else {
+      // Android — ใช้ Alert เป็น action sheet
+      Alert.alert('จัดการโพสต์', '', [
+        { text: 'แก้ไขโพสต์', onPress: () => onEdit(post) },
+        { text: 'ลบโพสต์', style: 'destructive', onPress: confirmDelete },
+        { text: 'ยกเลิก', style: 'cancel' },
+      ]);
+    }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert('ลบโพสต์?', 'โพสต์นี้จะถูกลบถาวร', [
+      { text: 'ยกเลิก', style: 'cancel' },
+      { text: 'ลบ', style: 'destructive', onPress: deletePost },
+    ]);
+  };
+
+  const deletePost = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/posts/${post.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        if (res.status === 403) {
+          Alert.alert('ไม่มีสิทธิ์', 'คุณไม่มีสิทธิ์ลบโพสต์นี้');
+        } else {
+          Alert.alert('เกิดข้อผิดพลาด', json.message ?? 'ลบโพสต์ไม่สำเร็จ');
+        }
+        return;
+      }
+
+      onDeleted();
+    } catch {
+      Alert.alert('Network Error', 'ไม่สามารถเชื่อมต่อ server ได้');
+    }
+  };
+
   return (
     <TouchableOpacity
       style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: post.isPinned ? '#dbeafe' : '#f3f4f6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}
       activeOpacity={0.8}
     >
-      {post.isPinned && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-          <Pin size={12} color="#425C95" />
-          <Text style={{ fontSize: 11, color: '#425C95', fontWeight: '700', letterSpacing: 0.3 }}>PINNED</Text>
-        </View>
-      )}
+      {/* Pinned + More button row */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: post.isPinned ? 8 : 0 }}>
+        {post.isPinned ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Pin size={12} color="#425C95" />
+            <Text style={{ fontSize: 11, color: '#425C95', fontWeight: '700', letterSpacing: 0.3 }}>PINNED</Text>
+          </View>
+        ) : <View />}
+
+        {/* จุดสามจุด — แสดงเฉพาะคนที่มีสิทธิ์ */}
+        {canManage && (
+          <TouchableOpacity
+            onPress={handleMorePress}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ padding: 2 }}
+          >
+            <MoreHorizontal size={18} color="#9ca3af" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 6, lineHeight: 22 }}>{post.title}</Text>
       <Text style={{ fontSize: 13, color: '#6b7280', lineHeight: 20, marginBottom: 12 }} numberOfLines={3}>{post.body}</Text>
+
       {post.imageUrls.length > 0 && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
           <ImageIcon size={13} color="#9ca3af" />
           <Text style={{ fontSize: 12, color: '#9ca3af' }}>{post.imageUrls.length} รูปภาพ</Text>
         </View>
       )}
+
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f9fafb' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Avatar name={post.author.Name} size={24} />
@@ -119,20 +209,34 @@ function SkeletonCard() {
   );
 }
 
-/* ======================= CREATE POST MODAL ======================= */
+/* ======================= POST FORM MODAL (ใช้ทั้ง Create และ Edit) ======================= */
 
-interface CreatePostModalProps {
+interface PostFormModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
   token: string;
   wsId: string;
+  editingPost?: Post | null; // ถ้ามีค่า = edit mode, ถ้าไม่มี = create mode
 }
 
-function CreatePostModal({ visible, onClose, onSuccess, token, wsId }: CreatePostModalProps) {
+function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost }: PostFormModalProps) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const isEditMode = !!editingPost;
+
+  // โหลดค่าเดิมเมื่อเปิด edit mode
+  useEffect(() => {
+    if (editingPost) {
+      setTitle(editingPost.title);
+      setBody(editingPost.body);
+    } else {
+      setTitle('');
+      setBody('');
+    }
+  }, [editingPost, visible]);
 
   const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !submitting;
 
@@ -142,26 +246,27 @@ function CreatePostModal({ visible, onClose, onSuccess, token, wsId }: CreatePos
     try {
       setSubmitting(true);
 
-      const res = await fetch(`${API_BASE}/api/workspaces/${wsId}/posts`, {
-        method: 'POST',
+      const url = isEditMode
+        ? `${API_BASE}/api/posts/${editingPost!.id}`
+        : `${API_BASE}/api/workspaces/${wsId}/posts`;
+
+      const res = await fetch(url, {
+        method: isEditMode ? 'PATCH' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
           'ngrok-skip-browser-warning': 'true',
         },
-        body: JSON.stringify({
-          title: title.trim(),
-          body: body.trim(),
-        }),
+        body: JSON.stringify({ title: title.trim(), body: body.trim() }),
       });
 
       const json = await res.json();
 
       if (!res.ok) {
         if (res.status === 403) {
-          Alert.alert('ไม่มีสิทธิ์', 'เฉพาะ Admin หรือ Owner เท่านั้นที่สร้างประกาศได้');
+          Alert.alert('ไม่มีสิทธิ์', isEditMode ? 'คุณไม่มีสิทธิ์แก้ไขโพสต์นี้' : 'เฉพาะ Admin หรือ Owner เท่านั้นที่สร้างประกาศได้');
         } else {
-          Alert.alert('เกิดข้อผิดพลาด', json.message ?? 'ไม่สามารถสร้างโพสต์ได้');
+          Alert.alert('เกิดข้อผิดพลาด', json.message ?? 'ไม่สามารถบันทึกได้');
         }
         return;
       }
@@ -178,14 +283,14 @@ function CreatePostModal({ visible, onClose, onSuccess, token, wsId }: CreatePos
   };
 
   const handleClose = () => {
-    if (title || body) {
-      Alert.alert('ยกเลิกโพสต์?', 'ข้อมูลที่กรอกจะหายไป', [
+    const isDirty = isEditMode
+      ? title !== editingPost?.title || body !== editingPost?.body
+      : title.length > 0 || body.length > 0;
+
+    if (isDirty) {
+      Alert.alert('ยกเลิก?', 'ข้อมูลที่กรอกจะหายไป', [
         { text: 'อยู่ต่อ', style: 'cancel' },
-        {
-          text: 'ยกเลิก', style: 'destructive', onPress: () => {
-            setTitle(''); setBody(''); onClose();
-          }
-        },
+        { text: 'ยกเลิก', style: 'destructive', onPress: () => { setTitle(''); setBody(''); onClose(); } },
       ]);
     } else {
       onClose();
@@ -201,9 +306,9 @@ function CreatePostModal({ visible, onClose, onSuccess, token, wsId }: CreatePos
             <TouchableOpacity onPress={handleClose} style={{ padding: 4 }}>
               <X size={22} color="#6b7280" />
             </TouchableOpacity>
-
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>สร้างประกาศ</Text>
-
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>
+              {isEditMode ? 'แก้ไขประกาศ' : 'สร้างประกาศ'}
+            </Text>
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={!canSubmit}
@@ -211,13 +316,12 @@ function CreatePostModal({ visible, onClose, onSuccess, token, wsId }: CreatePos
             >
               <Send size={14} color="#fff" />
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
-                {submitting ? 'กำลังส่ง...' : 'โพสต์'}
+                {submitting ? 'กำลังส่ง...' : isEditMode ? 'บันทึก' : 'โพสต์'}
               </Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>
               หัวข้อ <Text style={{ color: '#ef4444' }}>*</Text>
             </Text>
@@ -246,13 +350,14 @@ function CreatePostModal({ visible, onClose, onSuccess, token, wsId }: CreatePos
               style={{ backgroundColor: '#f9fafb', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#111827', borderWidth: 1, borderColor: '#f3f4f6', minHeight: 160 }}
             />
 
-            <View style={{ backgroundColor: '#eff6ff', borderRadius: 10, padding: 12, marginTop: 16, flexDirection: 'row', gap: 8 }}>
-              <Text style={{ fontSize: 16 }}>ℹ️</Text>
-              <Text style={{ fontSize: 12, color: '#1d4ed8', flex: 1, lineHeight: 18 }}>
-                เฉพาะ Admin และ Owner เท่านั้นที่สามารถสร้างประกาศได้
-              </Text>
-            </View>
-
+            {!isEditMode && (
+              <View style={{ backgroundColor: '#eff6ff', borderRadius: 10, padding: 12, marginTop: 16, flexDirection: 'row', gap: 8 }}>
+                <Text style={{ fontSize: 16 }}>ℹ️</Text>
+                <Text style={{ fontSize: 12, color: '#1d4ed8', flex: 1, lineHeight: 18 }}>
+                  เฉพาะ Admin และ Owner เท่านั้นที่สามารถสร้างประกาศได้
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
@@ -265,21 +370,25 @@ function CreatePostModal({ visible, onClose, onSuccess, token, wsId }: CreatePos
 export default function FeedScreen() {
   const params = useLocalSearchParams();
 
-  // แก้ handle ทั้ง string และ Array จาก expo-router
   const rawToken = params.token;
   const rawWsId = params.wsId;
   const rawUser = params.user;
+  const rawRole = params.role;
   const token = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
   const wsId = Array.isArray(rawWsId) ? rawWsId[0] : (rawWsId ?? '');
   const userStr = Array.isArray(rawUser) ? rawUser[0] : (rawUser ?? '');
+  const role = Array.isArray(rawRole) ? rawRole[0] : (rawRole ?? '');
   const userData = userStr ? JSON.parse(userStr) : null;
-  
+
+  const isAdminOrOwner = role === 'OWNER' || role === 'ADMIN';
+
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
 
   const loadPosts = useCallback(async (isRefresh = false) => {
     if (!token || !wsId) {
@@ -307,6 +416,16 @@ export default function FeedScreen() {
 
   useEffect(() => { loadPosts(); }, [loadPosts]);
 
+  const handleEdit = (post: Post) => {
+    setEditingPost(post);
+    setShowForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingPost(null);
+  };
+
   const filtered = posts.filter(
     (p) =>
       p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -321,7 +440,12 @@ export default function FeedScreen() {
         subtitle="Stay updated with announcements"
         userName={userData?.displayName ?? 'Your Name'}
         userEmail={userData?.email ?? ''}
-        userInitials={(userData?.displayName ?? 'YO').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+        userInitials={(userData?.displayName ?? 'YO')
+          .split(' ')
+          .map((w: string) => w[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2)}
       />
 
       <FlatList
@@ -356,7 +480,17 @@ export default function FeedScreen() {
                     <Text style={{ fontSize: 11, color: '#1d4ed8', fontWeight: '700' }}>{pinned.length}</Text>
                   </View>
                 </View>
-                {pinned.map((post) => <PostCard key={post.id} post={post} />)}
+                {pinned.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    currentUserId={userData?.id ?? ''}
+                    isAdminOrOwner={isAdminOrOwner}
+                    token={token}
+                    onDeleted={() => loadPosts(true)}
+                    onEdit={handleEdit}
+                  />
+                ))}
               </>
             )}
 
@@ -367,7 +501,16 @@ export default function FeedScreen() {
             )}
           </>
         }
-        renderItem={({ item }) => !loading ? <PostCard post={item} /> : null}
+        renderItem={({ item }) => !loading ? (
+          <PostCard
+            post={item}
+            currentUserId={userData?.id ?? ''}
+            isAdminOrOwner={isAdminOrOwner}
+            token={token}
+            onDeleted={() => loadPosts(true)}
+            onEdit={handleEdit}
+          />
+        ) : null}
         ListEmptyComponent={
           !loading && !error ? (
             <View style={{ alignItems: 'center', marginTop: 60 }}>
@@ -380,19 +523,21 @@ export default function FeedScreen() {
 
       {/* FAB */}
       <TouchableOpacity
-        onPress={() => setShowCreate(true)}
+        onPress={() => { setEditingPost(null); setShowForm(true); }}
         style={{ position: 'absolute', bottom: 24, right: 20, backgroundColor: '#425C95', width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', shadowColor: '#425C95', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 6 }}
         activeOpacity={0.85}
       >
         <Text style={{ color: '#fff', fontSize: 26, lineHeight: 30 }}>+</Text>
       </TouchableOpacity>
 
-      <CreatePostModal
-        visible={showCreate}
-        onClose={() => setShowCreate(false)}
+      {/* Create / Edit Modal */}
+      <PostFormModal
+        visible={showForm}
+        onClose={handleCloseForm}
         onSuccess={() => loadPosts(true)}
         token={token}
         wsId={wsId}
+        editingPost={editingPost}
       />
     </SafeAreaView>
   );
