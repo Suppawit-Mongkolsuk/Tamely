@@ -8,6 +8,9 @@
     "scheme": "tamely",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "updates": {
+      "enabled": false
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -45,9 +48,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "updates": {
-      "enabled": false
     }
   }
 }
