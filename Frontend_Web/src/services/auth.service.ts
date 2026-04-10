@@ -57,4 +57,14 @@ export const authService = {
       return null;
     }
   },
+
+  // ดึง fresh token สำหรับ socket (ใช้ตอน page refresh)
+  async getSocketToken(): Promise<string | null> {
+    try {
+      const response = await apiClient.get<ApiSuccessResponse<{ token: string }>>('/auth/token');
+      return response.data.token;
+    } catch {
+      return null;
+    }
+  },
 };

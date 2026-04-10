@@ -10,10 +10,11 @@ export interface ChatRoom {
 }
 
 export interface DirectMessage {
-  id: string;
-  userId: string;
-  userName: string;
-  avatar: string;
+  id: string;             // conversationId
+  userId: string;         // ID ของอีกฝ่าย
+  userName: string;       // ชื่อของอีกฝ่าย
+  avatar: string;         // initials avatar
+  avatarUrl?: string | null;
   status: 'online' | 'away' | 'offline';
   unread: number;
   lastMessage: string;
@@ -27,6 +28,10 @@ export interface Message {
   content: string;
   timestamp: string;
   isOwn: boolean;
+  type?: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
 }
 
 export interface Member {

@@ -6,22 +6,9 @@ import { AuthRequest, LoginResponse } from '../../types';
 import { signToken, setTokenCookie, clearTokenCookie } from '../../utils/jwt.utils';
 import { RegisterSchema, LoginSchema, ForgotPasswordSchema, ResetPasswordSchema } from './auth.model';
 import * as authService from './auth.service';
-import multer from 'multer';
+import { avatarUpload } from '../../middlewares/upload.middleware';
 
 const router = Router();
-
-// ========================
-// Multer — รับ file upload ในหน่วยความจำ (max 2 MB)
-// ========================
-const avatarUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/gif'];
-    if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('รองรับเฉพาะ JPG, PNG, GIF'));
-  },
-});
 
 // POST /api/auth/register
 router.post('/register', validateRequest(RegisterSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
@@ -52,6 +39,13 @@ router.post('/logout', (req: AuthRequest, res: Response): void => {
 router.get('/me', authenticate, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const user = await authService.getUserById(req.userId!);
   res.status(200).json({ success: true, data: user });
+}));
+
+// GET /api/auth/token — คืน fresh token สำหรับ Socket auth (ใช้ตอน page refresh)
+router.get('/token', authenticate, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const token = signToken(req.userId!);
+  setTokenCookie(res, token);
+  res.json({ success: true, data: { token } });
 }));
 
 // POST /api/auth/forgot-password

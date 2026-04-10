@@ -1,27 +1,36 @@
 // ===== Chat Detail Panel — Right sidebar =====
+import { useState } from 'react';
 import {
   Crown,
   Shield,
   UserPlus,
   UserMinus,
   User,
-  Bell,
   Users,
   LogOut,
   Hash,
+  Mail,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import type { ChatRoom, DirectMessage, Member, ChatTab } from '@/types/chat-ui';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import type { ChatRoom, DirectMessage, Member, ChatTab, Message } from '@/types/chat-ui';
+import type { WorkspaceMember } from '@/types/workspace';
 
 interface ChatDetailPanelProps {
   activeTab: ChatTab;
   currentRoom: ChatRoom | undefined;
   currentDM: DirectMessage | undefined;
   members: Member[];
+  messages?: Message[];
   onInviteMember: () => void;
   onRemoveMember: (member: Member) => void;
   onLeaveRoom: () => void;
+  onlineStatus?: Record<string, boolean>;
+  dmUserDetail?: WorkspaceMember | null;
 }
 
 export function ChatDetailPanel({
@@ -29,12 +38,15 @@ export function ChatDetailPanel({
   currentRoom,
   currentDM,
   members,
+  messages = [],
   onInviteMember,
   onRemoveMember,
   onLeaveRoom,
+  onlineStatus = {},
+  dmUserDetail,
 }: ChatDetailPanelProps) {
   return (
-    <div className="w-80 bg-white border-l border-border p-4 space-y-6">
+    <div className="w-80 bg-white border-l border-border p-4 space-y-6 overflow-y-auto">
       {activeTab === 'rooms' ? (
         <RoomDetails
           currentRoom={currentRoom}
@@ -44,7 +56,12 @@ export function ChatDetailPanel({
           onLeaveRoom={onLeaveRoom}
         />
       ) : (
-        <DMDetails currentDM={currentDM} />
+        <DMDetails
+          currentDM={currentDM}
+          onlineStatus={onlineStatus}
+          dmUserDetail={dmUserDetail}
+          messages={messages}
+        />
       )}
     </div>
   );
@@ -69,7 +86,7 @@ function RoomDetails({
       {/* Room Members */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base">Members ({members.length})</h3>
+          <h3 className="text-base font-medium">Members ({members.length})</h3>
           <Button variant="ghost" size="sm" onClick={onInviteMember}>
             <UserPlus className="size-4" />
           </Button>
@@ -81,16 +98,14 @@ function RoomDetails({
               className="group flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
             >
               <div className="relative">
-                <div className="size-10 rounded-full bg-[#75A2BF] flex items-center justify-center text-white">
+                <div className="size-10 rounded-full bg-[#75A2BF] flex items-center justify-center text-white text-sm font-medium">
                   {member.avatar}
                 </div>
-                <div
+                <span
                   className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-white ${
                     member.status === 'online'
                       ? 'bg-green-500'
-                      : member.status === 'away'
-                        ? 'bg-yellow-500'
-                        : 'bg-gray-400'
+                      : 'bg-gray-300'
                   }`}
                 />
               </div>
@@ -126,21 +141,6 @@ function RoomDetails({
         </div>
       </div>
 
-      {/* Related Announcements */}
-      <div>
-        <h3 className="text-base mb-3">Related Announcements</h3>
-        <div className="space-y-2">
-          <Card className="p-3 hover:shadow-md transition-shadow cursor-pointer">
-            <p className="text-sm mb-1">Q1 Product Roadmap Review</p>
-            <p className="text-xs text-muted-foreground">2 hours ago</p>
-          </Card>
-          <Card className="p-3 hover:shadow-md transition-shadow cursor-pointer">
-            <p className="text-sm mb-1">Sprint Planning - Week 5</p>
-            <p className="text-xs text-muted-foreground">1 day ago</p>
-          </Card>
-        </div>
-      </div>
-
       {/* Leave Room */}
       <div className="pt-4 border-t border-border">
         <Button
@@ -157,57 +157,129 @@ function RoomDetails({
 }
 
 /* ---- DM Detail sub-section ---- */
-function DMDetails({ currentDM }: { currentDM: DirectMessage | undefined }) {
+function DMDetails({
+  currentDM,
+  onlineStatus,
+  dmUserDetail,
+  messages,
+}: {
+  currentDM: DirectMessage | undefined;
+  onlineStatus: Record<string, boolean>;
+  dmUserDetail?: WorkspaceMember | null;
+  messages: Message[];
+}) {
+  const [showProfile, setShowProfile] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const isOnline = currentDM ? (onlineStatus[currentDM.userId] ?? false) : false;
+
+  // กรองเฉพาะ IMAGE messages ที่มี fileUrl
+  const sharedImages = messages.filter((m) => m.type === 'IMAGE' && m.fileUrl);
+
   return (
     <>
       {/* DM User Info */}
       <div className="text-center">
         <div className="relative inline-block mb-3">
-          <div className="size-20 rounded-full bg-[#75A2BF] flex items-center justify-center text-white text-2xl">
+          <div className="size-20 rounded-full bg-[#75A2BF] flex items-center justify-center text-white text-2xl font-medium">
             {currentDM?.avatar}
           </div>
-          <div
-            className={`absolute bottom-0 right-0 size-4 rounded-full border-2 border-white ${
-              currentDM?.status === 'online'
-                ? 'bg-green-500'
-                : currentDM?.status === 'away'
-                  ? 'bg-yellow-500'
-                  : 'bg-gray-400'
+          <span
+            className={`absolute bottom-1 right-1 size-4 rounded-full border-2 border-white ${
+              isOnline ? 'bg-green-500' : 'bg-gray-300'
             }`}
           />
         </div>
-        <h3 className="text-base mb-1">{currentDM?.userName}</h3>
-        <p className="text-sm text-muted-foreground capitalize mb-4">
-          {currentDM?.status}
+        <h3 className="text-base font-medium mb-0.5">{currentDM?.userName}</h3>
+        <p className={`text-sm mb-4 ${isOnline ? 'text-green-600' : 'text-muted-foreground'}`}>
+          {isOnline ? 'Active now' : 'Offline'}
         </p>
-        <Button variant="outline" className="w-full" onClick={() => {}}>
+
+        {/* View Profile Toggle */}
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => setShowProfile(!showProfile)}
+        >
           <User className="size-4 mr-2" />
           View Profile
+          {showProfile ? (
+            <ChevronUp className="size-4 ml-auto" />
+          ) : (
+            <ChevronDown className="size-4 ml-auto" />
+          )}
         </Button>
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <h4 className="text-sm mb-3">Quick Actions</h4>
-        <div className="space-y-2">
-          <Button variant="outline" className="w-full justify-start">
-            <Bell className="size-4 mr-2" />
-            Mute Conversation
-          </Button>
-          <Button variant="outline" className="w-full justify-start">
-            <Users className="size-4 mr-2" />
-            Create Group Chat
-          </Button>
+      {/* Profile Details (expandable) */}
+      {showProfile && (
+        <div className="space-y-3 bg-gray-50 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <Mail className="size-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Email</p>
+              <p className="text-sm truncate">{dmUserDetail?.user.email ?? '—'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Shield className="size-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Role</p>
+              <p className="text-sm capitalize">{dmUserDetail?.role ?? '—'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Calendar className="size-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Joined</p>
+              <p className="text-sm">
+                {dmUserDetail?.joinedAt
+                  ? new Date(dmUserDetail.joinedAt).toLocaleDateString('th-TH', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })
+                  : '—'}
+              </p>
+            </div>
+          </div>
         </div>
+      )}
+
+      {/* Shared Images */}
+      <div>
+        <h4 className="text-sm font-medium mb-3">Shared Images</h4>
+        {sharedImages.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <p className="text-xs">No images shared yet</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1">
+            {sharedImages.map((m, idx) => (
+              <button
+                key={m.id}
+                className="aspect-square overflow-hidden rounded-md block"
+                onClick={() => setLightboxIndex(idx)}
+              >
+                <img
+                  src={m.fileUrl ?? undefined}
+                  alt={m.fileName ?? 'image'}
+                  className="w-full h-full object-cover hover:opacity-80 transition-opacity"
+                  loading="lazy"
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Shared Files */}
-      <div>
-        <h4 className="text-sm mb-3">Shared Files</h4>
-        <div className="text-center py-6 text-muted-foreground">
-          <p className="text-xs">No files shared yet</p>
-        </div>
-      </div>
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={sharedImages.map((m) => m.fileUrl!)}
+          startIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </>
   );
 }
