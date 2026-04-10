@@ -37,18 +37,23 @@ export default function Header({
         <DecorativeBubble size={20} top={5} right={10}  opacity={0.07} />
         <DecorativeBubble size={45} bottom={-13} left={-10} opacity={0.08} />
 
-        <Image
-          source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
+        <View 
           style={{
             position: 'absolute',
-            top: -50,   // ขยับขึ้นลงได้ตามต้องการ
-            left: -10,  // ขยับซ้ายขวาได้ตามต้องการ
-            width: 200, // ขนาดใหญ่จุใจ
+            top: -50,   
+            left: -25,  
+            width: 200, 
             height: 200,
           }}
-          resizeMode="contain"
-          pointerEvents="none"
-        />
+          pointerEvents="none" 
+        >
+          <Image
+            source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="contain"
+          />
+        </View>
+
 
         {/* 🟢 Row สำหรับ Avatar จัดให้อยู่ขวาสุด (flex-end) */}
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4, zIndex: 10 }}>

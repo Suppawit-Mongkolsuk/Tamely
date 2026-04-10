@@ -294,7 +294,11 @@ export default function WorkspaceScreen() {
                 onPress={(id: string) =>
                   router.push({
                     pathname: '/(tabs)/feed',
-                    params: { workspaceId: id },
+                    params: {
+                      wsId: id,
+                      token: token,
+                      user: params.user,
+                    },
                   })
                 }
               />

@@ -44,7 +44,9 @@ export default function RegisterScreen() {
                 console.log('Register Success:', result.data.user);
                 router.replace({ 
                     pathname: '/(workspace)/workspace', 
-                    params: { user: JSON.stringify(result.data.user) } 
+                    params: { user: JSON.stringify(result.data.user), 
+                    token: result.data.token,
+                    } 
                 });
             } else {
                 console.log("Backend Error:", result);
