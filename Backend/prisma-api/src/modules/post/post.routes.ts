@@ -1,28 +1,15 @@
 import { Router } from 'express';
 import { Response } from 'express';
-import multer from 'multer';
 import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
 import { AuthRequest } from '../../types';
 import { CreatePostSchema, TogglePinSchema, AddCommentSchema } from './post.model';
 import * as postService from './post.service';
 import { uploadPostImage } from '../../utils/supabase-storage';
+import { postImageUpload } from '../../middlewares/upload.middleware';
 
 const router = Router();
 router.use(authenticate);
-
-// Multer — รับ file upload ในหน่วยความจำ (max 5 MB ต่อรูป, สูงสุด 10 รูป)
-const postImageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('รองรับเฉพาะไฟล์รูปภาพเท่านั้น'));
-    }
-  },
-});
 
 const param = (value: string | string[] | undefined): string =>
   Array.isArray(value) ? value[0] : (value ?? '');

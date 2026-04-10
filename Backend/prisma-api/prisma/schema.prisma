@@ -19,6 +19,8 @@ enum WorkspaceRole {
 // ประเภทข้อความในแชท
 enum MessageType {
   TEXT // ข้อความปกติ
+  IMAGE // รูปภาพ
+  FILE // ไฟล์แนบ (PDF, DOC, etc.)
   SYSTEM // ข้อความระบบ (เช่น "John joined the room")
 }
 
@@ -85,6 +87,11 @@ model User {
   receivedNotifications Notification[] @relation("NotificationReceiver") // แจ้งเตือนที่ได้รับ (ถูก @)
   sentNotifications     Notification[] @relation("NotificationSender") // แจ้งเตือนที่ trigger (คน @)
 
+  // === DM Relations ===
+  dmConversationsAsA    DirectConversation[] @relation("DmUserA")
+  dmConversationsAsB    DirectConversation[] @relation("DmUserB")
+  sentDirectMessages    DirectMessage[]      @relation("DmSender")
+
   @@unique([provider, providerId]) // ป้องกัน OAuth user ซ้ำ
   @@index([email])
 }
@@ -114,6 +121,7 @@ model Workspace {
   aiSummaries AiSummary[] // สรุป AI ของ Workspace
   aiQueries   AiQuery[] // คำถาม AI ของ Workspace
   notifications Notification[] // แจ้งเตือนทั้งหมดใน Workspace
+  directConversations DirectConversation[] // DM ทั้งหมดใน Workspace
 
   @@index([ownerId])
   @@index([inviteCode])
@@ -210,7 +218,57 @@ model Message {
 }
 
 // ======================================================
-// 7. POST — โพสต์/ประกาศ (Facebook Feed style)
+// 7. DIRECT CONVERSATION — การสนทนาแบบ 1-1 ระหว่าง User 2 คน
+//    หน้าที่: เก็บ pair ของ User ที่เคยคุย DM กัน
+//    ใช้ใน: ChatRoomsPage (DM tab)
+// ======================================================
+model DirectConversation {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @db.Uuid // FK → Workspace (DM อยู่ใน context ของ workspace เดียวกัน)
+  userAId      String   @db.Uuid // FK → User (คนที่ 1, ลำดับ alphabetical เพื่อป้องกัน duplicate)
+  userBId      String   @db.Uuid // FK → User (คนที่ 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // === Relations ===
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userA        User             @relation("DmUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB        User             @relation("DmUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages     DirectMessage[]  // ข้อความใน DM นี้
+
+  @@unique([workspaceId, userAId, userBId]) // ป้องกัน pair ซ้ำ
+  @@index([userAId])
+  @@index([userBId])
+  @@index([workspaceId])
+}
+
+// ======================================================
+// 8. DIRECT MESSAGE — ข้อความใน DM (Real-time ผ่าน Socket.IO)
+//    หน้าที่: เก็บข้อความที่ส่งในการสนทนา 1-1
+//    ใช้ใน: ChatWindow (DM mode)
+// ======================================================
+model DirectMessage {
+  id             String              @id @default(uuid()) @db.Uuid
+  conversationId String              @db.Uuid // FK → DirectConversation
+  senderId       String              @db.Uuid // FK → User (ใครส่ง)
+  content        String              // เนื้อหาข้อความ (หรือ caption สำหรับ IMAGE/FILE)
+  type           MessageType         @default(TEXT)
+  fileUrl        String?             // URL ของไฟล์ใน Supabase Storage (สำหรับ IMAGE/FILE)
+  fileName       String?             // ชื่อไฟล์ต้นฉบับ
+  fileSize       Int?                // ขนาดไฟล์ (bytes)
+  isRead         Boolean             @default(false) // อ่านแล้วหรือยัง (สำหรับ unread badge)
+  createdAt      DateTime            @default(now())
+
+  // === Relations ===
+  conversation   DirectConversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User                @relation("DmSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt]) // ค้นหาข้อความตามเวลา
+  @@index([senderId])
+}
+
+// ======================================================
+// 9. POST — โพสต์/ประกาศ (Facebook Feed style)
 //    หน้าที่: เก็บโพสต์ภายใน Workspace (เหมือน Facebook Feed)
 //    ใช้ใน: HomePage (Feed), WorkspacePage
 // ======================================================
