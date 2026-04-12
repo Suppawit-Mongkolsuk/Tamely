@@ -50,6 +50,18 @@ enum MentionTargetType {
   ROLE // @ ยศ เช่น @Admin, @Moderator → แจ้งเตือนทุกคนที่มียศนั้น
 }
 
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+enum CallStatus {
+  MISSED
+  REJECTED
+  ANSWERED
+  ENDED
+}
+
 // ======================================================
 // 1. USER — ผู้ใช้งานในระบบ
 //    หน้าที่: เก็บข้อมูล Authentication & Profile
@@ -91,6 +103,8 @@ model User {
   dmConversationsAsA    DirectConversation[] @relation("DmUserA")
   dmConversationsAsB    DirectConversation[] @relation("DmUserB")
   sentDirectMessages    DirectMessage[]      @relation("DmSender")
+  callerCallLogs        CallLog[]            @relation("CallerCalls")
+  receiverCallLogs      CallLog[]            @relation("ReceiverCalls")
 
   @@unique([provider, providerId]) // ป้องกัน OAuth user ซ้ำ
   @@index([email])
@@ -239,6 +253,7 @@ model DirectConversation {
   userA        User             @relation("DmUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB        User             @relation("DmUserB", fields: [userBId], references: [id], onDelete: Cascade)
   messages     DirectMessage[]  // ข้อความใน DM นี้
+  callLogs     CallLog[]
 
   @@unique([workspaceId, userAId, userBId]) // ป้องกัน pair ซ้ำ
   @@index([userAId])
@@ -269,6 +284,26 @@ model DirectMessage {
 
   @@index([conversationId, createdAt]) // ค้นหาข้อความตามเวลา
   @@index([senderId])
+}
+
+model CallLog {
+  id              String     @id @default(uuid()) @db.Uuid
+  conversationId  String     @db.Uuid
+  callerId        String     @db.Uuid
+  receiverId      String     @db.Uuid
+  callType        CallType   @default(AUDIO)
+  status          CallStatus @default(MISSED)
+  startedAt       DateTime   @default(now())
+  endedAt         DateTime?
+  duration        Int?
+
+  conversation    DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  caller          User               @relation("CallerCalls", fields: [callerId], references: [id], onDelete: Cascade)
+  receiver        User               @relation("ReceiverCalls", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, startedAt])
+  @@index([callerId])
+  @@index([receiverId])
 }
 
 // ======================================================

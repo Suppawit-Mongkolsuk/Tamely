@@ -1,6 +1,17 @@
 // ===== Chat Window — Header + Messages + Input + File Upload =====
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
-import { Send, Hash, MoreVertical, Paperclip, Image as ImageIcon, X, ArrowLeft, Info } from 'lucide-react';
+import {
+  Send,
+  Hash,
+  MoreVertical,
+  Paperclip,
+  Image as ImageIcon,
+  X,
+  ArrowLeft,
+  Info,
+  Phone,
+  Video,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { MessageBubble } from './MessageBubble';
@@ -87,6 +98,9 @@ interface ChatWindowProps {
   onLoadMore?: () => Promise<void>;
   onBack?: () => void;
   onShowDetail?: () => void;
+  onStartVoiceCall?: () => void;
+  onStartVideoCall?: () => void;
+  disableCallActions?: boolean;
 }
 
 export function ChatWindow({
@@ -105,6 +119,9 @@ export function ChatWindow({
   onLoadMore,
   onBack,
   onShowDetail,
+  onStartVoiceCall,
+  onStartVideoCall,
+  disableCallActions = false,
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -266,6 +283,30 @@ export function ChatWindow({
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {activeTab === 'dms' && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                onClick={onStartVoiceCall}
+                disabled={disableCallActions}
+                title="Voice call"
+              >
+                <Phone className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                onClick={onStartVideoCall}
+                disabled={disableCallActions}
+                title="Video call"
+              >
+                <Video className="size-4" />
+              </Button>
+            </>
+          )}
           {/* Info/detail button — mobile only */}
           {onShowDetail && (
             <Button variant="ghost" size="icon" className="size-9 md:hidden" onClick={onShowDetail}>

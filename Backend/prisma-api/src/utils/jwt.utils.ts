@@ -47,7 +47,7 @@ export const setTokenCookie = (
   res.cookie('accessToken', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax', // ใช้ lax เพื่อรองรับ OAuth redirect (strict จะ block cross-site)
+    sameSite: 'lax',
     maxAge: rememberMe ? REMEMBER_COOKIE_MS : SESSION_COOKIE_MS || undefined,
     path: '/',
   });
@@ -76,7 +76,6 @@ export const clearTokenCookie = (res: Response): void => {
     sameSite: 'lax',
     path: '/',
   });
-  // force overwrite ด้วย cookie ที่หมดอายุแล้ว เป็น fallback กรณี clearCookie ไม่ work
   res.cookie('accessToken', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

@@ -12,10 +12,11 @@ import { dmService } from '@/services/dm.service';
 import { workspaceService } from '@/services/workspace.service';
 import type { RoomResponse, MessageResponse } from '@/services/chat.service';
 import type { DMConversationResponse, DMMessageResponse } from '@/services/dm.service';
-import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
+import { connectSocket } from '@/lib/socket';
 import type { ChatRoom, Message, Member, ChatTab, DirectMessage } from '@/types/chat-ui';
 import type { WorkspaceMember } from '@/types/workspace';
 import { toast } from 'sonner';
+import { useWebRTCContext } from '@/contexts/WebRTCContext';
 
 function mapRoom(r: RoomResponse): ChatRoom {
   return {
@@ -94,6 +95,7 @@ export function ChatRoomsPage() {
   const { user } = useAuthContext();
   const wsId = currentWorkspace?.id;
   const myId = user?.id ?? '';
+  const { callState, startCall } = useWebRTCContext();
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState('');
@@ -361,12 +363,6 @@ export function ChatRoomsPage() {
     };
   }, [selectedDM, fetchDMMessages, myId]);
 
-  useEffect(() => {
-    return () => {
-      disconnectSocket();
-    };
-  }, []);
-
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
     const socket = socketRef.current;
@@ -528,6 +524,7 @@ export function ChatRoomsPage() {
   const currentRoom = rooms.find((r) => r.id === selectedRoom);
   const currentDM = directMessages.find((d) => d.id === selectedDM);
   const hasSelection = !!selectedRoom || !!selectedDM;
+  const isCallBusy = callState.status !== 'idle' && callState.status !== 'ended';
 
   // Visibility classes สำหรับ mobile:
   // Desktop (md+): ทุก panel แสดงพร้อมกัน
@@ -580,6 +577,19 @@ export function ChatRoomsPage() {
               onLoadMore={handleLoadMore}
               onBack={() => setMobileView('list')}
               onShowDetail={() => setMobileView('detail')}
+              onStartVoiceCall={
+                currentDM
+                  ? () => void startCall(currentDM.userId, currentDM.id, 'audio', currentDM.userName, currentDM.avatarUrl)
+                  : undefined
+              }
+              onStartVideoCall={
+                currentDM
+                  ? () => void startCall(currentDM.userId, currentDM.id, 'video', currentDM.userName, currentDM.avatarUrl)
+                  : undefined
+              }
+              disableCallActions={
+                !currentDM || !(onlineStatus[currentDM.userId] ?? false) || isCallBusy
+              }
             />
           </div>
           {/* ChatDetailPanel — full width บน mobile เมื่อ view=detail */}

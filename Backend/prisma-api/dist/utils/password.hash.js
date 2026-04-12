@@ -7,9 +7,9 @@ exports.validatePasswordStrength = exports.comparePassword = exports.hashPasswor
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const SALT_ROUNDS = 12;
 /**
- * Hash password using bcrypt
- * @param plainText - Plain text password to hash
- * @returns Hashed password
+ * Hash password
+ * @param plainText
+ * @returns
  */
 const hashPassword = async (plainText) => {
     try {
@@ -22,9 +22,9 @@ const hashPassword = async (plainText) => {
 exports.hashPassword = hashPassword;
 /**
  * Compare password with hash
- * @param plainText - Plain text password to compare
- * @param hash - Hashed password from database
- * @returns true if password matches, false otherwise
+ * @param plainText
+ * @param hash
+ * @returns
  */
 const comparePassword = async (plainText, hash) => {
     try {
