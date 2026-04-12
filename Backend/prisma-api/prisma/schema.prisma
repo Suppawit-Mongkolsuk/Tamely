@@ -154,15 +154,16 @@ model WorkspaceMember {
 //    ใช้ใน: ChatRoomsPage, ChatSidebar, CreateRoomDialog
 // ======================================================
 model Room {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @db.Uuid // FK → Workspace (ห้องนี้อยู่ใน Workspace ไหน)
-  name        String // ชื่อห้อง
-  description String? // คำอธิบายห้อง (nullable)
-  isPrivate   Boolean  @default(false) // true = ห้องส่วนตัว, false = ห้องสาธารณะ
-  createdById String   @db.Uuid // FK → User (คนที่สร้างห้อง)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String          @id @default(uuid()) @db.Uuid
+  workspaceId  String          @db.Uuid // FK → Workspace (ห้องนี้อยู่ใน Workspace ไหน)
+  name         String // ชื่อห้อง
+  description  String? // คำอธิบายห้อง (nullable)
+  isPrivate    Boolean         @default(false) // true = ห้องส่วนตัว, false = ห้องสาธารณะ
+  allowedRoles WorkspaceRole[] @default([]) // ยศที่เข้าห้องได้ — ถ้าว่าง = ALL
+  createdById  String          @db.Uuid // FK → User (คนที่สร้างห้อง)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   // === Relations ===
   workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -205,8 +206,11 @@ model Message {
   id        String      @id @default(uuid()) @db.Uuid
   roomId    String      @db.Uuid // FK → Room (ส่งในห้องไหน)
   senderId  String      @db.Uuid // FK → User (ใครส่ง)
-  type      MessageType @default(TEXT) // TEXT = ข้อความปกติ, SYSTEM = ข้อความระบบ
-  content   String // เนื้อหาข้อความ
+  type      MessageType @default(TEXT) // TEXT / IMAGE / FILE / SYSTEM
+  content   String // เนื้อหาข้อความ (หรือ caption สำหรับ IMAGE/FILE)
+  fileUrl   String? // URL ของไฟล์ใน Supabase Storage
+  fileName  String? // ชื่อไฟล์ต้นฉบับ
+  fileSize  Int? // ขนาดไฟล์ (bytes)
   createdAt DateTime    @default(now())
 
   // === Relations ===

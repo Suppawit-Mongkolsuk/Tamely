@@ -21,28 +21,28 @@ export function ManagementPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-foreground mb-1">จัดการ Workspace</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-foreground mb-1 text-lg sm:text-xl">จัดการ Workspace</h1>
+        <p className="text-muted-foreground text-sm">
           จัดการสมาชิก, ห้องแชท, และการตั้งค่า workspace
         </p>
       </div>
 
-      <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="bg-white border border-border">
-          <TabsTrigger value="users" className="gap-2">
+      <Tabs defaultValue="users" className="space-y-4 sm:space-y-6">
+        <TabsList className="bg-white border border-border w-full sm:w-auto">
+          <TabsTrigger value="users" className="gap-1 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm">
             <Users className="size-4" />
-            จัดการสมาชิก
+            <span className="hidden sm:inline">จัดการ</span>สมาชิก
           </TabsTrigger>
-          <TabsTrigger value="rooms" className="gap-2">
+          <TabsTrigger value="rooms" className="gap-1 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm">
             <Hash className="size-4" />
-            จัดการห้อง
+            <span className="hidden sm:inline">จัดการ</span>ห้อง
           </TabsTrigger>
-          <TabsTrigger value="workspace" className="gap-2">
+          <TabsTrigger value="workspace" className="gap-1 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm">
             <Settings className="size-4" />
-            ตั้งค่า Workspace
+            <span className="hidden sm:inline">ตั้งค่า</span> Workspace
           </TabsTrigger>
         </TabsList>
 

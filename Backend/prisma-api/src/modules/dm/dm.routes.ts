@@ -54,8 +54,9 @@ router.get(
 router.get(
   '/dm/:conversationId/messages',
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const conversationId = param(req.params.conversationId);
     const result = await dmService.getMessages(
-      param(req.params.conversationId),
+      conversationId,
       req.userId!,
       {
         limit: req.query.limit ? Number(req.query.limit) : undefined,
@@ -63,6 +64,16 @@ router.get(
         before: req.query.before as string | undefined,
       },
     );
+
+    // แจ้ง sender ว่าข้อความถูกอ่านแล้ว (real-time read receipt)
+    const io = getIO();
+    if (io) {
+      io.to(`dm:${conversationId}`).emit('dm_read', {
+        conversationId,
+        readByUserId: req.userId,
+      });
+    }
+
     res.json({ success: true, ...result });
   }),
 );
@@ -73,11 +84,13 @@ router.post(
   '/dm/:conversationId/messages',
   validateRequest(SendDMSchema),
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const msg = await dmService.sendMessage(
-      param(req.params.conversationId),
-      req.userId!,
-      req.body.content,
-    );
+    const conversationId = param(req.params.conversationId);
+    const msg = await dmService.sendMessage(conversationId, req.userId!, req.body.content);
+
+    // Broadcast ผ่าน Socket.IO (ครอบคลุมกรณี client ใช้ REST fallback)
+    const io = getIO();
+    if (io) io.to(`dm:${conversationId}`).emit('dm_received', msg);
+
     res.status(201).json({ success: true, data: msg });
   }),
 );
@@ -87,7 +100,18 @@ router.post(
 router.patch(
   '/dm/:conversationId/read',
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    await dmService.markAsRead(param(req.params.conversationId), req.userId!);
+    const conversationId = param(req.params.conversationId);
+    await dmService.markAsRead(conversationId, req.userId!);
+
+    // แจ้ง sender ว่าข้อความถูกอ่านแล้ว
+    const io = getIO();
+    if (io) {
+      io.to(`dm:${conversationId}`).emit('dm_read', {
+        conversationId,
+        readByUserId: req.userId,
+      });
+    }
+
     res.json({ success: true, message: 'Marked as read' });
   }),
 );

@@ -97,7 +97,7 @@ export function LoginRegisterPage({
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#003366] via-[#174978] to-[#2F5F8A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-linear-to-br from-[#003366] via-[#174978] to-[#2F5F8A] flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-12 items-center">
         {/* Left Side - Branding */}
         <div className="hidden lg:block text-white space-y-8">

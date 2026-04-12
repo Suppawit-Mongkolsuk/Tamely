@@ -26,41 +26,43 @@ export function CalendarHeader({
   return (
     <>
       {/* Title */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-foreground mb-1">ปฏิทิน & งาน</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-foreground mb-1 text-lg sm:text-xl">ปฏิทิน & งาน</h1>
+          <p className="text-muted-foreground text-sm">
             จัดการ tasks และติดตามความคืบหน้าของทีม
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <Button variant="outline" size="sm">
-            <Filter className="size-4 mr-2" />
-            กรอง
+            <Filter className="size-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">กรอง</span>
           </Button>
           <Button variant="outline" size="sm">
-            <Download className="size-4 mr-2" />
-            Export
+            <Download className="size-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
           <Button
             className="bg-[#75A2BF] hover:bg-[#75A2BF]/90"
+            size="sm"
             onClick={onAICreate}
           >
-            <Sparkles className="size-4 mr-2" />
-            AI สร้าง Tasks
+            <Sparkles className="size-4 mr-1 sm:mr-2" />
+            AI สร้าง
           </Button>
           <Button
             className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+            size="sm"
             onClick={onCreateTask}
           >
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4 mr-1 sm:mr-2" />
             สร้าง Task
           </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>

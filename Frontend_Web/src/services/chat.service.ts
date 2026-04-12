@@ -14,7 +14,7 @@ export interface RoomResponse {
   updatedAt: string;
   createdBy?: { id: string; Name: string; avatarUrl?: string | null };
   members?: {
-    user: { id: string; Name: string; email: string; avatarUrl?: string | null };
+    user: { id: string; Name: string; email: string; avatarUrl?: string | null; workspaceRole?: string };
   }[];
 }
 
@@ -26,6 +26,9 @@ export interface MessageResponse {
   type: string;
   createdAt: string;
   sender: { id: string; Name: string; avatarUrl?: string | null };
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
 }
 
 interface MessagesListResponse {
@@ -82,7 +85,12 @@ export const chatService = {
 
   async createRoom(
     workspaceId: string,
-    data: { name: string; description?: string; isPrivate?: boolean },
+    data: {
+      name: string;
+      description?: string;
+      isPrivate?: boolean;
+      allowedRoles?: string[]; // [] = ALL, ['ADMIN','MODERATOR'] = specific roles
+    },
   ): Promise<RoomResponse> {
     const res = await apiClient.post<ApiSuccessResponse<RoomResponse>>(
       `/workspaces/${workspaceId}/rooms`,
@@ -95,7 +103,21 @@ export const chatService = {
     await apiClient.post(`/rooms/${roomId}/join`);
   },
 
+  async addRoomMember(roomId: string, userId: string): Promise<void> {
+    await apiClient.post(`/rooms/${roomId}/members`, { userId });
+  },
+
   async leaveRoom(roomId: string, userId: string): Promise<void> {
     await apiClient.delete(`/rooms/${roomId}/members/${userId}`);
+  },
+
+  async sendRoomFile(roomId: string, file: File): Promise<MessageResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiClient.upload<ApiSuccessResponse<MessageResponse>>(
+      `/rooms/${roomId}/upload`,
+      formData,
+    );
+    return res.data;
   },
 };

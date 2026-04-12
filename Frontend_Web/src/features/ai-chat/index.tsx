@@ -102,11 +102,11 @@ export function AIChatPage() {
   return (
     <div className="h-full flex">
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white min-w-0">
         <AIChatHeader />
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
           {messages.map((msg) => (
             <AIMessageBubble key={msg.id} message={msg} />
           ))}
@@ -114,10 +114,30 @@ export function AIChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Quick Actions — mobile only (horizontal scroll) */}
+        <div className="flex gap-2 px-3 py-2 overflow-x-auto md:hidden border-t border-border bg-muted/50">
+          {QUICK_ACTIONS.map((action, i) => {
+            const Icon = action.icon;
+            return (
+              <button
+                key={i}
+                onClick={() => setInput(action.prompt)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-border text-xs whitespace-nowrap shrink-0 hover:bg-muted"
+              >
+                <Icon className="size-3.5" />
+                {action.label}
+              </button>
+            );
+          })}
+        </div>
+
         <AIChatInput value={input} onChange={setInput} onSend={handleSend} disabled={isTyping} />
       </div>
 
-      <AIChatSidebar quickActions={QUICK_ACTIONS} onActionClick={setInput} />
+      {/* Sidebar — hidden on mobile */}
+      <div className="hidden md:block">
+        <AIChatSidebar quickActions={QUICK_ACTIONS} onActionClick={setInput} />
+      </div>
     </div>
   );
 }

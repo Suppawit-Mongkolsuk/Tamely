@@ -60,8 +60,8 @@ export function ResetPasswordPage({ token, onBack, onSuccess }: ResetPasswordPag
   };
 
   return (
-    <div className={`min-h-screen ${GRADIENT.darkBlue} flex items-center justify-center p-6`}>
-      <Card className="w-full max-w-md p-8 bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
+    <div className={`min-h-screen ${GRADIENT.darkBlue} flex items-center justify-center p-4 sm:p-6`}>
+      <Card className="w-full max-w-md p-6 sm:p-8 bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
         {/* Icon */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center size-14 rounded-2xl bg-[#003366] mb-4">
