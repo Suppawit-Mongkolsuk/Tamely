@@ -90,6 +90,30 @@ function mapDMMessage(m: DMMessageResponse, myId: string): Message {
   };
 }
 
+function updateDMPreview(
+  list: DirectMessage[],
+  msg: DMMessageResponse,
+  myId: string,
+  openedConversationId?: string,
+): DirectMessage[] {
+  return list.map((dm) => {
+    if (dm.id !== msg.conversationId) return dm;
+
+    const isOpened = openedConversationId === msg.conversationId;
+    const shouldIncrementUnread = msg.senderId !== myId && !isOpened;
+
+    return {
+      ...dm,
+      lastMessage: msg.content,
+      lastMessageTime: new Date(msg.createdAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      unread: isOpened ? 0 : dm.unread + (shouldIncrementUnread ? 1 : 0),
+    };
+  });
+}
+
 export function ChatRoomsPage() {
   const { currentWorkspace } = useWorkspaceContext();
   const { user } = useAuthContext();
@@ -328,19 +352,13 @@ export function ChatRoomsPage() {
     socket.emit('join_dm', selectedDM);
 
     const handleDMReceived = (msg: DMMessageResponse) => {
+      setDirectMessages((prev) => updateDMPreview(prev, msg, myId, selectedDM));
+
+      if (msg.conversationId !== selectedDM) {
+        return;
+      }
+
       setMessages((prev) => [...prev, mapDMMessage(msg, myId)]);
-      setDirectMessages((prev) =>
-        prev.map((dm) =>
-          dm.id === selectedDM
-            ? {
-                ...dm,
-                lastMessage: msg.content,
-                lastMessageTime: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                unread: 0, // user กำลังดูอยู่ → ถือว่าอ่านแล้วทันที
-              }
-            : dm,
-        ),
-      );
       // ถ้าข้อความไม่ใช่ของตัวเอง → mark as read ทันที
       // เพราะ user กำลังเห็นข้อความนี้อยู่ → trigger dm_read ให้ผู้ส่งเห็น "Read"
       if (msg.senderId !== myId) {

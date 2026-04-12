@@ -1,8 +1,10 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
+import { MessageType } from '@prisma/client';
 import { verifyToken } from '../../utils/jwt.utils';
 import * as messageService from '../message/message.service';
 import * as dmService from '../dm/dm.service';
+import * as dmRepository from '../dm/dm.repository';
 import { prisma } from '../../index';
 
 type CallType = 'audio' | 'video';
@@ -12,6 +14,9 @@ interface ActiveCall {
   conversationId: string;
   callLogId?: string;
   startedAt?: number;
+  callerId?: string;
+  receiverId?: string;
+  callType?: CallType;
 }
 
 interface CallContext {
@@ -69,8 +74,19 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
     conversationId: string,
     callLogId?: string,
     startedAt?: number,
+    callerId?: string,
+    receiverId?: string,
+    callType?: CallType,
   ) => {
-    activeCalls.set(userId, { peerId, conversationId, callLogId, startedAt });
+    activeCalls.set(userId, {
+      peerId,
+      conversationId,
+      callLogId,
+      startedAt,
+      callerId,
+      receiverId,
+      callType,
+    });
   };
 
   const clearActivePair = (userId: string, peerId: string) => {
@@ -102,6 +118,51 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
     } catch {
       // Ignore logging failures to avoid breaking signaling.
     }
+  };
+
+  const formatCallDuration = (durationSeconds?: number) => {
+    if (!durationSeconds || durationSeconds <= 0) return '00:00';
+    const hours = Math.floor(durationSeconds / 3600);
+    const minutes = Math.floor((durationSeconds % 3600) / 60);
+    const seconds = durationSeconds % 60;
+
+    if (hours > 0) {
+      return [hours, minutes, seconds]
+        .map((value) => String(value).padStart(2, '0'))
+        .join(':');
+    }
+
+    return [minutes, seconds]
+      .map((value) => String(value).padStart(2, '0'))
+      .join(':');
+  };
+
+  const createCallSystemMessage = async (
+    activeCall: ActiveCall,
+    status: 'MISSED' | 'REJECTED' | 'ENDED',
+  ) => {
+    if (!activeCall.callerId || !activeCall.callType) return;
+
+    const callLabel = activeCall.callType === 'video' ? 'Video call' : 'Voice call';
+    const duration = getDurationSeconds(activeCall.startedAt);
+
+    let content = '';
+    if (status === 'ENDED' && activeCall.startedAt) {
+      content = `📞 ${callLabel} ended • ${formatCallDuration(duration)}`;
+    } else if (status === 'REJECTED') {
+      content = `📞 ${callLabel} declined`;
+    } else {
+      content = `📞 Missed ${callLabel.toLowerCase()}`;
+    }
+
+    const message = await dmRepository.createMessage(
+      activeCall.conversationId,
+      activeCall.callerId,
+      content,
+      MessageType.SYSTEM,
+    );
+
+    io.to(`dm:${activeCall.conversationId}`).emit('dm_received', message);
   };
 
   const getCallContext = async (
@@ -299,7 +360,16 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
             },
           });
 
-          setActivePair(context.callerId, context.receiverId, context.conversationId, callLog.id);
+          setActivePair(
+            context.callerId,
+            context.receiverId,
+            context.conversationId,
+            callLog.id,
+            undefined,
+            context.callerId,
+            context.receiverId,
+            context.callType,
+          );
 
           const targetOnline = emitToUser(context.receiverId, 'incoming_call', {
             callerId: context.callerId,
@@ -310,7 +380,16 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
           });
 
           if (targetOnline) {
-            setActivePair(context.receiverId, context.callerId, context.conversationId, callLog.id);
+            setActivePair(
+              context.receiverId,
+              context.callerId,
+              context.conversationId,
+              callLog.id,
+              undefined,
+              context.callerId,
+              context.receiverId,
+              context.callType,
+            );
           }
 
           callback?.({ success: true });
@@ -336,8 +415,26 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
         }
 
         const startedAt = Date.now();
-        setActivePair(userId, data.callerId, data.conversationId, activeCall.callLogId, startedAt);
-        setActivePair(data.callerId, userId, data.conversationId, activeCall.callLogId, startedAt);
+        setActivePair(
+          userId,
+          data.callerId,
+          data.conversationId,
+          activeCall.callLogId,
+          startedAt,
+          activeCall.callerId,
+          activeCall.receiverId,
+          activeCall.callType,
+        );
+        setActivePair(
+          data.callerId,
+          userId,
+          data.conversationId,
+          activeCall.callLogId,
+          startedAt,
+          activeCall.callerId,
+          activeCall.receiverId,
+          activeCall.callType,
+        );
         await safeUpdateCallLog(activeCall.callLogId, {
           status: 'ANSWERED',
           startedAt: new Date(startedAt),
@@ -367,6 +464,7 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
           endedAt: new Date(),
           duration: 0,
         });
+        await createCallSystemMessage(activeCall, 'REJECTED');
         clearActivePair(userId, data.callerId);
 
         emitToUser(data.callerId, 'call_rejected', {
@@ -394,6 +492,7 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
           endedAt: new Date(),
           duration,
         });
+        await createCallSystemMessage(activeCall, activeCall.startedAt ? 'ENDED' : 'MISSED');
         clearActivePair(userId, data.targetUserId);
 
         emitToUser(data.targetUserId, 'call_ended', {
@@ -448,6 +547,7 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
           endedAt: new Date(),
           duration: getDurationSeconds(activeCall.startedAt),
         });
+        void createCallSystemMessage(activeCall, activeCall.startedAt ? 'ENDED' : 'MISSED');
         emitToUser(activeCall.peerId, 'call_ended', {
           endedBy: userId,
           conversationId: activeCall.conversationId,
