@@ -71,6 +71,33 @@ app.get('/health', async (req, res) => {
         res.status(500).json({ status: 'error', message: String(error) });
     }
 });
+// TURN credentials endpoint (ให้ Frontend ดึง ICE servers ที่มี TURN)
+app.get('/api/turn-credentials', async (_req, res) => {
+    var _a;
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!accountSid || !authToken) {
+        res.json({ iceServers: [] });
+        return;
+    }
+    try {
+        const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+        const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Tokens.json`, { method: 'POST', headers: { Authorization: `Basic ${credentials}` } });
+        const data = await response.json();
+        const iceServers = ((_a = data.ice_servers) !== null && _a !== void 0 ? _a : []).map((s) => {
+            var _a, _b;
+            return ({
+                urls: (_b = (_a = s.urls) !== null && _a !== void 0 ? _a : s.url) !== null && _b !== void 0 ? _b : '',
+                ...(s.username ? { username: s.username } : {}),
+                ...(s.credential ? { credential: s.credential } : {}),
+            });
+        });
+        res.json({ iceServers });
+    }
+    catch (_b) {
+        res.json({ iceServers: [] });
+    }
+});
 // API Routes
 app.use('/api/auth', auth_routes_1.default);
 app.use('/api/oauth', oauth_routes_1.default);

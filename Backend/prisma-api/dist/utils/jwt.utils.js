@@ -41,10 +41,11 @@ exports.verifyToken = verifyToken;
  * @param rememberMe - ถ้า true → cookie อายุ 30 วัน, false → session cookie (หมดเมื่อปิด browser)
  */
 const setTokenCookie = (res, token, rememberMe = false) => {
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('accessToken', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax', // ใช้ lax เพื่อรองรับ OAuth redirect (strict จะ block cross-site)
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: rememberMe ? REMEMBER_COOKIE_MS : SESSION_COOKIE_MS || undefined,
         path: '/',
     });
@@ -66,18 +67,16 @@ exports.getTokenFromCookie = getTokenFromCookie;
  * @param res - Express Response object
  */
 const clearTokenCookie = (res) => {
-    res.clearCookie('accessToken', {
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOpts = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: isProd,
+        sameSite: (isProd ? 'none' : 'lax'),
         path: '/',
-    });
-    // force overwrite ด้วย cookie ที่หมดอายุแล้ว เป็น fallback กรณี clearCookie ไม่ work
+    };
+    res.clearCookie('accessToken', cookieOpts);
     res.cookie('accessToken', '', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
+        ...cookieOpts,
         expires: new Date(0),
         maxAge: 0,
     });

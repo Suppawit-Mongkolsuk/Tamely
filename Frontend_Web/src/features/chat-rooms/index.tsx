@@ -583,7 +583,7 @@ export function ChatRoomsPage() {
                   : undefined
               }
               disableCallActions={
-                !currentDM || !(onlineStatus[currentDM.userId] ?? false) || isCallBusy
+                !currentDM || isCallBusy
               }
             />
           </div>

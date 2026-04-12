@@ -72,7 +72,12 @@ interface CallEndedPayload {
 interface CallFailedPayload {
   targetUserId: string;
   conversationId: string;
-  reason: 'user_offline' | string;
+  reason: string;
+}
+
+interface CallUserAck {
+  success: boolean;
+  error?: string;
 }
 
 const initialState: CallState = {
@@ -120,6 +125,7 @@ export function useWebRTC({
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const autoRejectTimerRef = useRef<number | null>(null);
+  const outgoingTimeoutRef = useRef<number | null>(null);
   const durationIntervalRef = useRef<number | null>(null);
   const closingRef = useRef(false);
 
@@ -137,13 +143,21 @@ export function useWebRTC({
     }
   }, []);
 
+  const clearOutgoingTimeout = useCallback(() => {
+    if (outgoingTimeoutRef.current) {
+      window.clearTimeout(outgoingTimeoutRef.current);
+      outgoingTimeoutRef.current = null;
+    }
+  }, []);
+
   const resetState = useCallback(() => {
     clearAutoRejectTimer();
+    clearOutgoingTimeout();
     clearDurationInterval();
     pendingOfferRef.current = null;
     pendingIceCandidatesRef.current = [];
     setCallState(initialState);
-  }, [clearAutoRejectTimer, clearDurationInterval]);
+  }, [clearAutoRejectTimer, clearDurationInterval, clearOutgoingTimeout]);
 
   const stopStreams = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -307,13 +321,42 @@ export function useWebRTC({
           isMinimized: false,
         });
 
-        socket.emit('call_user', { targetUserId, conversationId, callType });
+        outgoingTimeoutRef.current = window.setTimeout(() => {
+          if (!peerConnectionRef.current) {
+            socket.emit('call_ended', { targetUserId, conversationId });
+            toast.info('ไม่มีผู้รับสาย');
+            cleanupCall();
+          }
+        }, 40000);
+
+        socket.emit(
+          'call_user',
+          { targetUserId, conversationId, callType },
+          (response?: CallUserAck) => {
+            if (!response || response.success) return;
+
+            clearOutgoingTimeout();
+            cleanupCall();
+
+            if (response.error === 'already_in_call') {
+              toast.error('คุณกำลังอยู่ในสายอื่น');
+              return;
+            }
+
+            if (response.error === 'user_busy') {
+              toast.error('ผู้ใช้นี้กำลังโทรอยู่');
+              return;
+            }
+
+            toast.error(response.error || 'เริ่มสายไม่สำเร็จ');
+          },
+        );
       } catch (error) {
         cleanupCall();
         toast.error(error instanceof Error ? error.message : 'เริ่มสายไม่สำเร็จ');
       }
     },
-    [cleanupCall, currentUserId, requestMedia, socket],
+    [cleanupCall, clearOutgoingTimeout, currentUserId, requestMedia, socket],
   );
 
   const rejectCall = useCallback(() => {
@@ -466,6 +509,8 @@ export function useWebRTC({
         return;
       }
 
+      clearOutgoingTimeout();
+
       const pc = await createPeerConnection(
         localStreamRef.current,
         payload.accepterId,
@@ -512,9 +557,7 @@ export function useWebRTC({
         return;
       }
 
-      if (payload.reason === 'user_offline') {
-        toast.error('ผู้ใช้นี้ออฟไลน์อยู่');
-      } else if (payload.reason === 'user_busy') {
+      if (payload.reason === 'user_busy') {
         toast.error('ผู้ใช้นี้กำลังโทรอยู่');
       } else {
         toast.error('เริ่มสายไม่สำเร็จ');
@@ -605,6 +648,7 @@ export function useWebRTC({
     callState.status,
     cleanupCall,
     clearAutoRejectTimer,
+    clearOutgoingTimeout,
     createPeerConnection,
     currentUserId,
     flushPendingIceCandidates,

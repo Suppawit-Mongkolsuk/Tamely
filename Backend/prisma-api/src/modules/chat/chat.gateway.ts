@@ -289,24 +289,6 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
             return;
           }
 
-          const targetOnline = emitToUser(context.receiverId, 'incoming_call', {
-            callerId: context.callerId,
-            callerName: context.callerName,
-            callerAvatarUrl: context.callerAvatarUrl,
-            conversationId: context.conversationId,
-            callType: context.callType,
-          });
-
-          if (!targetOnline) {
-            socket.emit('call_failed', {
-              targetUserId: context.receiverId,
-              conversationId: context.conversationId,
-              reason: 'user_offline',
-            });
-            callback?.({ success: false, error: 'user_offline' });
-            return;
-          }
-
           const callLog = await prisma.callLog.create({
             data: {
               conversationId: context.conversationId,
@@ -318,7 +300,19 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
           });
 
           setActivePair(context.callerId, context.receiverId, context.conversationId, callLog.id);
-          setActivePair(context.receiverId, context.callerId, context.conversationId, callLog.id);
+
+          const targetOnline = emitToUser(context.receiverId, 'incoming_call', {
+            callerId: context.callerId,
+            callerName: context.callerName,
+            callerAvatarUrl: context.callerAvatarUrl,
+            conversationId: context.conversationId,
+            callType: context.callType,
+          });
+
+          if (targetOnline) {
+            setActivePair(context.receiverId, context.callerId, context.conversationId, callLog.id);
+          }
+
           callback?.({ success: true });
         } catch (error) {
           callback?.({
