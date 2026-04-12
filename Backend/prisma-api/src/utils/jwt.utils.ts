@@ -44,10 +44,11 @@ export const setTokenCookie = (
   token: string,
   rememberMe = false,
 ): void => {
+  const isProd = process.env.NODE_ENV === 'production';
   res.cookie('accessToken', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
     maxAge: rememberMe ? REMEMBER_COOKIE_MS : SESSION_COOKIE_MS || undefined,
     path: '/',
   });
@@ -70,17 +71,16 @@ export const getTokenFromCookie = (
  * @param res - Express Response object
  */
 export const clearTokenCookie = (res: Response): void => {
-  res.clearCookie('accessToken', {
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieOpts = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isProd,
+    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
     path: '/',
-  });
+  };
+  res.clearCookie('accessToken', cookieOpts);
   res.cookie('accessToken', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
+    ...cookieOpts,
     expires: new Date(0),
     maxAge: 0,
   });
