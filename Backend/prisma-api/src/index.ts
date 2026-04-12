@@ -76,6 +76,27 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// TURN credentials endpoint (ให้ Frontend ดึง ICE servers ที่มี TURN)
+app.get('/api/turn-credentials', async (_req, res) => {
+  const domain = process.env.METERED_DOMAIN;
+  const apiKey = process.env.METERED_SECRET_KEY;
+
+  if (!domain || !apiKey) {
+    res.json({ iceServers: [] });
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`,
+    );
+    const iceServers = await response.json();
+    res.json({ iceServers });
+  } catch {
+    res.json({ iceServers: [] });
+  }
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/oauth', oauthRoutes);

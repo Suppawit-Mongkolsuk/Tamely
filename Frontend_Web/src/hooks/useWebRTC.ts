@@ -2,47 +2,30 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 
-function parseIceUrls(value?: string): string[] {
-  if (!value) return [];
-  return value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
+import { config } from '../lib/config';
 
-function createIceConfiguration(): RTCConfiguration {
-  const stunUrls = parseIceUrls(import.meta.env.VITE_STUN_URLS)
-    .concat([
-      'stun:stun.l.google.com:19302',
-      'stun:stun1.l.google.com:19302',
-    ]);
+const FALLBACK_ICE_CONFIGURATION: RTCConfiguration = {
+  iceServers: [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  ],
+  iceCandidatePoolSize: 10,
+};
 
-  const turnUrls = parseIceUrls(import.meta.env.VITE_TURN_URLS);
-  const turnUsername = import.meta.env.VITE_TURN_USERNAME?.trim();
-  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL?.trim();
+async function fetchIceConfiguration(): Promise<RTCConfiguration> {
+  try {
+    const baseUrl = config.apiUrl.replace('/api', '');
+    const res = await fetch(`${baseUrl}/api/turn-credentials`);
+    const data = await res.json() as { iceServers: RTCIceServer[] };
 
-  const iceServers: RTCIceServer[] = [];
+    if (!data.iceServers?.length) return FALLBACK_ICE_CONFIGURATION;
 
-  if (stunUrls.length > 0) {
-    iceServers.push({ urls: Array.from(new Set(stunUrls)) });
+    console.log('[WebRTC] ICE config (metered):', JSON.stringify(data.iceServers));
+    return { iceServers: data.iceServers, iceCandidatePoolSize: 10 };
+  } catch {
+    console.warn('[WebRTC] Failed to fetch TURN credentials, using fallback');
+    return FALLBACK_ICE_CONFIGURATION;
   }
-
-  if (turnUrls.length > 0) {
-    iceServers.push({
-      urls: Array.from(new Set(turnUrls)),
-      username: turnUsername,
-      credential: turnCredential,
-    });
-  }
-
-  return {
-    iceServers,
-    iceCandidatePoolSize: 10,
-  };
 }
-
-const ICE_CONFIGURATION = createIceConfiguration();
-console.log('[WebRTC] ICE config:', JSON.stringify(ICE_CONFIGURATION));
 
 export interface CallState {
   status: 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
@@ -209,10 +192,11 @@ export function useWebRTC({
   }, [clearDurationInterval]);
 
   const createPeerConnection = useCallback(
-    (stream: MediaStream, peerId: string, conversationId: string) => {
+    async (stream: MediaStream, peerId: string, conversationId: string) => {
       closePeerConnection();
 
-      const pc = new RTCPeerConnection(ICE_CONFIGURATION);
+      const iceConfig = await fetchIceConfiguration();
+      const pc = new RTCPeerConnection(iceConfig);
       peerConnectionRef.current = pc;
 
       const remoteStream = new MediaStream();
@@ -352,7 +336,7 @@ export function useWebRTC({
     try {
       clearAutoRejectTimer();
       const stream = await requestMedia(callState.callType);
-      const pc = createPeerConnection(stream, callState.peerId, callState.conversationId);
+      const pc = await createPeerConnection(stream, callState.peerId, callState.conversationId);
 
       setCallState((prev) => ({
         ...prev,
@@ -483,7 +467,7 @@ export function useWebRTC({
         return;
       }
 
-      const pc = createPeerConnection(
+      const pc = await createPeerConnection(
         localStreamRef.current,
         payload.accepterId,
         payload.conversationId,
@@ -647,5 +631,5 @@ export function useWebRTC({
 }
 
 function turnUrlsConfigured() {
-  return parseIceUrls(import.meta.env.VITE_TURN_URLS).length > 0;
+  return !!(import.meta.env.VITE_TURN_URLS?.trim());
 }
