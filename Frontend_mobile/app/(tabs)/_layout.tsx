@@ -43,6 +43,14 @@ export default function TabLayout() {
         name="post-detail"
         options={{ href: null }}
       />
+      <Tabs.Screen
+       name="chat-room"
+        options={{ href: null }} 
+        />
+      <Tabs.Screen
+       name="chat-dm" 
+       options={{ href: null }} 
+       />
     </Tabs>
   );
 }
