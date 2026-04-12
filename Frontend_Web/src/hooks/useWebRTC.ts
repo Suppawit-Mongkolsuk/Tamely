@@ -42,6 +42,7 @@ function createIceConfiguration(): RTCConfiguration {
 }
 
 const ICE_CONFIGURATION = createIceConfiguration();
+console.log('[WebRTC] ICE config:', JSON.stringify(ICE_CONFIGURATION));
 
 export interface CallState {
   status: 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
@@ -236,6 +237,7 @@ export function useWebRTC({
       };
 
       pc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
         if (pc.iceConnectionState === 'failed') {
           toast.error(
             turnUrlsConfigured()
@@ -246,6 +248,7 @@ export function useWebRTC({
       };
 
       pc.onconnectionstatechange = () => {
+        console.log('[WebRTC] Connection state:', pc.connectionState);
         if (pc.connectionState === 'connected') {
           setCallState((prev) => ({
             ...prev,
