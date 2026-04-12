@@ -86,7 +86,7 @@ export function CallOverlay() {
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = callState.remoteStream;
     }
-  }, [callState.localStream, callState.remoteStream]);
+  }, [callState.localStream, callState.remoteStream, callState.status, callState.isMinimized]);
 
   const peerName = callState.peerName ?? 'Unknown user';
   const peerAvatarUrl = callState.peerAvatarUrl;
