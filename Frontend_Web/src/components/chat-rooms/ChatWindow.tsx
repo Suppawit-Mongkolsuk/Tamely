@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Info,
   Phone,
-  Video,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -99,7 +98,6 @@ interface ChatWindowProps {
   onBack?: () => void;
   onShowDetail?: () => void;
   onStartVoiceCall?: () => void;
-  onStartVideoCall?: () => void;
   disableCallActions?: boolean;
 }
 
@@ -120,7 +118,6 @@ export function ChatWindow({
   onBack,
   onShowDetail,
   onStartVoiceCall,
-  onStartVideoCall,
   disableCallActions = false,
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -294,16 +291,6 @@ export function ChatWindow({
                 title="Voice call"
               >
                 <Phone className="size-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9"
-                onClick={onStartVideoCall}
-                disabled={disableCallActions}
-                title="Video call"
-              >
-                <Video className="size-4" />
               </Button>
             </>
           )}

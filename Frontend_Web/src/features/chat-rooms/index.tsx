@@ -582,11 +582,6 @@ export function ChatRoomsPage() {
                   ? () => void startCall(currentDM.userId, currentDM.id, 'audio', currentDM.userName, currentDM.avatarUrl)
                   : undefined
               }
-              onStartVideoCall={
-                currentDM
-                  ? () => void startCall(currentDM.userId, currentDM.id, 'video', currentDM.userName, currentDM.avatarUrl)
-                  : undefined
-              }
               disableCallActions={
                 !currentDM || !(onlineStatus[currentDM.userId] ?? false) || isCallBusy
               }
