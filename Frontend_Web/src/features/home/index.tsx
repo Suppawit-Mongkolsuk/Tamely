@@ -118,15 +118,15 @@ export function HomePage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             Stay updated with the latest announcements
           </p>
         </div>
         <Button
-          className="bg-primary hover:bg-primary/90"
+          className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
           onClick={() => setIsCreateDialogOpen(true)}
         >
           <Plus className="size-4 mr-2" />

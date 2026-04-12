@@ -97,14 +97,14 @@ export function CalendarPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <CalendarHeader
         tasks={tasks}
         onCreateTask={() => setShowCreateDialog(true)}
         onAICreate={() => setShowAIDialog(true)}
       />
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
         <CalendarGrid
           currentDate={currentDate}
           selectedDate={selectedDate}

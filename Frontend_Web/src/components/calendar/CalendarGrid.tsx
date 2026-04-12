@@ -27,10 +27,10 @@ export function CalendarGrid({
   const days = getDaysInMonth(currentDate);
 
   return (
-    <Card className="lg:col-span-2 p-6">
+    <Card className="lg:col-span-2 p-3 sm:p-6">
       {/* Calendar Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h2 className="text-base sm:text-xl">
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear() + 543}
         </h2>
         <div className="flex items-center gap-2">
@@ -47,12 +47,12 @@ export function CalendarGrid({
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {/* Day names */}
         {dayNames.map((day) => (
           <div
             key={day}
-            className="text-center text-sm text-muted-foreground py-2"
+            className="text-center text-xs sm:text-sm text-muted-foreground py-1 sm:py-2"
           >
             {day}
           </div>
@@ -72,7 +72,7 @@ export function CalendarGrid({
             <button
               key={index}
               onClick={() => day && onSelectDate(day)}
-              className={`min-h-24 p-2 rounded-lg border transition-all ${
+              className={`min-h-12 sm:min-h-24 p-1 sm:p-2 rounded-lg border transition-all ${
                 !day
                   ? 'bg-muted/30 cursor-default'
                   : isSelected
@@ -86,17 +86,18 @@ export function CalendarGrid({
               {day && (
                 <div className="text-left h-full flex flex-col">
                   <span
-                    className={`text-sm mb-1 ${
+                    className={`text-xs sm:text-sm mb-0.5 sm:mb-1 ${
                       isToday ? 'font-bold text-blue-600' : 'text-foreground'
                     }`}
                   >
                     {day.getDate()}
                   </span>
-                  <div className="space-y-1 flex-1">
+                  {/* Task previews — hidden on small screens, show dots instead */}
+                  <div className="space-y-0.5 sm:space-y-1 flex-1">
                     {dayTasks.slice(0, 2).map((task) => (
                       <div
                         key={task.id}
-                        className={`text-xs p-1 rounded truncate ${
+                        className={`text-xs p-0.5 sm:p-1 rounded truncate hidden sm:block ${
                           task.priority === 'high'
                             ? 'bg-red-100 text-red-700'
                             : task.priority === 'medium'
@@ -107,8 +108,25 @@ export function CalendarGrid({
                         {task.title.substring(0, 15)}...
                       </div>
                     ))}
+                    {/* Mobile: show colored dots */}
+                    {dayTasks.length > 0 && (
+                      <div className="flex gap-0.5 justify-center sm:hidden">
+                        {dayTasks.slice(0, 3).map((task) => (
+                          <span
+                            key={task.id}
+                            className={`size-1.5 rounded-full ${
+                              task.priority === 'high'
+                                ? 'bg-red-500'
+                                : task.priority === 'medium'
+                                  ? 'bg-orange-500'
+                                  : 'bg-blue-500'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
                     {dayTasks.length > 2 && (
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground hidden sm:block">
                         +{dayTasks.length - 2} เพิ่มเติม
                       </div>
                     )}

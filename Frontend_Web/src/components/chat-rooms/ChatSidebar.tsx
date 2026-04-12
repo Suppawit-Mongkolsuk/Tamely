@@ -26,6 +26,7 @@ interface ChatSidebarProps {
   onSelectDM: (id: string) => void;
   isCreateRoomOpen: boolean;
   onCreateRoomOpenChange: (open: boolean) => void;
+  onCreateRoom: (name: string, allowedRoles: string[]) => Promise<void>;
   onOpenDMWithUser: (userId: string) => void;
 }
 
@@ -44,6 +45,7 @@ export function ChatSidebar({
   onSelectDM,
   isCreateRoomOpen,
   onCreateRoomOpenChange,
+  onCreateRoom,
   onOpenDMWithUser,
 }: ChatSidebarProps) {
   const filteredRooms = rooms.filter((room) =>
@@ -75,7 +77,7 @@ export function ChatSidebar({
   });
 
   return (
-    <div className="w-80 bg-white border-r border-border flex flex-col">
+    <div className="w-full bg-white border-r border-border flex flex-col min-w-0">
       {/* Tabs */}
       <div className="p-4 border-b border-border">
         <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as ChatTab)}>
@@ -110,7 +112,11 @@ export function ChatSidebar({
         <div className="p-2 space-y-0.5">
           {activeTab === 'rooms' ? (
             <>
-              <CreateRoomDialog open={isCreateRoomOpen} onOpenChange={onCreateRoomOpenChange} />
+              <CreateRoomDialog
+                open={isCreateRoomOpen}
+                onOpenChange={onCreateRoomOpenChange}
+                onCreateRoom={onCreateRoom}
+              />
               {filteredRooms.map((room) => (
                 <Button
                   key={room.id}
@@ -164,7 +170,7 @@ export function ChatSidebar({
                     >
                       {/* Avatar + Status */}
                       <div className="relative shrink-0">
-                        <UserAvatar displayName={member.user.Name} size="md" />
+                        <UserAvatar displayName={member.user.Name} avatarUrl={member.user.avatarUrl} size="md" />
                         {/* status dot — แบบ IG: dot เล็กๆ ด้านล่างขวา */}
                         <span
                           className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-white

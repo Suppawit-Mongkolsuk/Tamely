@@ -1,10 +1,81 @@
 // ===== Chat Window — Header + Messages + Input + File Upload =====
-import { useState, useRef, useEffect } from 'react';
-import { Send, Hash, MoreVertical, Paperclip, Image as ImageIcon, X } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import {
+  Send,
+  Hash,
+  MoreVertical,
+  Paperclip,
+  Image as ImageIcon,
+  X,
+  ArrowLeft,
+  Info,
+  Phone,
+  Video,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { MessageBubble } from './MessageBubble';
 import type { ChatRoom, DirectMessage, Message, ChatTab } from '@/types/chat-ui';
+
+// ===== Date Separator =====
+
+/** แปลง "YYYY-MM-DD" → "วันนี้" / "เมื่อวาน" / "จ. 7 เม.ย." / "7 เม.ย. 2023" */
+function formatDateLabel(dateStr: string): string {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  if (dateStr === todayStr) return 'วันนี้';
+  if (dateStr === yesterdayStr) return 'เมื่อวาน';
+
+  const d = new Date(dateStr);
+  const sameYear = d.getFullYear() === today.getFullYear();
+  return d.toLocaleDateString('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 my-4 px-2">
+      <div className="flex-1 h-px bg-border" />
+      <span className="text-xs text-muted-foreground font-medium px-2 shrink-0">{label}</span>
+      <div className="flex-1 h-px bg-border" />
+    </div>
+  );
+}
+
+// Skeleton bubbles แสดงตอนกำลังโหลดข้อความครั้งแรก
+function MessageSkeleton() {
+  const items = [
+    { own: false, width: 'w-48' },
+    { own: false, width: 'w-36' },
+    { own: true,  width: 'w-56' },
+    { own: false, width: 'w-44' },
+    { own: true,  width: 'w-32' },
+    { own: true,  width: 'w-52' },
+  ];
+  return (
+    <div className="space-y-4 px-2 py-4">
+      {items.map((item, i) => (
+        <div key={i} className={`flex items-end gap-2 ${item.own ? 'flex-row-reverse' : ''}`}>
+          {!item.own && (
+            <div className="size-8 rounded-full bg-gray-200 animate-pulse shrink-0" />
+          )}
+          <div className={`flex flex-col gap-1 ${item.own ? 'items-end' : 'items-start'}`}>
+            {!item.own && <div className="h-3 w-20 bg-gray-200 animate-pulse rounded" />}
+            <div className={`h-10 ${item.width} bg-gray-200 animate-pulse rounded-2xl`} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Allowed file types
 const IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
@@ -22,6 +93,14 @@ interface ChatWindowProps {
   onlineStatus?: Record<string, boolean>;
   onDeleteMessage?: (messageId: string) => void;
   onSendFile?: (file: File) => Promise<void>;
+  isLoading?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => Promise<void>;
+  onBack?: () => void;
+  onShowDetail?: () => void;
+  onStartVoiceCall?: () => void;
+  onStartVideoCall?: () => void;
+  disableCallActions?: boolean;
 }
 
 export function ChatWindow({
@@ -35,6 +114,14 @@ export function ChatWindow({
   onlineStatus = {},
   onDeleteMessage,
   onSendFile,
+  isLoading = false,
+  hasMore = false,
+  onLoadMore,
+  onBack,
+  onShowDetail,
+  onStartVoiceCall,
+  onStartVideoCall,
+  disableCallActions = false,
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,12 +129,52 @@ export function ChatWindow({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Auto scroll to bottom เมื่อมีข้อความใหม่
+  const restoringScrollRef = useRef(false);
+  const prevScrollHeightRef = useRef(0);
+
+  // Auto scroll to bottom เมื่อมีข้อความใหม่ (ยกเว้นตอน load more)
   useEffect(() => {
+    if (restoringScrollRef.current) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  // Restore scroll position หลัง prepend ข้อความเก่า
+  useLayoutEffect(() => {
+    if (!restoringScrollRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
+  }, [messages]);
+
+  useEffect(() => {
+    restoringScrollRef.current = false;
+  }, [messages]);
+
+  // Scroll to top → load more
+  const handleScrollEvent = useCallback(async () => {
+    const el = scrollRef.current;
+    if (!el || !hasMore || isLoadingMore || restoringScrollRef.current) return;
+    if (el.scrollTop < 80) {
+      prevScrollHeightRef.current = el.scrollHeight;
+      restoringScrollRef.current = true;
+      setIsLoadingMore(true);
+      try {
+        await onLoadMore?.();
+      } finally {
+        setIsLoadingMore(false);
+      }
+    }
+  }, [hasMore, isLoadingMore, onLoadMore]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', handleScrollEvent);
+    return () => el.removeEventListener('scroll', handleScrollEvent);
+  }, [handleScrollEvent]);
 
   // คำนวณ online status real-time
   const isOnline = currentDM ? (onlineStatus[currentDM.userId] ?? false) : false;
@@ -112,10 +239,16 @@ export function ChatWindow({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white min-w-0 w-full">
       {/* Chat Header */}
-      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Back button — mobile only */}
+          {onBack && (
+            <Button variant="ghost" size="icon" className="size-9 shrink-0 md:hidden" onClick={onBack}>
+              <ArrowLeft className="size-5" />
+            </Button>
+          )}
           {activeTab === 'rooms' ? (
             <>
               <div className="size-10 rounded-lg bg-[#003366] flex items-center justify-center">
@@ -149,7 +282,37 @@ export function ChatWindow({
             </>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
+          {activeTab === 'dms' && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                onClick={onStartVoiceCall}
+                disabled={disableCallActions}
+                title="Voice call"
+              >
+                <Phone className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                onClick={onStartVideoCall}
+                disabled={disableCallActions}
+                title="Video call"
+              >
+                <Video className="size-4" />
+              </Button>
+            </>
+          )}
+          {/* Info/detail button — mobile only */}
+          {onShowDetail && (
+            <Button variant="ghost" size="icon" className="size-9 md:hidden" onClick={onShowDetail}>
+              <Info className="size-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="size-9">
             <MoreVertical className="size-4" />
           </Button>
@@ -157,22 +320,56 @@ export function ChatWindow({
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-6 py-4">
+        {isLoading ? (
+          <MessageSkeleton />
+        ) : (
         <div className="space-y-1">
-          {messages.map((message, i) => {
-            const prev = messages[i - 1];
-            const showSender = !prev || prev.sender !== message.sender || prev.isOwn !== message.isOwn;
+          {/* Spinner ตอนโหลดข้อความเก่า (scroll ขึ้น) */}
+          {isLoadingMore && (
+            <div className="flex justify-center py-3">
+              <div className="size-5 border-2 border-[#5EBCAD] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
 
-            return (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                showSender={showSender}
-                onDelete={onDeleteMessage}
-              />
-            );
-          })}
+          {(() => {
+            // หา index ของข้อความสุดท้ายที่เป็น isOwn && isRead สำหรับ read receipt
+            let lastReadOwnIndex = -1;
+            if (activeTab === 'dms') {
+              for (let i = messages.length - 1; i >= 0; i--) {
+                if (messages[i].isOwn && messages[i].isRead) {
+                  lastReadOwnIndex = i;
+                  break;
+                }
+              }
+            }
+
+            return messages.map((message, i) => {
+              const prev = messages[i - 1];
+              const showDateSep = !prev || prev.date !== message.date;
+              const showSender =
+                showDateSep ||
+                !prev ||
+                prev.sender !== message.sender ||
+                prev.isOwn !== message.isOwn;
+
+              return (
+                <div key={message.id}>
+                  {showDateSep && (
+                    <DateSeparator label={formatDateLabel(message.date)} />
+                  )}
+                  <MessageBubble
+                    message={message}
+                    showSender={showSender}
+                    onDelete={onDeleteMessage}
+                    showReadReceipt={i === lastReadOwnIndex}
+                  />
+                </div>
+              );
+            });
+          })()}
         </div>
+        )}
       </div>
 
       {/* Pending File Preview */}
@@ -202,9 +399,9 @@ export function ChatWindow({
       )}
 
       {/* Message Input */}
-      <div className="p-4 border-t border-border">
+      <div className="p-2 sm:p-4 border-t border-border">
         <div className="flex items-center gap-2">
-          {activeTab === 'dms' && onSendFile && (
+          {onSendFile && (
             <>
               <Button
                 variant="ghost"

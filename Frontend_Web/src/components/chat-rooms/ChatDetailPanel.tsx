@@ -13,10 +13,12 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 import type { ChatRoom, DirectMessage, Member, ChatTab, Message } from '@/types/chat-ui';
 import type { WorkspaceMember } from '@/types/workspace';
 
@@ -26,11 +28,13 @@ interface ChatDetailPanelProps {
   currentDM: DirectMessage | undefined;
   members: Member[];
   messages?: Message[];
+  myWorkspaceRole?: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
   onInviteMember: () => void;
   onRemoveMember: (member: Member) => void;
   onLeaveRoom: () => void;
   onlineStatus?: Record<string, boolean>;
   dmUserDetail?: WorkspaceMember | null;
+  onBack?: () => void;
 }
 
 export function ChatDetailPanel({
@@ -39,18 +43,31 @@ export function ChatDetailPanel({
   currentDM,
   members,
   messages = [],
+  myWorkspaceRole = 'MEMBER',
   onInviteMember,
   onRemoveMember,
   onLeaveRoom,
   onlineStatus = {},
   dmUserDetail,
+  onBack,
 }: ChatDetailPanelProps) {
   return (
-    <div className="w-80 bg-white border-l border-border p-4 space-y-6 overflow-y-auto">
+    <div className="w-full bg-white border-l border-border p-4 space-y-6 overflow-y-auto min-w-0">
+      {/* Back button — mobile only */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground md:hidden"
+        >
+          <ArrowLeft className="size-4" />
+          Back to chat
+        </button>
+      )}
       {activeTab === 'rooms' ? (
         <RoomDetails
           currentRoom={currentRoom}
           members={members}
+          myWorkspaceRole={myWorkspaceRole}
           onInviteMember={onInviteMember}
           onRemoveMember={onRemoveMember}
           onLeaveRoom={onLeaveRoom}
@@ -68,19 +85,30 @@ export function ChatDetailPanel({
 }
 
 /* ---- Room Detail sub-section ---- */
+const ROLE_LABEL: Record<string, string> = {
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
+  MODERATOR: 'Moderator',
+  MEMBER: 'Member',
+};
+
 function RoomDetails({
   currentRoom,
   members,
+  myWorkspaceRole,
   onInviteMember,
   onRemoveMember,
   onLeaveRoom,
 }: {
   currentRoom: ChatRoom | undefined;
   members: Member[];
+  myWorkspaceRole: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
   onInviteMember: () => void;
   onRemoveMember: (member: Member) => void;
   onLeaveRoom: () => void;
 }) {
+  const canRemove = myWorkspaceRole === 'OWNER';
+
   return (
     <>
       {/* Room Members */}
@@ -112,18 +140,22 @@ function RoomDetails({
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{member.name}</p>
                 <div className="flex items-center gap-1">
-                  {member.role === 'admin' && (
+                  {member.role === 'OWNER' && (
                     <Crown className="size-3 text-yellow-600" />
                   )}
-                  {member.role === 'moderator' && (
+                  {member.role === 'ADMIN' && (
                     <Shield className="size-3 text-blue-600" />
                   )}
-                  <span className="text-xs text-muted-foreground capitalize">
-                    {member.role}
+                  {member.role === 'MODERATOR' && (
+                    <Shield className="size-3 text-purple-500" />
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {ROLE_LABEL[member.role] ?? member.role}
                   </span>
                 </div>
               </div>
-              {member.role !== 'admin' && (
+              {/* ปุ่ม Remove — เห็นได้เฉพาะ OWNER และไม่ให้ลบตัวเอง/owner คนอื่น */}
+              {canRemove && member.role !== 'OWNER' && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -180,9 +212,11 @@ function DMDetails({
       {/* DM User Info */}
       <div className="text-center">
         <div className="relative inline-block mb-3">
-          <div className="size-20 rounded-full bg-[#75A2BF] flex items-center justify-center text-white text-2xl font-medium">
-            {currentDM?.avatar}
-          </div>
+          <UserAvatar
+            displayName={currentDM?.userName ?? ''}
+            avatarUrl={currentDM?.avatarUrl}
+            size="xl"
+          />
           <span
             className={`absolute bottom-1 right-1 size-4 rounded-full border-2 border-white ${
               isOnline ? 'bg-green-500' : 'bg-gray-300'

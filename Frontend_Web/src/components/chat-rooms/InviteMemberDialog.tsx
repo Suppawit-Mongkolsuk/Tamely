@@ -1,5 +1,6 @@
 // ===== Invite Member Dialog =====
-import { Search, UserPlus, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Search, UserPlus, Users, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -29,7 +30,7 @@ interface InviteMemberDialogProps {
   selectedUsers: string[];
   onToggleUser: (userId: string) => void;
   onClearSelection: () => void;
-  onInvite: () => void;
+  onInvite: () => Promise<void>;
   searchQuery: string;
   onSearchChange: (q: string) => void;
 }
@@ -46,9 +47,20 @@ export function InviteMemberDialog({
   searchQuery,
   onSearchChange,
 }: InviteMemberDialogProps) {
+  const [isInviting, setIsInviting] = useState(false);
+
   const filteredUsers = availableUsers.filter((user) =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const handleInvite = async () => {
+    setIsInviting(true);
+    try {
+      await onInvite();
+    } finally {
+      setIsInviting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,12 +178,14 @@ export function InviteMemberDialog({
               </Button>
               <Button
                 className="bg-linear-to-r from-[#5EBCAD] to-[#46769B] hover:opacity-90 text-white"
-                onClick={onInvite}
-                disabled={selectedUsers.length === 0}
+                onClick={handleInvite}
+                disabled={selectedUsers.length === 0 || isInviting}
               >
-                <UserPlus className="size-4 mr-2" />
-                Invite{' '}
-                {selectedUsers.length > 0 ? `(${selectedUsers.length})` : ''}
+                {isInviting ? (
+                  <><Loader2 className="size-4 mr-2 animate-spin" />Inviting...</>
+                ) : (
+                  <><UserPlus className="size-4 mr-2" />Invite{selectedUsers.length > 0 ? ` (${selectedUsers.length})` : ''}</>
+                )}
               </Button>
             </div>
           </div>

@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.requireWorkspaceOwner = exports.requireWorkspaceAdmin = void 0;
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const index_1 = require("../index");
 /**
  * ตรวจสอบว่า user เป็น admin ของ workspace ไหม
  * @param req - Request (ต้องมี req.userId)
@@ -17,7 +16,7 @@ const requireWorkspaceAdmin = async (req, res, next) => {
             return;
         }
         // ดึง workspace member data
-        const member = await prisma.workspaceMember.findUnique({
+        const member = await index_1.prisma.workspaceMember.findUnique({
             where: {
                 workspaceId_userId: {
                     workspaceId: workspaceId,
@@ -54,7 +53,7 @@ const requireWorkspaceOwner = async (req, res, next) => {
             return;
         }
         // ดึง workspace data
-        const workspace = await prisma.workspace.findUnique({
+        const workspace = await index_1.prisma.workspace.findUnique({
             where: { id: workspaceId },
         });
         // เช็ค owner

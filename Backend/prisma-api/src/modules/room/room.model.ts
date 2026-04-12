@@ -6,6 +6,7 @@ export type TypePayloadCreateRoom = {
   name: string;
   description?: string;
   isPrivate?: boolean;
+  allowedRoles?: string[]; // ยศที่เข้าห้องได้ — ถ้าว่าง = ALL
 };
 
 export type TypePayloadUpdateRoom = {
@@ -23,6 +24,8 @@ const zodUuid = z
 
 /* ======================= CREATE ======================= */
 
+const WorkspaceRoleEnum = z.enum(['OWNER', 'ADMIN', 'MODERATOR', 'MEMBER']);
+
 export const CreateRoomSchema = z.object({
   params: z.object({
     wsId: zodUuid,
@@ -39,6 +42,7 @@ export const CreateRoomSchema = z.object({
       .transform((v) => v.trim())
       .optional(),
     isPrivate: z.boolean().optional().default(false),
+    allowedRoles: z.array(WorkspaceRoleEnum).optional().default([]),
   }),
 });
 

@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   message: Message;
   showSender?: boolean;
   onDelete?: (messageId: string) => void;
+  showReadReceipt?: boolean;
 }
 
 /** Format file size */
@@ -25,7 +26,7 @@ function formatSize(bytes: number | null | undefined) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function MessageBubble({ message, showSender = true, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ message, showSender = true, onDelete, showReadReceipt = false }: MessageBubbleProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const messageType = message.type ?? 'TEXT';
@@ -120,14 +121,22 @@ export function MessageBubble({ message, showSender = true, onDelete }: MessageB
 
         {/* Bubble + timestamp ข้างๆ (แบบ LINE) */}
         <div className={`flex items-end gap-1.5 ${message.isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-          <div
-            className={`${bubblePadding} ${
-              message.isOwn
-                ? 'bg-[#003366] text-white rounded-2xl rounded-br-md'
-                : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
-            }`}
-          >
-            {renderContent()}
+          <div className={`flex flex-col ${message.isOwn ? 'items-end' : 'items-start'} gap-0.5`}>
+            <div
+              className={`${bubblePadding} ${
+                message.isOwn
+                  ? 'bg-[#003366] text-white rounded-2xl rounded-br-md'
+                  : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
+              }`}
+            >
+              {renderContent()}
+            </div>
+            {/* Read receipt — แสดงใต้ข้อความสุดท้ายที่ถูกอ่าน (DM เท่านั้น) */}
+            {showReadReceipt && (
+              <span className="text-[10px] text-[#5EBCAD] font-medium px-1">
+                Read
+              </span>
+            )}
           </div>
 
           {/* Timestamp ข้างๆ bubble — แสดงตอน hover */}

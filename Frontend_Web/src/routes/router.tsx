@@ -40,9 +40,15 @@ const ManagementPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/Pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
-const NotFoundPage = lazy(() =>
-  import('@/Pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
-);
+function NotFoundPage() {
+  return (
+    <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+      <h1 style={{ fontSize: '4rem', fontWeight: 'bold', color: '#1f2937' }}>404</h1>
+      <p style={{ color: '#6b7280' }}>ไม่พบหน้าที่ต้องการ</p>
+      <a href="/" style={{ color: '#3b82f6', textDecoration: 'underline' }}>กลับหน้าหลัก</a>
+    </div>
+  );
+}
 
 // ── Loading fallback ─────────────────────────────────────────────────────────
 function PageLoader() {

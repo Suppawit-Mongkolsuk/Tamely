@@ -39,13 +39,13 @@ interface MembersTabProps {
 export function MembersTab({ members, onInvite }: MembersTabProps) {
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-muted-foreground" />
           <Input placeholder="ค้นหาสมาชิก..." className="pl-10 bg-white" />
         </div>
         <Button
-          className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+          className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90 w-full sm:w-auto"
           onClick={onInvite}
         >
           <UserPlus className="size-4 mr-2" />

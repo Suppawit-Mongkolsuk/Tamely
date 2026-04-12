@@ -1,3 +1,4 @@
+import { WorkspaceRole } from '@prisma/client';
 import { prisma } from '../../index';
 import { TypePayloadCreateRoom, TypePayloadUpdateRoom } from './room.model';
 
@@ -19,6 +20,7 @@ export const create = async (
       name: data.name,
       description: data.description,
       isPrivate: data.isPrivate ?? false,
+      allowedRoles: (data.allowedRoles ?? []) as WorkspaceRole[],
       createdById: userId,
       members: {
         create: { userId },
@@ -33,9 +35,18 @@ export const create = async (
 
 /* ======================= READ ======================= */
 
-export const findMany = async (workspaceId: string) => {
+export const findMany = async (workspaceId: string, userId: string, userRole: WorkspaceRole) => {
   return prisma.room.findMany({
-    where: { workspaceId, isActive: true },
+    where: {
+      workspaceId,
+      isActive: true,
+      // ต้องเป็น RoomMember ก่อน (ถ้าถูกเตะออกก็ไม่เห็น)
+      members: { some: { userId } },
+      OR: [
+        { allowedRoles: { isEmpty: true } }, // [] = ALL สามารถเข้าได้
+        { allowedRoles: { has: userRole } },  // role ของ user อยู่ใน list
+      ],
+    },
     include: {
       _count: { select: { members: true } },
       createdBy: { select: creatorSelect },
@@ -52,7 +63,15 @@ export const findById = async (roomId: string) => {
       createdBy: { select: creatorSelect },
       members: {
         include: {
-          user: { select: memberUserSelect },
+          user: {
+            select: {
+              ...memberUserSelect,
+              // ดึง workspace role มาด้วยเพื่อแสดงในห้อง
+              workspaceMembers: {
+                select: { workspaceId: true, role: true },
+              },
+            },
+          },
         },
       },
     },
@@ -99,8 +118,9 @@ export const createRoomMember = async (roomId: string, userId: string) => {
 };
 
 export const deleteRoomMember = async (roomId: string, userId: string) => {
-  return prisma.roomMember.delete({
-    where: { roomId_userId: { roomId, userId } },
+  // deleteMany แทน delete เพื่อไม่ throw error กรณี user ไม่ได้เป็น RoomMember
+  await prisma.roomMember.deleteMany({
+    where: { roomId, userId },
   });
 };
 
