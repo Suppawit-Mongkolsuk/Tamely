@@ -2,12 +2,46 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ],
-};
+function parseIceUrls(value?: string): string[] {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function createIceConfiguration(): RTCConfiguration {
+  const stunUrls = parseIceUrls(import.meta.env.VITE_STUN_URLS)
+    .concat([
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+    ]);
+
+  const turnUrls = parseIceUrls(import.meta.env.VITE_TURN_URLS);
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME?.trim();
+  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL?.trim();
+
+  const iceServers: RTCIceServer[] = [];
+
+  if (stunUrls.length > 0) {
+    iceServers.push({ urls: Array.from(new Set(stunUrls)) });
+  }
+
+  if (turnUrls.length > 0) {
+    iceServers.push({
+      urls: Array.from(new Set(turnUrls)),
+      username: turnUsername,
+      credential: turnCredential,
+    });
+  }
+
+  return {
+    iceServers,
+    iceCandidatePoolSize: 10,
+  };
+}
+
+const ICE_CONFIGURATION = createIceConfiguration();
 
 export interface CallState {
   status: 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
@@ -177,7 +211,7 @@ export function useWebRTC({
     (stream: MediaStream, peerId: string, conversationId: string) => {
       closePeerConnection();
 
-      const pc = new RTCPeerConnection(ICE_SERVERS);
+      const pc = new RTCPeerConnection(ICE_CONFIGURATION);
       peerConnectionRef.current = pc;
 
       const remoteStream = new MediaStream();
@@ -199,6 +233,16 @@ export function useWebRTC({
           targetUserId: peerId,
           candidate: event.candidate.toJSON(),
         });
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'failed') {
+          toast.error(
+            turnUrlsConfigured()
+              ? 'เชื่อมต่อสื่อไม่สำเร็จ กรุณาลองโทรใหม่อีกครั้ง'
+              : 'เชื่อมต่อเสียงไม่สำเร็จ กรุณาตั้งค่า TURN server สำหรับการโทรข้ามเครือข่าย',
+          );
+        }
       };
 
       pc.onconnectionstatechange = () => {
@@ -502,11 +546,14 @@ export function useWebRTC({
         return;
       }
 
-      pendingOfferRef.current = payload.offer;
-
       const pc = peerConnectionRef.current;
-      if (!pc) return;
+      if (!pc) {
+        // PC ยังไม่ถูกสร้าง (offer มาก่อน acceptCall สร้าง PC) → เก็บไว้ก่อน
+        pendingOfferRef.current = payload.offer;
+        return;
+      }
 
+      // PC มีแล้ว → handle โดยตรง
       await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -594,4 +641,8 @@ export function useWebRTC({
     }),
     [acceptCall, callState, endCall, expandCallUI, minimizeCallUI, rejectCall, startCall, toggleMute, toggleVideo],
   );
+}
+
+function turnUrlsConfigured() {
+  return parseIceUrls(import.meta.env.VITE_TURN_URLS).length > 0;
 }
