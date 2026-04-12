@@ -13,8 +13,7 @@ const FALLBACK_ICE_CONFIGURATION: RTCConfiguration = {
 
 async function fetchIceConfiguration(): Promise<RTCConfiguration> {
   try {
-    const baseUrl = config.apiUrl.replace('/api', '');
-    const res = await fetch(`${baseUrl}/api/turn-credentials`);
+    const res = await fetch(`${config.apiUrl}/turn-credentials`);
     const data = await res.json() as { iceServers: RTCIceServer[] };
 
     if (!data.iceServers?.length) return FALLBACK_ICE_CONFIGURATION;

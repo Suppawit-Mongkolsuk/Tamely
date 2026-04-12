@@ -78,19 +78,26 @@ app.get('/health', async (req, res) => {
 
 // TURN credentials endpoint (ให้ Frontend ดึง ICE servers ที่มี TURN)
 app.get('/api/turn-credentials', async (_req, res) => {
-  const domain = process.env.METERED_DOMAIN;
-  const apiKey = process.env.METERED_SECRET_KEY;
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
 
-  if (!domain || !apiKey) {
+  if (!accountSid || !authToken) {
     res.json({ iceServers: [] });
     return;
   }
 
   try {
+    const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
     const response = await fetch(
-      `https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`,
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Tokens.json`,
+      { method: 'POST', headers: { Authorization: `Basic ${credentials}` } },
     );
-    const iceServers = await response.json();
+    const data = await response.json() as { ice_servers?: { url?: string; urls?: string; username?: string; credential?: string }[] };
+    const iceServers = (data.ice_servers ?? []).map((s) => ({
+      urls: s.urls ?? s.url ?? '',
+      ...(s.username ? { username: s.username } : {}),
+      ...(s.credential ? { credential: s.credential } : {}),
+    }));
     res.json({ iceServers });
   } catch {
     res.json({ iceServers: [] });
