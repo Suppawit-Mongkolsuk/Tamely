@@ -3,6 +3,7 @@
 
 import { useState, useCallback } from 'react';
 import { authService } from '@/services';
+import { setSocketToken } from '@/lib/socket';
 import type {
   User,
   LoginRequest,
@@ -21,6 +22,8 @@ export function useAuth() {
     try {
       const response = await authService.login(data);
       setUser(response.user);
+      // เก็บ token เพื่อใช้กับ socket
+      setSocketToken(response.token);
       return response;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
@@ -37,6 +40,8 @@ export function useAuth() {
     try {
       const response = await authService.register(data);
       setUser(response.user);
+      // เก็บ token เพื่อใช้กับ socket
+      setSocketToken(response.token);
       return response;
     } catch (err) {
       const message =
@@ -65,6 +70,7 @@ export function useAuth() {
   const logout = useCallback(async () => {
     await authService.logout();
     setUser(null);
+    setSocketToken('');
   }, []);
 
   // เรียก /auth/me เพื่อเช็คว่า cookie ยังใช้ได้ไหม
@@ -74,6 +80,9 @@ export function useAuth() {
       const currentUser = await authService.checkAuth();
       if (currentUser) {
         setUser(currentUser);
+        // ดึง token สำหรับ socket (page refresh)
+        const token = await authService.getSocketToken();
+        if (token) setSocketToken(token);
         return true;
       }
       return false;
