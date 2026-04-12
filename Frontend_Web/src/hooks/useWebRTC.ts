@@ -80,6 +80,10 @@ interface CallUserAck {
   error?: string;
 }
 
+interface TonePlayback {
+  stop: () => void;
+}
+
 const initialState: CallState = {
   status: 'idle',
   callType: 'audio',
@@ -128,6 +132,8 @@ export function useWebRTC({
   const outgoingTimeoutRef = useRef<number | null>(null);
   const durationIntervalRef = useRef<number | null>(null);
   const closingRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const ringtonePlaybackRef = useRef<TonePlayback | null>(null);
 
   const clearAutoRejectTimer = useCallback(() => {
     if (autoRejectTimerRef.current) {
@@ -177,6 +183,118 @@ export function useWebRTC({
     resetState();
     closingRef.current = false;
   }, [closePeerConnection, resetState, stopStreams]);
+
+  const ensureAudioContext = useCallback(async () => {
+    const AudioContextCtor = window.AudioContext || (window as typeof window & {
+      webkitAudioContext?: typeof AudioContext;
+    }).webkitAudioContext;
+
+    if (!AudioContextCtor) return null;
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextCtor();
+    }
+
+    if (audioContextRef.current.state === 'suspended') {
+      try {
+        await audioContextRef.current.resume();
+      } catch {
+        return null;
+      }
+    }
+
+    return audioContextRef.current;
+  }, []);
+
+  const stopSignalTone = useCallback(() => {
+    ringtonePlaybackRef.current?.stop();
+    ringtonePlaybackRef.current = null;
+  }, []);
+
+  const playSignalTone = useCallback(
+    async (pattern: 'outgoing' | 'incoming') => {
+      stopSignalTone();
+
+      const audioContext = await ensureAudioContext();
+      if (!audioContext) return;
+
+      let cancelled = false;
+      const timers = new Set<number>();
+      const activeNodes: Array<OscillatorNode | GainNode> = [];
+
+      const scheduleBeep = (delayMs: number, durationMs: number, frequency: number, volume = 0.035) => {
+        const timerId = window.setTimeout(() => {
+          if (cancelled) return;
+
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          const startAt = audioContext.currentTime;
+          const attackEnd = startAt + 0.01;
+          const releaseStart = startAt + Math.max(durationMs / 1000 - 0.05, 0.02);
+          const stopAt = startAt + durationMs / 1000;
+
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(frequency, startAt);
+
+          gainNode.gain.setValueAtTime(0.0001, startAt);
+          gainNode.gain.exponentialRampToValueAtTime(volume, attackEnd);
+          gainNode.gain.exponentialRampToValueAtTime(volume * 0.85, releaseStart);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          oscillator.start(startAt);
+          oscillator.stop(stopAt);
+
+          activeNodes.push(oscillator, gainNode);
+
+          oscillator.onended = () => {
+            oscillator.disconnect();
+            gainNode.disconnect();
+          };
+        }, delayMs);
+
+        timers.add(timerId);
+      };
+
+      const schedulePattern = () => {
+        if (pattern === 'incoming') {
+          scheduleBeep(0, 180, 880, 0.04);
+          scheduleBeep(220, 180, 660, 0.04);
+          scheduleBeep(900, 180, 880, 0.04);
+          scheduleBeep(1120, 180, 660, 0.04);
+          return 2200;
+        }
+
+        scheduleBeep(0, 320, 440, 0.03);
+        scheduleBeep(1200, 320, 440, 0.03);
+        return 3000;
+      };
+
+      const cycleMs = schedulePattern();
+      const intervalId = window.setInterval(() => {
+        schedulePattern();
+      }, cycleMs);
+
+      ringtonePlaybackRef.current = {
+        stop: () => {
+          cancelled = true;
+          window.clearInterval(intervalId);
+          timers.forEach((timerId) => window.clearTimeout(timerId));
+          timers.clear();
+          activeNodes.forEach((node) => {
+            try {
+              node.disconnect();
+            } catch {
+              // Ignore node cleanup failures.
+            }
+          });
+        },
+      };
+    },
+    [ensureAudioContext, stopSignalTone],
+  );
 
   const flushPendingIceCandidates = useCallback(async () => {
     const pc = peerConnectionRef.current;
@@ -462,6 +580,21 @@ export function useWebRTC({
   }, []);
 
   useEffect(() => {
+    if (callState.status === 'calling') {
+      void playSignalTone('outgoing');
+      return () => stopSignalTone();
+    }
+
+    if (callState.status === 'ringing') {
+      void playSignalTone('incoming');
+      return () => stopSignalTone();
+    }
+
+    stopSignalTone();
+    return undefined;
+  }, [callState.status, playSignalTone, stopSignalTone]);
+
+  useEffect(() => {
     if (!socket || !currentUserId) return;
 
     const handleIncomingCall = (payload: IncomingCallPayload) => {
@@ -655,7 +788,11 @@ export function useWebRTC({
     socket,
   ]);
 
-  useEffect(() => () => cleanupCall(), []);
+  useEffect(() => () => {
+    stopSignalTone();
+    void audioContextRef.current?.close();
+    cleanupCall();
+  }, [cleanupCall, stopSignalTone]);
 
   return useMemo(
     () => ({
