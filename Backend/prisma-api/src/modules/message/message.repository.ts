@@ -37,9 +37,16 @@ export const create = async (
   senderId: string,
   content: string,
   type: MessageType = MessageType.TEXT,
+  fileData?: { fileUrl: string; fileName: string; fileSize: number },
 ) => {
   return prisma.message.create({
-    data: { roomId, senderId, content, type },
+    data: {
+      roomId,
+      senderId,
+      content,
+      type,
+      ...(fileData ?? {}),
+    },
     include: { sender: { select: senderSelect } },
   });
 };
@@ -67,5 +74,11 @@ export const findRoom = async (roomId: string) => {
 export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
   return prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
+  });
+};
+
+export const findRoomMember = async (roomId: string, userId: string) => {
+  return prisma.roomMember.findUnique({
+    where: { roomId_userId: { roomId, userId } },
   });
 };

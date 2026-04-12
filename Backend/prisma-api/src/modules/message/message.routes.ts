@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { Response } from 'express';
+import { MessageType } from '@prisma/client';
 import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
 import { AuthRequest } from '../../types';
 import { SendMessageSchema } from './message.model';
 import * as messageService from './message.service';
+import { uploadChatFile } from '../../utils/supabase-storage';
+import { getIO } from '../chat/chat.gateway';
+import { chatFileUpload } from '../../middlewares/upload.middleware';
 
 const router = Router();
 router.use(authenticate);
@@ -24,8 +28,53 @@ router.get('/rooms/:roomId/messages', asyncHandler(async (req: AuthRequest, res:
 
 // POST /api/rooms/:roomId/messages
 router.post('/rooms/:roomId/messages', validateRequest(SendMessageSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const msg = await messageService.sendMessage(param(req.params.roomId), req.userId!, req.body.content, req.body.type);
+  const roomId = param(req.params.roomId);
+  const msg = await messageService.sendMessage(roomId, req.userId!, req.body.content, req.body.type);
+
+  // Broadcast ผ่าน Socket.IO (ครอบคลุมกรณี client ใช้ REST fallback)
+  const io = getIO();
+  if (io) io.to(roomId).emit('message_received', msg);
+
   res.status(201).json({ success: true, data: msg });
+}));
+
+// POST /api/rooms/:roomId/upload
+// อัปโหลดไฟล์/รูปภาพในห้องแชท (multipart/form-data)
+router.post('/rooms/:roomId/upload', chatFileUpload.single('file'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const roomId = param(req.params.roomId);
+  const file = req.file;
+
+  if (!file) {
+    res.status(400).json({ success: false, error: 'ไม่พบไฟล์ที่อัปโหลด' });
+    return;
+  }
+
+  const isImage = file.mimetype.startsWith('image/');
+  const msgType = isImage ? MessageType.IMAGE : MessageType.FILE;
+
+  const fileUrl = await uploadChatFile(
+    roomId,
+    file.buffer,
+    file.mimetype,
+    file.originalname,
+  );
+
+  const content = req.body.content || (isImage ? '📷 รูปภาพ' : `📎 ${file.originalname}`);
+
+  const message = await messageService.sendMessage(
+    roomId,
+    req.userId!,
+    content,
+    msgType,
+    { fileUrl, fileName: file.originalname, fileSize: file.size },
+  );
+
+  const io = getIO();
+  if (io) {
+    io.to(roomId).emit('message_received', message);
+  }
+
+  res.status(201).json({ success: true, data: message });
 }));
 
 // DELETE /api/messages/:id

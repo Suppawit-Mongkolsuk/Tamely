@@ -1,5 +1,6 @@
 // ===== Remove Member Dialog =====
 // ใช้ ConfirmDialog + UserAvatar แทนการเขียนซ้ำ
+import { useState } from 'react';
 import { UserMinus } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { UserAvatar } from '@/components/ui/UserAvatar';
@@ -11,7 +12,7 @@ interface RemoveMemberDialogProps {
   onOpenChange: (open: boolean) => void;
   currentRoom: ChatRoom | undefined;
   member: Member | null;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
   onCancel: () => void;
 }
 
@@ -23,6 +24,17 @@ export function RemoveMemberDialog({
   onConfirm,
   onCancel,
 }: RemoveMemberDialogProps) {
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const handleConfirm = async () => {
+    setIsRemoving(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
   return (
     <ConfirmDialog
       open={open}
@@ -32,7 +44,8 @@ export function RemoveMemberDialog({
       confirmLabel="Remove Member"
       confirmVariant="destructive"
       confirmIcon={<UserMinus className="size-4" />}
-      onConfirm={onConfirm}
+      onConfirm={handleConfirm}
+      loading={isRemoving}
     >
       {/* Member info */}
       {member && (

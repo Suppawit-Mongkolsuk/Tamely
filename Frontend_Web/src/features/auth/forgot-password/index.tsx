@@ -64,8 +64,8 @@ export function ForgotPasswordPage({ onBack, onResetToken }: ForgotPasswordPageP
   };
 
   return (
-    <div className={`min-h-screen ${GRADIENT.darkBlue} flex items-center justify-center p-6`}>
-      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-12 items-center">
+    <div className={`min-h-screen ${GRADIENT.darkBlue} flex items-center justify-center p-4 sm:p-6`}>
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 sm:gap-12 items-center">
         {/* Left Side — Info Panel */}
         <div className="hidden lg:block text-white space-y-8">
           <div className="space-y-4">

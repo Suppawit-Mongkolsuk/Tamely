@@ -27,9 +27,10 @@ export const createRoom = async (
 /* ======================= READ ======================= */
 
 export const getRooms = async (workspaceId: string, userId: string) => {
-  await assertWorkspaceMember(workspaceId, userId);
+  const member = await assertWorkspaceMember(workspaceId, userId);
 
-  const rooms = await roomRepository.findMany(workspaceId);
+  // filter เฉพาะห้องที่ user เป็น RoomMember และมีสิทธิ์เข้าถึงตาม role
+  const rooms = await roomRepository.findMany(workspaceId, userId, member.role);
   return rooms.map((r) => ({
     ...r,
     memberCount: r._count.members,
@@ -42,7 +43,17 @@ export const getRoomById = async (roomId: string, userId: string) => {
 
   await assertWorkspaceMember(room.workspaceId, userId);
 
-  return { ...room, memberCount: room._count.members };
+  // Map สมาชิก — เพิ่ม workspaceRole จาก workspaceMembers ของห้องนี้
+  const members = (room.members ?? []).map((m) => {
+    const { workspaceMembers, ...userFields } = m.user as typeof m.user & {
+      workspaceMembers: { workspaceId: string; role: string }[];
+    };
+    const workspaceRole =
+      workspaceMembers.find((wm) => wm.workspaceId === room.workspaceId)?.role ?? 'MEMBER';
+    return { ...m, user: { ...userFields, workspaceRole } };
+  });
+
+  return { ...room, memberCount: room._count.members, members };
 };
 
 /* ======================= UPDATE ======================= */

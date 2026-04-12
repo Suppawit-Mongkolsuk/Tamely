@@ -96,23 +96,23 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#003366] via-[#174978] to-[#2F5F8A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-linear-to-br from-[#003366] via-[#174978] to-[#2F5F8A] flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-6xl">
         {/* Header */}
-        <div className="text-center mb-8 relative">
+        <div className="text-center mb-6 sm:mb-8 relative">
           {onLogout && (
             <button
               onClick={onLogout}
-              className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2 text-white/70 hover:text-white text-sm transition-colors group"
+              className="absolute right-0 sm:left-0 top-0 sm:top-1/2 sm:-translate-y-1/2 flex items-center gap-2 text-white/70 hover:text-white text-sm transition-colors group"
             >
               <LogOut className="size-4 group-hover:-translate-x-0.5 transition-transform" />
-              <span>ออกจากระบบ</span>
+              <span className="hidden sm:inline">ออกจากระบบ</span>
             </button>
           )}
-          <div className="inline-flex items-center justify-center size-16 rounded-xl bg-white/10 backdrop-blur-sm mb-4">
-            <MessageSquare className="size-8 text-white" />
+          <div className="inline-flex items-center justify-center size-12 sm:size-16 rounded-xl bg-white/10 backdrop-blur-sm mb-3 sm:mb-4">
+            <MessageSquare className="size-6 sm:size-8 text-white" />
           </div>
-          <h1 className="text-white mb-2 text-3xl">TamelyChat</h1>
+          <h1 className="text-white mb-2 text-2xl sm:text-3xl">TamelyChat</h1>
           <p className="text-white/70 text-base">
             แพลตฟอร์มแชทพร้อม AI ที่ช่วยจัดการพื้นที่ทำงานของคุณ
           </p>
@@ -183,7 +183,7 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
                 <div className="text-white/60 text-sm">{workspaces.length} workspace</div>
               </div>
 
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {workspaces.map((ws, idx) => (
                   <button
                     key={ws.id}

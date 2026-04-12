@@ -19,7 +19,7 @@ export function AIChatInput({ value, onChange, onSend, disabled }: AIChatInputPr
   };
 
   return (
-    <div className="border-t border-border p-4 bg-white">
+    <div className="border-t border-border p-2 sm:p-4 bg-white">
       <div className="flex gap-2">
         <Input
           value={value}

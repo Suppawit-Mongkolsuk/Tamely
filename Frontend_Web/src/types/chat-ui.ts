@@ -26,18 +26,20 @@ export interface Message {
   sender: string;
   avatar: string;
   content: string;
-  timestamp: string;
+  timestamp: string;   // เวลา เช่น "22:54"
+  date: string;        // ISO date string สำหรับคำนวณ date separator เช่น "2025-04-07"
   isOwn: boolean;
   type?: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
   fileUrl?: string | null;
   fileName?: string | null;
   fileSize?: number | null;
+  isRead?: boolean;    // read receipt (DM เท่านั้น)
 }
 
 export interface Member {
   id: string;
   name: string;
-  role: 'admin' | 'moderator' | 'member';
+  role: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
   status: 'online' | 'away' | 'offline';
   avatar: string;
 }

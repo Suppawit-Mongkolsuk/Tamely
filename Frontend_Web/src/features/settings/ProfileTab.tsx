@@ -94,11 +94,11 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6 bg-white">
-        <h3 className="mb-6">Profile Information</h3>
+      <Card className="p-4 sm:p-6 bg-white">
+        <h3 className="mb-4 sm:mb-6">Profile Information</h3>
         <div className="space-y-6">
           {/* Avatar */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
             {avatarPreview ? (
               <img
                 src={avatarPreview}
@@ -205,7 +205,7 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
       </Card>
 
       {/* Action Buttons — ย้อนกลับ Workspace / Logout */}
-      <Card className="p-6 bg-white">
+      <Card className="p-4 sm:p-6 bg-white">
         <h3 className="mb-4">Account</h3>
         <div className="flex flex-col sm:flex-row gap-3">
           <Button

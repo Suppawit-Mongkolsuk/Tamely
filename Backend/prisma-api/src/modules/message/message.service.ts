@@ -12,8 +12,9 @@ export const getMessages = async (
   const room = await messageRepository.findRoom(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  const member = await messageRepository.findWorkspaceMember(room.workspaceId, userId);
-  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  // ตรวจสอบว่าเป็น RoomMember (ถ้าถูกเตะออกจะไม่มีสิทธิ์อ่านข้อความ)
+  const roomMember = await messageRepository.findRoomMember(roomId, userId);
+  if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
   const limit = Math.min(options.limit ?? 50, 100);
   const offset = options.offset ?? 0;
@@ -34,14 +35,16 @@ export const sendMessage = async (
   senderId: string,
   content: string,
   type: MessageType = MessageType.TEXT,
+  fileData?: { fileUrl: string; fileName: string; fileSize: number },
 ) => {
   const room = await messageRepository.findRoom(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  const member = await messageRepository.findWorkspaceMember(room.workspaceId, senderId);
-  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  // ตรวจสอบว่าเป็น RoomMember (ถ้าถูกเตะออกจะส่งข้อความไม่ได้)
+  const roomMember = await messageRepository.findRoomMember(roomId, senderId);
+  if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
-  return messageRepository.create(roomId, senderId, content, type);
+  return messageRepository.create(roomId, senderId, content, type, fileData);
 };
 
 /* ======================= DELETE ======================= */

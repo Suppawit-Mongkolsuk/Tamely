@@ -1,5 +1,6 @@
 // ===== Leave Room Dialog =====
 // ใช้ ConfirmDialog แทนการเขียน Dialog ซ้ำ
+import { useState } from 'react';
 import { Hash, LogOut } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { ChatRoom } from '@/types/chat-ui';
@@ -8,7 +9,7 @@ interface LeaveRoomDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentRoom: ChatRoom | undefined;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
 }
 
 export function LeaveRoomDialog({
@@ -17,6 +18,17 @@ export function LeaveRoomDialog({
   currentRoom,
   onConfirm,
 }: LeaveRoomDialogProps) {
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  const handleConfirm = async () => {
+    setIsLeaving(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
   return (
     <ConfirmDialog
       open={open}
@@ -28,7 +40,8 @@ export function LeaveRoomDialog({
       confirmLabel="Leave Room"
       confirmVariant="destructive"
       confirmIcon={<LogOut className="size-4" />}
-      onConfirm={onConfirm}
+      onConfirm={handleConfirm}
+      loading={isLeaving}
     >
       {/* Room info card */}
       <div className="flex items-center gap-3 p-3 border border-border rounded-lg">
