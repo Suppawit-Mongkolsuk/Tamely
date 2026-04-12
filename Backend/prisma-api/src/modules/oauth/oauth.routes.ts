@@ -40,34 +40,6 @@ router.get(
   },
 );
 
-// GitHub OAuth
-router.get(
-  '/github',
-  passport.authenticate('github', {
-    session: false,
-    scope: ['user:email'],
-  }),
-);
-
-router.get(
-  '/github/callback',
-  passport.authenticate('github', {
-    session: false,
-    failureRedirect: `${CLIENT_URL}/login?error=github_failed`,
-  }),
-  (req: Request, res: Response) => {
-    const user = req.user as { id: string };
-    if (!user) {
-      return res.redirect(`${CLIENT_URL}/login?error=no_user`);
-    }
-
-    const token = signToken(user.id, true);
-    setTokenCookie(res, token, true);
-
-    res.redirect(`${CLIENT_URL}/workspace`);
-  },
-);
-
 // Mobile Google OAuth — รับ accessToken จาก expo-auth-session แล้วคืน JWT
 router.post('/google/mobile', async (req: Request, res: Response) => {
   try {
@@ -109,6 +81,5 @@ router.post('/google/mobile', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: message });
   }
 });
-
 export default router;
 

@@ -22,7 +22,7 @@ export default function DecBubble({
   const actualSize = (screenWidth * size) / 100;
 
   const style: ViewStyle = {
-    position: 'absolute' as const, 
+    position: 'absolute' as const,
     width: actualSize,
     height: actualSize,
     borderRadius: actualSize / 2,
@@ -32,8 +32,7 @@ export default function DecBubble({
     bottom: bottom !== undefined ? (screenHeight * bottom) / 100 : undefined,
     right: right !== undefined ? (screenWidth * right) / 100 : undefined,
     left: left !== undefined ? (screenWidth * left) / 100 : undefined,
-    zIndex: -1
-  };
+};
 
   return <View style={style} pointerEvents="none" />;
 }

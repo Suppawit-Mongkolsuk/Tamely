@@ -26,7 +26,7 @@ export default function RegisterScreen() {
 
         try {
             console.log('Sending register request...');
-            const response = await fetch('http://10.0.2.2:8080/api/auth/register', {
+            const response = await fetch('https://ineffectual-marian-nonnattily.ngrok-free.dev/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -43,8 +43,10 @@ export default function RegisterScreen() {
             if (response.ok) {
                 console.log('Register Success:', result.data.user);
                 router.replace({ 
-                    pathname: '/test-auth', 
-                    params: { user: JSON.stringify(result.data.user) } 
+                    pathname: '/(workspace)/workspace', 
+                    params: { user: JSON.stringify(result.data.user), 
+                    token: result.data.token,
+                    } 
                 });
             } else {
                 console.log("Backend Error:", result);
