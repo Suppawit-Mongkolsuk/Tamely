@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Image,
+  TextInput, FlatList, KeyboardAvoidingView, Platform,
+  Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Pin, Heart, MessageCircle, ImageIcon } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowLeft, Pin, Heart, MessageCircle, ImageIcon, Send, Trash2 } from 'lucide-react-native';
+import DecorativeBubble from '../../components/ui/DecBubble';
 
 /* ======================= TYPES ======================= */
 
@@ -24,6 +28,22 @@ interface Post {
   author: Author;
   commentCount: number;
 }
+
+interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: Author;
+}
+
+interface Member {
+  role: string;
+  user: { id: string; Name: string; email: string; avatarUrl: string | null };
+}
+
+/* ======================= CONFIG ======================= */
+
+const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
 
 /* ======================= HELPERS ======================= */
 
@@ -45,11 +65,17 @@ function getInitials(name: string): string {
 
 /* ======================= AVATAR ======================= */
 
-function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+function Avatar({ name, size = 40, light = false }: { name: string; size?: number; light?: boolean }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
   const colorIndex = name.charCodeAt(0) % colors.length;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: light ? 'rgba(255,255,255,0.25)' : colors[colorIndex],
+      alignItems: 'center', justifyContent: 'center',
+      borderWidth: light ? 2 : 0,
+      borderColor: light ? 'rgba(255,255,255,0.5)' : 'transparent',
+    }}>
       <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
     </View>
   );
@@ -61,23 +87,170 @@ export default function PostDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // รับ post object ที่ส่งมาจาก feed เป็น JSON string
   const postStr = Array.isArray(params.post) ? params.post[0] : (params.post ?? '');
+  const rawToken = params.token;
+  const rawWsId = params.wsId;
+  const rawCurrentUserId = params.currentUserId;
+
   const post: Post | null = postStr ? JSON.parse(postStr) : null;
+  const token = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
+  const wsId = Array.isArray(rawWsId) ? rawWsId[0] : (rawWsId ?? '');
+  const currentUserId = Array.isArray(rawCurrentUserId) ? rawCurrentUserId[0] : (rawCurrentUserId ?? '');
 
   // Like state — UI เท่านั้น รอ backend
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
-  const handleLike = () => {
-    // TODO: เชื่อม POST /api/posts/:id/like เมื่อ backend พร้อม
-    if (liked) {
-      setLiked(false);
-      setLikeCount((c) => c - 1);
-    } else {
-      setLiked(true);
-      setLikeCount((c) => c + 1);
+  // Comments
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+
+  // Comment input + @ mention
+  const [commentText, setCommentText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null); // null = ไม่ได้พิมพ์ @
+  const inputRef = useRef<TextInput>(null);
+
+  /* ======================= LOAD COMMENTS ======================= */
+
+  const loadComments = useCallback(async () => {
+    if (!post || !token) return;
+    try {
+      setCommentsLoading(true);
+      const res = await fetch(`${API_BASE}/api/posts/${post.id}/comments?limit=100&offset=0`, {
+        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+      });
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      setComments(json.data);
+    } catch {
+      // ไม่แสดง error เพราะ comment ไม่ใช่ส่วนหลัก
+    } finally {
+      setCommentsLoading(false);
     }
+  }, [post?.id, token]);
+
+  /* ======================= LOAD MEMBERS (สำหรับ @ mention) ======================= */
+
+  const loadMembers = useCallback(async () => {
+    if (!wsId || !token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/workspaces/${wsId}/members`, {
+        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      setMembers(json.data);
+    } catch {}
+  }, [wsId, token]);
+
+  useEffect(() => {
+    loadComments();
+    loadMembers();
+  }, [loadComments, loadMembers]);
+
+  /* ======================= HANDLE TEXT INPUT + @ DETECTION ======================= */
+
+  const handleCommentChange = (text: string) => {
+    setCommentText(text);
+
+    // ตรวจหา @ ล่าสุดที่ยังไม่มี space ตามหลัง
+    const lastAt = text.lastIndexOf('@');
+    if (lastAt !== -1) {
+      const afterAt = text.slice(lastAt + 1);
+      // ถ้าไม่มี space หลัง @ = กำลัง mention อยู่
+      if (!afterAt.includes(' ') && !afterAt.includes('\n')) {
+        setMentionQuery(afterAt);
+        return;
+      }
+    }
+    setMentionQuery(null);
+  };
+
+  const handleSelectMention = (member: Member) => {
+    const lastAt = commentText.lastIndexOf('@');
+    const before = commentText.slice(0, lastAt);
+    const name = member.user.Name;
+    // ใช้ format @[ชื่อ] ถ้าชื่อมีช่องว่าง, @ชื่อ ถ้าไม่มี
+    const mention = name.includes(' ') ? `@[${name}] ` : `@${name} `;
+    setCommentText(before + mention);
+    setMentionQuery(null);
+    inputRef.current?.focus();
+  };
+
+  /* ======================= SUBMIT COMMENT ======================= */
+
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || submitting || !post) return;
+    try {
+      setSubmitting(true);
+      const res = await fetch(`${API_BASE}/api/posts/${post.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify({ content: commentText.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setCommentText('');
+      setMentionQuery(null);
+      loadComments();
+    } catch {
+      Alert.alert('เกิดข้อผิดพลาด', 'ส่ง comment ไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /* ======================= DELETE COMMENT ======================= */
+
+  const handleDeleteComment = (commentId: string) => {
+    Alert.alert('ลบ comment?', '', [
+      { text: 'ยกเลิก', style: 'cancel' },
+      {
+        text: 'ลบ', style: 'destructive', onPress: async () => {
+          try {
+            await fetch(`${API_BASE}/api/comments/${commentId}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+            });
+            loadComments();
+          } catch {
+            Alert.alert('เกิดข้อผิดพลาด', 'ลบ comment ไม่สำเร็จ');
+          }
+        }
+      },
+    ]);
+  };
+
+  /* ======================= MENTION SUGGESTIONS ======================= */
+
+  const mentionSuggestions = mentionQuery !== null
+    ? members.filter((m) =>
+        m.user.Name.toLowerCase().includes(mentionQuery.toLowerCase()) &&
+        m.user.id !== currentUserId
+      ).slice(0, 5)
+    : [];
+
+  /* ======================= RENDER MENTION TAG (ใน comment text) ======================= */
+
+  const renderCommentContent = (content: string) => {
+    // แยก mention @[name] หรือ @word ออกมาใส่สีน้ำเงิน
+    const parts = content.split(/(@\[[^\]]+\]|@\w+)/g);
+    return (
+      <Text style={{ fontSize: 14, color: '#374151', lineHeight: 22 }}>
+        {parts.map((part, i) =>
+          part.startsWith('@') ? (
+            <Text key={i} style={{ color: '#425C95', fontWeight: '700' }}>{part}</Text>
+          ) : (
+            <Text key={i}>{part}</Text>
+          )
+        )}
+      </Text>
+    );
   };
 
   if (!post) {
@@ -90,107 +263,198 @@ export default function PostDetailScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
-      {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-          <ArrowLeft size={22} color="#111827" />
-        </TouchableOpacity>
-        <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', flex: 1 }} numberOfLines={1}>
-          {post.title}
-        </Text>
-      </View>
+        {/* ===== CREATIVE HEADER ===== */}
+        <LinearGradient
+          colors={['#152C53', '#234476', '#42639B']}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 1 }}
+          style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, position: 'relative', overflow: 'hidden' }}
+        >
+          <DecorativeBubble size={80} top={-30} right={-20} opacity={0.08} />
+          <DecorativeBubble size={40} bottom={-10} left={30} opacity={0.06} />
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+          {/* Back button row */}
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16, alignSelf: 'flex-start' }}
+          >
+            <ArrowLeft size={18} color="rgba(255,255,255,0.8)" />
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>ประกาศ</Text>
+          </TouchableOpacity>
 
-        {/* Pinned badge */}
-        {post.isPinned && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#eff6ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, alignSelf: 'flex-start', marginBottom: 16 }}>
-            <Pin size={13} color="#425C95" />
-            <Text style={{ fontSize: 12, color: '#425C95', fontWeight: '700' }}>Pinned Announcement</Text>
-          </View>
-        )}
-
-        {/* Title */}
-        <Text style={{ fontSize: 22, fontWeight: '800', color: '#111827', lineHeight: 30, marginBottom: 16 }}>
-          {post.title}
-        </Text>
-
-        {/* Author row */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
-          <Avatar name={post.author.Name} size={40} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{post.author.Name}</Text>
-            <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{timeAgo(post.createdAt)}</Text>
-          </View>
-        </View>
-
-        {/* Body */}
-        <Text style={{ fontSize: 15, color: '#374151', lineHeight: 26, marginBottom: 24 }}>
-          {post.body}
-        </Text>
-
-        {/* Images */}
-        {post.imageUrls.length > 0 && (
-          <View style={{ marginBottom: 24, gap: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <ImageIcon size={14} color="#9ca3af" />
-              <Text style={{ fontSize: 13, color: '#9ca3af', fontWeight: '600' }}>
-                รูปภาพ ({post.imageUrls.length})
+          {/* Author + Pinned */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <Avatar name={post.author.Name} size={36} light />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600' }}>
+                {post.author.Name}
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
+                {timeAgo(post.createdAt)}
               </Text>
             </View>
-            {post.imageUrls.map((url, index) => (
-              <Image
-                key={index}
-                source={{ uri: url }}
-                style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: '#f3f4f6' }}
-                resizeMode="cover"
-              />
-            ))}
+            {post.isPinned && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 99 }}>
+                <Pin size={11} color="rgba(255,255,255,0.8)" />
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600' }}>Pinned</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Post title */}
+          <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', lineHeight: 28 }}>
+            {post.title}
+          </Text>
+        </LinearGradient>
+
+        {/* ===== CONTENT ===== */}
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 16 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Body */}
+          <Text style={{ fontSize: 15, color: '#374151', lineHeight: 26, marginBottom: 24 }}>
+            {post.body}
+          </Text>
+
+          {/* Images */}
+          {post.imageUrls.length > 0 && (
+            <View style={{ marginBottom: 24, gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <ImageIcon size={14} color="#9ca3af" />
+                <Text style={{ fontSize: 13, color: '#9ca3af', fontWeight: '600' }}>
+                  รูปภาพ ({post.imageUrls.length})
+                </Text>
+              </View>
+              {post.imageUrls.map((url, index) => (
+                <Image
+                  key={index}
+                  source={{ uri: url }}
+                  style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: '#f3f4f6' }}
+                  resizeMode="cover"
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Divider */}
+          <View style={{ height: 1, backgroundColor: '#f3f4f6', marginBottom: 20 }} />
+
+          {/* Like + Comment count bar */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+            <TouchableOpacity
+              onPress={() => {
+                // TODO: เชื่อม POST /api/posts/:id/like เมื่อ backend พร้อม
+                setLiked((v) => !v);
+                setLikeCount((c) => liked ? c - 1 : c + 1);
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: liked ? '#fef2f2' : '#f9fafb', borderWidth: 1, borderColor: liked ? '#fecaca' : '#f3f4f6' }}
+              activeOpacity={0.8}
+            >
+              <Heart size={18} color={liked ? '#ef4444' : '#9ca3af'} fill={liked ? '#ef4444' : 'transparent'} />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: liked ? '#ef4444' : '#6b7280' }}>
+                {likeCount > 0 ? `${likeCount} ถูกใจ` : 'ถูกใจ'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f3f4f6' }}>
+              <MessageCircle size={18} color="#9ca3af" />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#6b7280' }}>
+                {comments.length > 0 ? `${comments.length} ความคิดเห็น` : 'ความคิดเห็น'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Comments section */}
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
+            ความคิดเห็น
+          </Text>
+
+          {commentsLoading ? (
+            <ActivityIndicator color="#425C95" style={{ marginVertical: 20 }} />
+          ) : comments.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+              <Text style={{ fontSize: 28, marginBottom: 6 }}>💬</Text>
+              <Text style={{ color: '#9ca3af', fontSize: 13 }}>ยังไม่มีความคิดเห็น</Text>
+              <Text style={{ color: '#d1d5db', fontSize: 12, marginTop: 2 }}>เป็นคนแรกที่แสดงความคิดเห็น</Text>
+            </View>
+          ) : (
+            comments.map((comment) => (
+              <View
+                key={comment.id}
+                style={{ backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#f3f4f6' }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Avatar name={comment.user.Name} size={28} />
+                    <View>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>{comment.user.Name}</Text>
+                      <Text style={{ fontSize: 11, color: '#9ca3af' }}>{timeAgo(comment.createdAt)}</Text>
+                    </View>
+                  </View>
+                  {comment.user.id === currentUserId && (
+                    <TouchableOpacity onPress={() => handleDeleteComment(comment.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Trash2 size={15} color="#d1d5db" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {renderCommentContent(comment.content)}
+              </View>
+            ))
+          )}
+        </ScrollView>
+
+        {/* ===== @ MENTION SUGGESTIONS ===== */}
+        {mentionSuggestions.length > 0 && (
+          <View style={{ backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f3f4f6', maxHeight: 180 }}>
+            <FlatList
+              data={mentionSuggestions}
+              keyExtractor={(m) => m.user.id}
+              keyboardShouldPersistTaps="always"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => handleSelectMention(item)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f9fafb' }}
+                >
+                  <Avatar name={item.user.Name} size={30} />
+                  <View>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>{item.user.Name}</Text>
+                    <Text style={{ fontSize: 11, color: '#9ca3af' }}>{item.role}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
           </View>
         )}
 
-        {/* Divider */}
-        <View style={{ height: 1, backgroundColor: '#f3f4f6', marginBottom: 20 }} />
-
-        {/* Like + Comment bar */}
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-
-          {/* Like button */}
+        {/* ===== COMMENT INPUT ===== */}
+        <View style={{ backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f3f4f6', paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+          <TextInput
+            ref={inputRef}
+            value={commentText}
+            onChangeText={handleCommentChange}
+            placeholder="แสดงความคิดเห็น... (พิมพ์ @ เพื่อแท็ก)"
+            placeholderTextColor="#d1d5db"
+            multiline
+            maxLength={2000}
+            style={{ flex: 1, fontSize: 14, color: '#111827', backgroundColor: '#f9fafb', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, maxHeight: 100, borderWidth: 1, borderColor: '#f3f4f6' }}
+          />
           <TouchableOpacity
-            onPress={handleLike}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: liked ? '#fef2f2' : '#f9fafb', borderWidth: 1, borderColor: liked ? '#fecaca' : '#f3f4f6' }}
-            activeOpacity={0.8}
+            onPress={handleSubmitComment}
+            disabled={!commentText.trim() || submitting}
+            style={{ backgroundColor: commentText.trim() ? '#425C95' : '#e5e7eb', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Heart
-              size={20}
-              color={liked ? '#ef4444' : '#9ca3af'}
-              fill={liked ? '#ef4444' : 'transparent'}
-            />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: liked ? '#ef4444' : '#6b7280' }}>
-              {likeCount > 0 ? `${likeCount} ถูกใจ` : 'ถูกใจ'}
-            </Text>
+            {submitting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Send size={16} color="#fff" />
+            )}
           </TouchableOpacity>
-
-          {/* Comment button — disabled รอ backend */}
-          <TouchableOpacity
-            disabled
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f3f4f6', opacity: 0.5 }}
-          >
-            <MessageCircle size={20} color="#9ca3af" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#6b7280' }}>
-              {post.commentCount > 0 ? `${post.commentCount} ความคิดเห็น` : 'ความคิดเห็น'}
-            </Text>
-          </TouchableOpacity>
-
         </View>
 
-        {/* Coming soon note */}
-        <Text style={{ fontSize: 11, color: '#d1d5db', textAlign: 'center', marginTop: 12 }}>
-          ระบบ comment จะเปิดใช้งานเร็วๆ นี้
-        </Text>
-
-      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -3,12 +3,13 @@ import {
   View, Text, TextInput, TouchableOpacity,
   FlatList, RefreshControl, Modal, KeyboardAvoidingView,
   Platform, ScrollView, Alert, ActionSheetIOS,
+  Image, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Pin, MessageCircle, ImageIcon, X, Send, MoreHorizontal } from 'lucide-react-native';
+import { Search, Pin, MessageCircle, ImageIcon, X, Send, MoreHorizontal, Camera } from 'lucide-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import Header from '../../components/ui/Header';
-
 
 /* ======================= TYPES ======================= */
 
@@ -40,6 +41,8 @@ interface PostsResponse {
 /* ======================= CONFIG ======================= */
 
 const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+const MAX_IMAGES = 10;
+const MAX_FILE_SIZE_MB = 5;
 
 /* ======================= HELPERS ======================= */
 
@@ -89,18 +92,13 @@ function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdi
   const handleMorePress = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['ยกเลิก', 'แก้ไขโพสต์', 'ลบโพสต์'],
-          destructiveButtonIndex: 2,
-          cancelButtonIndex: 0,
-        },
+        { options: ['ยกเลิก', 'แก้ไขโพสต์', 'ลบโพสต์'], destructiveButtonIndex: 2, cancelButtonIndex: 0 },
         (index) => {
           if (index === 1) onEdit(post);
           if (index === 2) confirmDelete();
         },
       );
     } else {
-      // Android — ใช้ Alert เป็น action sheet
       Alert.alert('จัดการโพสต์', '', [
         { text: 'แก้ไขโพสต์', onPress: () => onEdit(post) },
         { text: 'ลบโพสต์', style: 'destructive', onPress: confirmDelete },
@@ -120,22 +118,13 @@ function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdi
     try {
       const res = await fetch(`${API_BASE}/api/posts/${post.id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
       });
-
       if (!res.ok) {
         const json = await res.json();
-        if (res.status === 403) {
-          Alert.alert('ไม่มีสิทธิ์', 'คุณไม่มีสิทธิ์ลบโพสต์นี้');
-        } else {
-          Alert.alert('เกิดข้อผิดพลาด', json.message ?? 'ลบโพสต์ไม่สำเร็จ');
-        }
+        Alert.alert(res.status === 403 ? 'ไม่มีสิทธิ์' : 'เกิดข้อผิดพลาด', json.message ?? 'ลบโพสต์ไม่สำเร็จ');
         return;
       }
-
       onDeleted();
     } catch {
       Alert.alert('Network Error', 'ไม่สามารถเชื่อมต่อ server ได้');
@@ -148,7 +137,6 @@ function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdi
       style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: post.isPinned ? '#dbeafe' : '#f3f4f6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}
       activeOpacity={0.8}
     >
-      {/* Pinned + More button row */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: post.isPinned ? 8 : 0 }}>
         {post.isPinned ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -156,14 +144,8 @@ function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdi
             <Text style={{ fontSize: 11, color: '#425C95', fontWeight: '700', letterSpacing: 0.3 }}>PINNED</Text>
           </View>
         ) : <View />}
-
-        {/* จุดสามจุด — แสดงเฉพาะคนที่มีสิทธิ์ */}
         {canManage && (
-          <TouchableOpacity
-            onPress={handleMorePress}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{ padding: 2 }}
-          >
+          <TouchableOpacity onPress={handleMorePress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ padding: 2 }}>
             <MoreHorizontal size={18} color="#9ca3af" />
           </TouchableOpacity>
         )}
@@ -173,9 +155,17 @@ function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdi
       <Text style={{ fontSize: 13, color: '#6b7280', lineHeight: 20, marginBottom: 12 }} numberOfLines={3}>{post.body}</Text>
 
       {post.imageUrls.length > 0 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
-          <ImageIcon size={13} color="#9ca3af" />
-          <Text style={{ fontSize: 12, color: '#9ca3af' }}>{post.imageUrls.length} รูปภาพ</Text>
+        <View style={{ marginBottom: 10 }}>
+          <Image
+            source={{ uri: post.imageUrls[0] }}
+            style={{ width: '100%', height: 160, borderRadius: 10, backgroundColor: '#f3f4f6' }}
+            resizeMode="cover"
+          />
+          {post.imageUrls.length > 1 && (
+            <View style={{ position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 99 }}>
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>+{post.imageUrls.length - 1}</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -212,7 +202,7 @@ function SkeletonCard() {
   );
 }
 
-/* ======================= POST FORM MODAL (ใช้ทั้ง Create และ Edit) ======================= */
+/* ======================= POST FORM MODAL ======================= */
 
 interface PostFormModalProps {
   visible: boolean;
@@ -220,34 +210,123 @@ interface PostFormModalProps {
   onSuccess: () => void;
   token: string;
   wsId: string;
-  editingPost?: Post | null; // ถ้ามีค่า = edit mode, ถ้าไม่มี = create mode
+  editingPost?: Post | null;
 }
 
 function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost }: PostFormModalProps) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [selectedImages, setSelectedImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const isEditMode = !!editingPost;
 
-  // โหลดค่าเดิมเมื่อเปิด edit mode
   useEffect(() => {
     if (editingPost) {
       setTitle(editingPost.title);
       setBody(editingPost.body);
+      setSelectedImages([]);
+      setUploadedUrls(editingPost.imageUrls ?? []);
     } else {
       setTitle('');
       setBody('');
+      setSelectedImages([]);
+      setUploadedUrls([]);
     }
   }, [editingPost, visible]);
 
-  const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !submitting;
+  const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !submitting && !uploading;
 
+  /* ===== PICK IMAGES ===== */
+  const handlePickImages = async () => {
+    if (selectedImages.length + uploadedUrls.length >= MAX_IMAGES) {
+      Alert.alert('ครบแล้ว', `แนบรูปได้สูงสุด ${MAX_IMAGES} รูปต่อโพสต์`);
+      return;
+    }
+
+    const remaining = MAX_IMAGES - selectedImages.length - uploadedUrls.length;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'] as any,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;
+
+    // เช็คขนาดไฟล์ไม่เกิน 5MB
+    const valid = result.assets.filter((a) => {
+      const sizeMB = (a.fileSize ?? 0) / (1024 * 1024);
+      if (sizeMB > MAX_FILE_SIZE_MB) {
+        Alert.alert('ไฟล์ใหญ่เกินไป', `${a.fileName ?? 'รูป'} มีขนาดเกิน ${MAX_FILE_SIZE_MB}MB`);
+        return false;
+      }
+      return true;
+    });
+
+    if (valid.length === 0) return;
+    setSelectedImages((prev) => [...prev, ...valid]);
+  };
+
+  /* ===== UPLOAD IMAGES ===== */
+  const uploadImages = async (): Promise<string[]> => {
+    if (selectedImages.length === 0) return uploadedUrls;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+
+      for (const asset of selectedImages) {
+        const ext = asset.uri.split('.').pop() ?? 'jpg';
+        const mime = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+        formData.append('images', {
+          uri: asset.uri,
+          name: asset.fileName ?? `image.${ext}`,
+          type: mime,
+        } as any);
+      }
+
+      // postId ใช้ temp id ก่อน backend จะ handle เอง
+      formData.append('postId', `temp-${Date.now()}`);
+
+      const res = await fetch(`${API_BASE}/api/posts/upload-images`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'ngrok-skip-browser-warning': 'true',
+          // ไม่ใส่ Content-Type เพราะ FormData จะ set boundary เอง
+        },
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error('Upload failed');
+      const json = await res.json();
+      const newUrls: string[] = json.data?.urls ?? [];
+      return [...uploadedUrls, ...newUrls];
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  /* ===== REMOVE IMAGE ===== */
+  const removeSelectedImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeUploadedUrl = (index: number) => {
+    setUploadedUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  /* ===== SUBMIT ===== */
   const handleSubmit = async () => {
     if (!canSubmit) return;
-
     try {
       setSubmitting(true);
+
+      const finalImageUrls = await uploadImages();
 
       const url = isEditMode
         ? `${API_BASE}/api/posts/${editingPost!.id}`
@@ -260,22 +339,23 @@ function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost }
           Authorization: `Bearer ${token}`,
           'ngrok-skip-browser-warning': 'true',
         },
-        body: JSON.stringify({ title: title.trim(), body: body.trim() }),
+        body: JSON.stringify({ title: title.trim(), body: body.trim(), imageUrls: finalImageUrls }),
       });
 
       const json = await res.json();
 
       if (!res.ok) {
-        if (res.status === 403) {
-          Alert.alert('ไม่มีสิทธิ์', isEditMode ? 'คุณไม่มีสิทธิ์แก้ไขโพสต์นี้' : 'เฉพาะ Admin หรือ Owner เท่านั้นที่สร้างประกาศได้');
-        } else {
-          Alert.alert('เกิดข้อผิดพลาด', json.message ?? 'ไม่สามารถบันทึกได้');
-        }
+        Alert.alert(
+          res.status === 403 ? 'ไม่มีสิทธิ์' : 'เกิดข้อผิดพลาด',
+          json.message ?? 'ไม่สามารถบันทึกได้',
+        );
         return;
       }
 
       setTitle('');
       setBody('');
+      setSelectedImages([]);
+      setUploadedUrls([]);
       onClose();
       onSuccess();
     } catch {
@@ -287,24 +367,27 @@ function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost }
 
   const handleClose = () => {
     const isDirty = isEditMode
-      ? title !== editingPost?.title || body !== editingPost?.body
-      : title.length > 0 || body.length > 0;
+      ? title !== editingPost?.title || body !== editingPost?.body || selectedImages.length > 0
+      : title.length > 0 || body.length > 0 || selectedImages.length > 0;
 
     if (isDirty) {
       Alert.alert('ยกเลิก?', 'ข้อมูลที่กรอกจะหายไป', [
         { text: 'อยู่ต่อ', style: 'cancel' },
-        { text: 'ยกเลิก', style: 'destructive', onPress: () => { setTitle(''); setBody(''); onClose(); } },
+        { text: 'ยกเลิก', style: 'destructive', onPress: () => { setTitle(''); setBody(''); setSelectedImages([]); setUploadedUrls([]); onClose(); } },
       ]);
     } else {
       onClose();
     }
   };
 
+  const totalImages = selectedImages.length + uploadedUrls.length;
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
 
+          {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
             <TouchableOpacity onPress={handleClose} style={{ padding: 4 }}>
               <X size={22} color="#6b7280" />
@@ -317,14 +400,19 @@ function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost }
               disabled={!canSubmit}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: canSubmit ? '#425C95' : '#e5e7eb', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 }}
             >
-              <Send size={14} color="#fff" />
+              {submitting || uploading
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Send size={14} color="#fff" />
+              }
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
-                {submitting ? 'กำลังส่ง...' : isEditMode ? 'บันทึก' : 'โพสต์'}
+                {uploading ? 'กำลังอัปโหลด...' : submitting ? 'กำลังส่ง...' : isEditMode ? 'บันทึก' : 'โพสต์'}
               </Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+
+            {/* Title */}
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>
               หัวข้อ <Text style={{ color: '#ef4444' }}>*</Text>
             </Text>
@@ -340,6 +428,7 @@ function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost }
               {title.length}/200
             </Text>
 
+            {/* Body */}
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>
               เนื้อหา <Text style={{ color: '#ef4444' }}>*</Text>
             </Text>
@@ -350,11 +439,76 @@ function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost }
               placeholderTextColor="#d1d5db"
               multiline
               textAlignVertical="top"
-              style={{ backgroundColor: '#f9fafb', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#111827', borderWidth: 1, borderColor: '#f3f4f6', minHeight: 160 }}
+              style={{ backgroundColor: '#f9fafb', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#111827', borderWidth: 1, borderColor: '#f3f4f6', minHeight: 140, marginBottom: 16 }}
             />
 
+            {/* Image section */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>
+                รูปภาพ
+                <Text style={{ color: '#9ca3af', fontWeight: '400' }}> (ไม่บังคับ)</Text>
+              </Text>
+              <TouchableOpacity
+                onPress={handlePickImages}
+                disabled={totalImages >= MAX_IMAGES}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: totalImages >= MAX_IMAGES ? '#f3f4f6' : '#eff6ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
+              >
+                <Camera size={14} color={totalImages >= MAX_IMAGES ? '#9ca3af' : '#425C95'} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: totalImages >= MAX_IMAGES ? '#9ca3af' : '#425C95' }}>
+                  เพิ่มรูป {totalImages > 0 ? `(${totalImages}/${MAX_IMAGES})` : ''}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Already uploaded URLs (edit mode) */}
+            {uploadedUrls.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {uploadedUrls.map((url, i) => (
+                    <View key={`uploaded-${i}`} style={{ position: 'relative' }}>
+                      <Image source={{ uri: url }} style={{ width: 80, height: 80, borderRadius: 10, backgroundColor: '#f3f4f6' }} />
+                      <TouchableOpacity
+                        onPress={() => removeUploadedUrl(i)}
+                        style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <X size={12} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+
+            {/* Selected local images */}
+            {selectedImages.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {selectedImages.map((asset, i) => (
+                    <View key={`local-${i}`} style={{ position: 'relative' }}>
+                      <Image source={{ uri: asset.uri }} style={{ width: 80, height: 80, borderRadius: 10, backgroundColor: '#f3f4f6' }} />
+                      {/* pending upload badge */}
+                      <View style={{ position: 'absolute', bottom: 4, left: 4, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1 }}>
+                        <Text style={{ color: '#fff', fontSize: 9 }}>รอส่ง</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => removeSelectedImage(i)}
+                        style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <X size={12} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+
+            {/* Size note */}
+            <Text style={{ fontSize: 11, color: '#9ca3af', marginBottom: 16 }}>
+              แต่ละรูปต้องไม่เกิน {MAX_FILE_SIZE_MB}MB — รองรับ JPG, PNG, GIF
+            </Text>
+
             {!isEditMode && (
-              <View style={{ backgroundColor: '#eff6ff', borderRadius: 10, padding: 12, marginTop: 16, flexDirection: 'row', gap: 8 }}>
+              <View style={{ backgroundColor: '#eff6ff', borderRadius: 10, padding: 12, flexDirection: 'row', gap: 8 }}>
                 <Text style={{ fontSize: 16 }}>ℹ️</Text>
                 <Text style={{ fontSize: 12, color: '#1d4ed8', flex: 1, lineHeight: 18 }}>
                   เฉพาะ Admin และ Owner เท่านั้นที่สามารถสร้างประกาศได้
@@ -394,15 +548,11 @@ export default function FeedScreen() {
   const [editingPost, setEditingPost] = useState<Post | null>(null);
 
   const loadPosts = useCallback(async (isRefresh = false) => {
-    if (!token || !wsId) {
-      setLoading(false);
-      return;
-    }
+    if (!token || !wsId) { setLoading(false); return; }
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       setError(null);
-
       const res = await fetch(`${API_BASE}/api/workspaces/${wsId}/posts?limit=50&offset=0`, {
         headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
       });
@@ -419,23 +569,19 @@ export default function FeedScreen() {
 
   useEffect(() => { loadPosts(); }, [loadPosts]);
 
-  const handleEdit = (post: Post) => {
-    setEditingPost(post);
-    setShowForm(true);
-  };
-
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setEditingPost(null);
-  };
+  const handleEdit = (post: Post) => { setEditingPost(post); setShowForm(true); };
+  const handleCloseForm = () => { setShowForm(false); setEditingPost(null); };
 
   const filtered = posts.filter(
-    (p) =>
-      p.title.toLowerCase().includes(search.toLowerCase()) ||
-      p.body.toLowerCase().includes(search.toLowerCase()),
+    (p) => p.title.toLowerCase().includes(search.toLowerCase()) || p.body.toLowerCase().includes(search.toLowerCase()),
   );
   const pinned = filtered.filter((p) => p.isPinned);
   const recent = filtered.filter((p) => !p.isPinned);
+
+  const navigateToDetail = (post: Post) => router.push({
+    pathname: '/(tabs)/post-detail',
+    params: { post: JSON.stringify(post), token, wsId, currentUserId: userData?.id ?? '' },
+  });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
@@ -443,21 +589,18 @@ export default function FeedScreen() {
         subtitle="Stay updated with announcements"
         userName={userData?.displayName ?? 'Your Name'}
         userEmail={userData?.email ?? ''}
-        userInitials={(userData?.displayName ?? 'YO')
-          .split(' ')
-          .map((w: string) => w[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2)}
+        userInitials={(userData?.displayName ?? 'YO').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+        workspaceId={wsId}
+        role={role}
+        token={token}
+        userRole={role}
       />
 
       <FlatList
         data={recent}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadPosts(true)} tintColor="#425C95" colors={['#425C95']} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadPosts(true)} tintColor="#425C95" colors={['#425C95']} />}
         ListHeaderComponent={
           <>
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: '#f3f4f6', gap: 8, marginBottom: 20 }}>
@@ -484,20 +627,7 @@ export default function FeedScreen() {
                   </View>
                 </View>
                 {pinned.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    currentUserId={userData?.id ?? ''}
-                    isAdminOrOwner={isAdminOrOwner}
-                    token={token}
-                    onDeleted={() => loadPosts(true)}
-                    onEdit={handleEdit}
-                    onPress={() => router.push({         
-                      pathname: '/(tabs)/post-detail',
-                      params: { post: JSON.stringify(post) },
-                    })}
-
-                  />
+                  <PostCard key={post.id} post={post} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPress={() => navigateToDetail(post)} />
                 ))}
               </>
             )}
@@ -510,18 +640,7 @@ export default function FeedScreen() {
           </>
         }
         renderItem={({ item }) => !loading ? (
-          <PostCard
-            post={item}
-            currentUserId={userData?.id ?? ''}
-            isAdminOrOwner={isAdminOrOwner}
-            token={token}
-            onDeleted={() => loadPosts(true)}
-            onEdit={handleEdit}
-            onPress={() => router.push({
-              pathname: '/(tabs)/post-detail',
-              params: { post: JSON.stringify(item) },
-            })}
-          />
+          <PostCard post={item} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPress={() => navigateToDetail(item)} />
         ) : null}
         ListEmptyComponent={
           !loading && !error ? (
@@ -533,7 +652,6 @@ export default function FeedScreen() {
         }
       />
 
-      {/* FAB */}
       <TouchableOpacity
         onPress={() => { setEditingPost(null); setShowForm(true); }}
         style={{ position: 'absolute', bottom: 24, right: 20, backgroundColor: '#425C95', width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', shadowColor: '#425C95', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 6 }}
@@ -542,15 +660,7 @@ export default function FeedScreen() {
         <Text style={{ color: '#fff', fontSize: 26, lineHeight: 30 }}>+</Text>
       </TouchableOpacity>
 
-      {/* Create / Edit Modal */}
-      <PostFormModal
-        visible={showForm}
-        onClose={handleCloseForm}
-        onSuccess={() => loadPosts(true)}
-        token={token}
-        wsId={wsId}
-        editingPost={editingPost}
-      />
+      <PostFormModal visible={showForm} onClose={handleCloseForm} onSuccess={() => loadPosts(true)} token={token} wsId={wsId} editingPost={editingPost} />
     </SafeAreaView>
   );
 }

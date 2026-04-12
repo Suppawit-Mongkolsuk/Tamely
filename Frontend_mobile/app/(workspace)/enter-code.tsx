@@ -45,7 +45,8 @@ export default function EnterCodeScreen() {
             Authorization: `Bearer ${token}`,
             'ngrok-skip-browser-warning': 'true',
           },
-          body: JSON.stringify({ code: code.trim().toUpperCase() }),
+          // ✅ แก้ field name ให้ตรงกับ backend และไม่ toUpperCase
+          body: JSON.stringify({ inviteCode: code.trim() }),
         }
       );
 
@@ -58,7 +59,7 @@ export default function EnterCodeScreen() {
           params: { token },
         });
       } else {
-        Alert.alert('Error', result.error ?? 'Code ไม่ถูกต้องหรือหมดอายุแล้ว');
+        Alert.alert('Error', result.error ?? result.message ?? 'Code ไม่ถูกต้องหรือหมดอายุแล้ว');
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') {
@@ -74,7 +75,7 @@ export default function EnterCodeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
       <View className="flex-1 px-6">
-        
+
         <View style={{ height: 60, marginTop: 24, marginBottom: 200 }}>
           <Image
             source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
@@ -88,6 +89,7 @@ export default function EnterCodeScreen() {
             resizeMode="contain"
           />
         </View>
+
         <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f2937', marginBottom: 8 }}>
           Join your organization
         </Text>
@@ -100,10 +102,10 @@ export default function EnterCodeScreen() {
         </Text>
         <TextInput
           value={code}
-          onChangeText={(text) => setCode(text.toUpperCase())}
-          placeholder="TEAMLY-XXX"
+          onChangeText={setCode}  // ✅ ไม่ toUpperCase แล้ว เพราะ UUID มี lowercase
+          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
           placeholderTextColor="#d1d5db"
-          autoCapitalize="characters"
+          autoCapitalize="none"
           autoCorrect={false}
           style={{
             borderWidth: 1.5,
@@ -111,14 +113,14 @@ export default function EnterCodeScreen() {
             borderRadius: 12,
             paddingHorizontal: 16,
             paddingVertical: 14,
-            fontSize: 18,
+            fontSize: 14,
             color: '#1f2937',
-            letterSpacing: 2,
+            letterSpacing: 1,
             marginBottom: 8,
           }}
         />
         <Text style={{ fontSize: 12, color: '#9ca3af', marginBottom: 32, textAlign: 'center' }}>
-          Example: DEMO-ENG-2024
+          วาง invite code ที่ได้รับจาก Admin ของ Workspace
         </Text>
 
         <View
@@ -132,16 +134,11 @@ export default function EnterCodeScreen() {
           }}
         >
           <Text style={{ fontSize: 14, fontWeight: '700', color: '#1f2937', marginBottom: 6 }}>
-            Don't have an invite code?
+            ไม่มี invite code?
           </Text>
           <Text style={{ fontSize: 13, color: '#6b7280', lineHeight: 20 }}>
-            Contact your organization admin or team lead to get an invitation code. They can generate one from the admin panel.
+            ติดต่อ Admin หรือ Owner ของ Workspace ให้ส่ง invite code มาให้ Admin สามารถดู code ได้จากหน้า Workspace Settings
           </Text>
-          <TouchableOpacity style={{ marginTop: 10 }}>
-            <Text style={{ fontSize: 13, color: '#425C95', fontWeight: '600' }}>
-              Learn more about invitations →
-            </Text>
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -158,7 +155,7 @@ export default function EnterCodeScreen() {
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-              Continue to Setup →
+              เข้าร่วม Workspace
             </Text>
           )}
         </TouchableOpacity>
