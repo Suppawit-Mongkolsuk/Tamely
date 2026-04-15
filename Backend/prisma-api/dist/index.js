@@ -24,6 +24,7 @@ const post_routes_1 = __importDefault(require("./modules/post/post.routes"));
 const task_routes_1 = __importDefault(require("./modules/task/task.routes"));
 const notification_routes_1 = __importDefault(require("./modules/notification/notification.routes"));
 const dm_routes_1 = __importDefault(require("./modules/dm/dm.routes"));
+const ai_routes_1 = __importDefault(require("./modules/ai/ai.routes"));
 const oauth_config_1 = __importDefault(require("./modules/oauth/oauth.config"));
 const chat_gateway_1 = require("./modules/chat/chat.gateway");
 const supabase_storage_1 = require("./utils/supabase-storage");
@@ -108,6 +109,7 @@ app.use('/api', post_routes_1.default);
 app.use('/api', task_routes_1.default);
 app.use('/api', notification_routes_1.default);
 app.use('/api', dm_routes_1.default);
+app.use('/api', ai_routes_1.default);
 // ========================
 // Error Handler (ต้องอยู่ท้ายสุดเสมอ)
 // ========================

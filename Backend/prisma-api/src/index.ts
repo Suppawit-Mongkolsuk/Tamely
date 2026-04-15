@@ -20,6 +20,7 @@ import postRoutes from './modules/post/post.routes';
 import taskRoutes from './modules/task/task.routes';
 import notificationRoutes from './modules/notification/notification.routes';
 import dmRoutes from './modules/dm/dm.routes';
+import aiRoutes from './modules/ai/ai.routes';
 import passport from './modules/oauth/oauth.config';
 import { initSocketIO } from './modules/chat/chat.gateway';
 import { ensureBucket, CHAT_FILES_BUCKET } from './utils/supabase-storage';
@@ -114,6 +115,7 @@ app.use('/api', postRoutes);
 app.use('/api', taskRoutes);
 app.use('/api', notificationRoutes);
 app.use('/api', dmRoutes);
+app.use('/api', aiRoutes);
 
 // ========================
 // Error Handler (ต้องอยู่ท้ายสุดเสมอ)

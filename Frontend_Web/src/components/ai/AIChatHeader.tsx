@@ -1,6 +1,10 @@
 import { Bot, Sparkles } from 'lucide-react';
 
-export function AIChatHeader() {
+interface AIChatHeaderProps {
+  workspaceName?: string;
+}
+
+export function AIChatHeader({ workspaceName }: AIChatHeaderProps) {
   return (
     <div className="border-b border-border p-4">
       <div className="flex items-center gap-3">
@@ -10,7 +14,9 @@ export function AIChatHeader() {
         <div>
           <h3 className="text-base">AI Assistant</h3>
           <p className="text-xs text-muted-foreground">
-            Powered by TamelyChat AI • Always ready to help
+            {workspaceName
+              ? `พร้อมช่วยใน workspace ${workspaceName}`
+              : 'Powered by TamelyChat AI • Always ready to help'}
           </p>
         </div>
       </div>
