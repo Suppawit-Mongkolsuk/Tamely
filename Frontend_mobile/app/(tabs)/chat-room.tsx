@@ -4,30 +4,14 @@ import {
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, Send, Hash } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 
-/* ======================= TYPES ======================= */
-
-interface Sender {
-  id: string;
-  Name: string;
-  avatarUrl: string | null;
-}
-
-interface Message {
-  id: string;
-  content: string;
-  createdAt: string;
-  sender: Sender;
-}
-
-/* ======================= CONFIG ======================= */
+interface Sender { id: string; Name: string; avatarUrl: string | null; }
+interface Message { id: string; content: string; createdAt: string; sender: Sender; }
 
 const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
-
-/* ======================= HELPERS ======================= */
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
@@ -36,8 +20,6 @@ function formatTime(dateStr: string): string {
 function getInitials(name: string): string {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 }
-
-/* ======================= AVATAR ======================= */
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
@@ -49,21 +31,14 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   );
 }
 
-/* ======================= CHAT ROOM SCREEN ======================= */
-
 export default function ChatRoomScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const rawRoomId = params.roomId;
-  const rawRoomName = params.roomName;
-  const rawToken = params.token;
-  const rawCurrentUserId = params.currentUserId;
-
-  const roomId = Array.isArray(rawRoomId) ? rawRoomId[0] : (rawRoomId ?? '');
-  const roomName = Array.isArray(rawRoomName) ? rawRoomName[0] : (rawRoomName ?? '');
-  const token = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
-  const currentUserId = Array.isArray(rawCurrentUserId) ? rawCurrentUserId[0] : (rawCurrentUserId ?? '');
+  const roomId = Array.isArray(params.roomId) ? params.roomId[0] : (params.roomId ?? '');
+  const roomName = Array.isArray(params.roomName) ? params.roomName[0] : (params.roomName ?? '');
+  const token = Array.isArray(params.token) ? params.token[0] : (params.token ?? '');
+  const currentUserId = Array.isArray(params.currentUserId) ? params.currentUserId[0] : (params.currentUserId ?? '');
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +50,6 @@ export default function ChatRoomScreen() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ===== Load messages ===== */
   const loadMessages = useCallback(async () => {
     if (!roomId || !token) return;
     try {
@@ -93,13 +67,13 @@ export default function ChatRoomScreen() {
     }
   }, [roomId, token]);
 
-  /* ===== Socket.IO ===== */
+  /* ===== Socket.IO setup (ครั้งเดียว) ===== */
   useEffect(() => {
     if (!token || !roomId) return;
 
     const socket = io(API_BASE, {
       auth: { token },
-      transports: ['websocket'],
+      extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
     });
 
     socketRef.current = socket;
@@ -109,7 +83,11 @@ export default function ChatRoomScreen() {
     });
 
     socket.on('message_received', (msg: Message) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => {
+        // ป้องกัน duplicate
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
 
@@ -130,19 +108,31 @@ export default function ChatRoomScreen() {
     };
   }, [token, roomId]);
 
-  /* ===== Send message ===== */
+  /* ===== Focus: rejoin + reload ===== */
+  useFocusEffect(
+  useCallback(() => {
+    console.log('[Focus] socket connected:', socketRef.current?.connected);
+    console.log('[Focus] socket id:', socketRef.current?.id);
+    loadMessages();
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('join_room', roomId);
+      console.log('[Focus] rejoined room:', roomId);
+    } else if (socketRef.current) {
+      socketRef.current.connect();
+      console.log('[Focus] reconnecting...');
+    }
+    return () => {};
+  }, [loadMessages, roomId])
+);
+
   const handleSend = async () => {
     if (!text.trim() || sending) return;
     const content = text.trim();
     setText('');
     setSending(true);
-
     try {
-      // ส่งผ่าน Socket.IO
       socketRef.current?.emit('send_message', { roomId, content }, (res: any) => {
-        if (!res?.success) {
-          Alert.alert('เกิดข้อผิดพลาด', 'ส่งข้อความไม่สำเร็จ');
-        }
+        if (!res?.success) Alert.alert('เกิดข้อผิดพลาด', 'ส่งข้อความไม่สำเร็จ');
       });
     } catch {
       Alert.alert('Network Error', 'ส่งข้อความไม่สำเร็จ');
@@ -151,7 +141,6 @@ export default function ChatRoomScreen() {
     }
   };
 
-  /* ===== Typing indicator ===== */
   const handleTyping = (value: string) => {
     setText(value);
     socketRef.current?.emit('typing', { roomId, isTyping: true });
@@ -161,12 +150,10 @@ export default function ChatRoomScreen() {
     }, 2000);
   };
 
-  /* ===== Render message ===== */
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMe = item.sender.id === currentUserId;
     const prevMsg = messages[index - 1];
-    const showAvatar = !prevMsg || prevMsg.sender.id !== item.sender.id;
-    const showName = showAvatar && !isMe;
+    const showName = (!prevMsg || prevMsg.sender.id !== item.sender.id) && !isMe;
 
     return (
       <View style={{ marginBottom: 4, paddingHorizontal: 16 }}>
@@ -180,7 +167,7 @@ export default function ChatRoomScreen() {
         <View style={{ flexDirection: 'row', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
           {!isMe && <View style={{ width: 28, marginRight: 8 }} />}
           <View style={{ maxWidth: '75%' }}>
-            <View style={{ backgroundColor: isMe ? '#425C95' : '#fff', borderRadius: 16, borderBottomRightRadius: isMe ? 4 : 16, borderBottomLeftRadius: isMe ? 16 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: isMe ? 0 : 1, borderColor: '#f3f4f6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 1 }}>
+            <View style={{ backgroundColor: isMe ? '#425C95' : '#fff', borderRadius: 16, borderBottomRightRadius: isMe ? 4 : 16, borderBottomLeftRadius: isMe ? 16 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: isMe ? 0 : 1, borderColor: '#f3f4f6', elevation: 1 }}>
               <Text style={{ fontSize: 14, color: isMe ? '#fff' : '#111827', lineHeight: 20 }}>{item.content}</Text>
             </View>
             {isMe && <Text style={{ fontSize: 10, color: '#9ca3af', textAlign: 'right', marginTop: 2 }}>{formatTime(item.createdAt)}</Text>}
@@ -193,8 +180,6 @@ export default function ChatRoomScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-
-        {/* Header */}
         <View style={{ backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', gap: 12 }}>
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
             <ArrowLeft size={22} color="#111827" />
@@ -204,13 +189,10 @@ export default function ChatRoomScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{roomName}</Text>
-            {typingUsers.length > 0 && (
-              <Text style={{ fontSize: 12, color: '#425C95' }}>กำลังพิมพ์...</Text>
-            )}
+            {typingUsers.length > 0 && <Text style={{ fontSize: 12, color: '#425C95' }}>กำลังพิมพ์...</Text>}
           </View>
         </View>
 
-        {/* Messages */}
         {loading ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator color="#425C95" />
@@ -224,7 +206,7 @@ export default function ChatRoomScreen() {
             contentContainerStyle={{ paddingVertical: 12 }}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
+              <View style={{ alignItems: 'center', paddingTop: 80 }}>
                 <Hash size={40} color="#d1d5db" />
                 <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151', marginTop: 12 }}>ยังไม่มีข้อความ</Text>
                 <Text style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>เริ่มต้นบทสนทนากัน</Text>
@@ -233,7 +215,6 @@ export default function ChatRoomScreen() {
           />
         )}
 
-        {/* Input */}
         <View style={{ backgroundColor: '#fff', flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 10, gap: 10, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
           <TextInput
             value={text}
@@ -252,7 +233,6 @@ export default function ChatRoomScreen() {
             {sending ? <ActivityIndicator size="small" color="#fff" /> : <Send size={18} color="#fff" />}
           </TouchableOpacity>
         </View>
-
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

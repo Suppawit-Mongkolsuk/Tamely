@@ -4,31 +4,14 @@ import {
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 
-/* ======================= TYPES ======================= */
-
-interface Sender {
-  id: string;
-  Name: string;
-  avatarUrl: string | null;
-}
-
-interface DmMessage {
-  id: string;
-  content: string;
-  createdAt: string;
-  sender: Sender;
-  isRead: boolean;
-}
-
-/* ======================= CONFIG ======================= */
+interface Sender { id: string; Name: string; avatarUrl: string | null; }
+interface DmMessage { id: string; content: string; createdAt: string; sender: Sender; isRead: boolean; }
 
 const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
-
-/* ======================= HELPERS ======================= */
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
@@ -37,8 +20,6 @@ function formatTime(dateStr: string): string {
 function getInitials(name: string): string {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 }
-
-/* ======================= AVATAR ======================= */
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
@@ -50,21 +31,14 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   );
 }
 
-/* ======================= CHAT DM SCREEN ======================= */
-
 export default function ChatDmScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const rawConvId = params.conversationId;
-  const rawOtherName = params.otherName;
-  const rawToken = params.token;
-  const rawCurrentUserId = params.currentUserId;
-
-  const conversationId = Array.isArray(rawConvId) ? rawConvId[0] : (rawConvId ?? '');
-  const otherName = Array.isArray(rawOtherName) ? rawOtherName[0] : (rawOtherName ?? '');
-  const token = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
-  const currentUserId = Array.isArray(rawCurrentUserId) ? rawCurrentUserId[0] : (rawCurrentUserId ?? '');
+  const conversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : (params.conversationId ?? '');
+  const otherName = Array.isArray(params.otherName) ? params.otherName[0] : (params.otherName ?? '');
+  const token = Array.isArray(params.token) ? params.token[0] : (params.token ?? '');
+  const currentUserId = Array.isArray(params.currentUserId) ? params.currentUserId[0] : (params.currentUserId ?? '');
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +50,6 @@ export default function ChatDmScreen() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ===== Load messages ===== */
   const loadMessages = useCallback(async () => {
     if (!conversationId || !token) return;
     try {
@@ -94,20 +67,19 @@ export default function ChatDmScreen() {
     }
   }, [conversationId, token]);
 
-  /* ===== Socket.IO ===== */
+  /* ===== Socket.IO setup (ครั้งเดียว) ===== */
   useEffect(() => {
     if (!token || !conversationId) return;
 
     const socket = io(API_BASE, {
       auth: { token },
-      transports: ['websocket'],
+      extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
       socket.emit('join_dm', conversationId);
-      // mark as read
       fetch(`${API_BASE}/api/dm/${conversationId}/read`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
@@ -115,7 +87,11 @@ export default function ChatDmScreen() {
     });
 
     socket.on('dm_received', (msg: DmMessage) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => {
+        // ป้องกัน duplicate
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
 
@@ -132,18 +108,31 @@ export default function ChatDmScreen() {
     };
   }, [token, conversationId]);
 
-  /* ===== Send message ===== */
+  /* ===== Focus: rejoin + reload ===== */
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[Focus] socket connected:', socketRef.current?.connected);
+      console.log('[Focus] socket id:', socketRef.current?.id);
+      loadMessages();
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('join_dm', conversationId);
+        console.log('[Focus] rejoined dm:', conversationId);
+      } else if (socketRef.current) {
+        socketRef.current.connect();
+        console.log('[Focus] reconnecting...');
+      }
+      return () => {};
+    }, [loadMessages, conversationId])
+  );
+
   const handleSend = async () => {
     if (!text.trim() || sending) return;
     const content = text.trim();
     setText('');
     setSending(true);
-
     try {
       socketRef.current?.emit('send_dm', { conversationId, content }, (res: any) => {
-        if (!res?.success) {
-          Alert.alert('เกิดข้อผิดพลาด', 'ส่งข้อความไม่สำเร็จ');
-        }
+        if (!res?.success) Alert.alert('เกิดข้อผิดพลาด', 'ส่งข้อความไม่สำเร็จ');
       });
     } catch {
       Alert.alert('Network Error', 'ส่งข้อความไม่สำเร็จ');
@@ -152,7 +141,6 @@ export default function ChatDmScreen() {
     }
   };
 
-  /* ===== Typing indicator ===== */
   const handleTyping = (value: string) => {
     setText(value);
     socketRef.current?.emit('dm_typing', { conversationId, isTyping: true });
@@ -162,7 +150,6 @@ export default function ChatDmScreen() {
     }, 2000);
   };
 
-  /* ===== Render message ===== */
   const renderMessage = ({ item, index }: { item: DmMessage; index: number }) => {
     const isMe = item.sender.id === currentUserId;
     const prevMsg = messages[index - 1];
@@ -171,13 +158,9 @@ export default function ChatDmScreen() {
     return (
       <View style={{ marginBottom: 4, paddingHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: isMe ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8 }}>
-          {!isMe && (
-            showAvatar
-              ? <Avatar name={item.sender.Name} size={28} />
-              : <View style={{ width: 28 }} />
-          )}
+          {!isMe && (showAvatar ? <Avatar name={item.sender.Name} size={28} /> : <View style={{ width: 28 }} />)}
           <View style={{ maxWidth: '75%' }}>
-            <View style={{ backgroundColor: isMe ? '#425C95' : '#fff', borderRadius: 16, borderBottomRightRadius: isMe ? 4 : 16, borderBottomLeftRadius: isMe ? 16 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: isMe ? 0 : 1, borderColor: '#f3f4f6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 1 }}>
+            <View style={{ backgroundColor: isMe ? '#425C95' : '#fff', borderRadius: 16, borderBottomRightRadius: isMe ? 4 : 16, borderBottomLeftRadius: isMe ? 16 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: isMe ? 0 : 1, borderColor: '#f3f4f6', elevation: 1 }}>
               <Text style={{ fontSize: 14, color: isMe ? '#fff' : '#111827', lineHeight: 20 }}>{item.content}</Text>
             </View>
             <Text style={{ fontSize: 10, color: '#9ca3af', textAlign: isMe ? 'right' : 'left', marginTop: 2 }}>
@@ -192,8 +175,6 @@ export default function ChatDmScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-
-        {/* Header */}
         <View style={{ backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', gap: 12 }}>
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
             <ArrowLeft size={22} color="#111827" />
@@ -205,7 +186,6 @@ export default function ChatDmScreen() {
           </View>
         </View>
 
-        {/* Messages */}
         {loading ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator color="#425C95" />
@@ -219,7 +199,7 @@ export default function ChatDmScreen() {
             contentContainerStyle={{ paddingVertical: 12 }}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
+              <View style={{ alignItems: 'center', paddingTop: 80 }}>
                 <Avatar name={otherName} size={60} />
                 <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151', marginTop: 12 }}>{otherName}</Text>
                 <Text style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>เริ่มต้นบทสนทนากัน</Text>
@@ -228,7 +208,6 @@ export default function ChatDmScreen() {
           />
         )}
 
-        {/* Input */}
         <View style={{ backgroundColor: '#fff', flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 10, gap: 10, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
           <TextInput
             value={text}
@@ -247,7 +226,6 @@ export default function ChatDmScreen() {
             {sending ? <ActivityIndicator size="small" color="#fff" /> : <Send size={18} color="#fff" />}
           </TouchableOpacity>
         </View>
-
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
