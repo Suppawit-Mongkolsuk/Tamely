@@ -3,8 +3,20 @@ import { TaskStatus, TaskCreator } from '@prisma/client';
 
 /* ======================= SELECTS ======================= */
 
-const assigneeSelect = { id: true, Name: true, avatarUrl: true } as const;
-const creatorSelect = { id: true, Name: true } as const;
+const assigneeSelect = { Name: true } as const;
+const creatorSelect = { Name: true } as const;
+
+const taskSelect = {
+  id: true,
+  title: true,
+  description: true,
+  date: true,
+  priority: true,
+  status: true,
+  createdBy: true,
+  assignee: { select: assigneeSelect },
+  createdByUser: { select: creatorSelect },
+} as const;
 
 /* ======================= WORKSPACE MEMBER ======================= */
 
@@ -39,10 +51,7 @@ export const create = async (
       createdById: userId,
       createdBy: TaskCreator.USER,
     },
-    include: {
-      assignee: { select: assigneeSelect },
-      createdByUser: { select: creatorSelect },
-    },
+    select: taskSelect,
   });
 };
 
@@ -55,6 +64,7 @@ export const findMany = async (
     year?: number;
     status?: string;
     priority?: string;
+    assigneeId?: string; // ถ้าระบุ = กรองเฉพาะของคนนี้
   },
 ) => {
   const where: Record<string, unknown> = { workspaceId };
@@ -66,13 +76,11 @@ export const findMany = async (
   }
   if (filters.status) where.status = filters.status;
   if (filters.priority) where.priority = filters.priority;
+  if (filters.assigneeId) where.assigneeId = filters.assigneeId;
 
   return prisma.task.findMany({
     where,
-    include: {
-      assignee: { select: assigneeSelect },
-      createdByUser: { select: creatorSelect },
-    },
+    select: taskSelect,
     orderBy: { date: 'asc' },
   });
 };
@@ -87,10 +95,7 @@ export const update = async (taskId: string, data: Record<string, unknown>) => {
   return prisma.task.update({
     where: { id: taskId },
     data,
-    include: {
-      assignee: { select: assigneeSelect },
-      createdByUser: { select: creatorSelect },
-    },
+    select: taskSelect,
   });
 };
 

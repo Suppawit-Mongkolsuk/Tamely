@@ -5,8 +5,6 @@ import {
   Sparkles,
   Check,
   Clock,
-  Filter,
-  Download,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,14 +32,6 @@ export function CalendarHeader({
           </p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <Button variant="outline" size="sm">
-            <Filter className="size-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">กรอง</span>
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download className="size-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Export</span>
-          </Button>
           <Button
             className="bg-[#75A2BF] hover:bg-[#75A2BF]/90"
             size="sm"

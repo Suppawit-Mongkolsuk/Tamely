@@ -36,7 +36,11 @@ export const getTasks = async (
   const member = await taskRepository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
-  return taskRepository.findMany(workspaceId, filters);
+  // ทุก role เห็นเฉพาะ task ที่ถูก assign ให้ตัวเอง
+  return taskRepository.findMany(workspaceId, {
+    ...filters,
+    assigneeId: userId,
+  });
 };
 
 /* ======================= UPDATE ======================= */

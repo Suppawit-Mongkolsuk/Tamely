@@ -38,7 +38,7 @@ function mapMessage(m: MessageResponse, myId: string): Message {
     content: m.content,
     timestamp: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     date: d.toISOString().slice(0, 10), // "YYYY-MM-DD"
-    isOwn: m.senderId === myId,
+    isOwn: m.sender.id === myId,
     type: (m.type as Message['type']) ?? 'TEXT',
     fileUrl: m.fileUrl,
     fileName: m.fileName,
@@ -48,7 +48,7 @@ function mapMessage(m: MessageResponse, myId: string): Message {
 
 function mapDMConversation(conv: DMConversationResponse, myId: string): DirectMessage {
   // อีกฝ่ายคือ user ที่ไม่ใช่เรา
-  const other = conv.userAId === myId ? conv.userB : conv.userA;
+  const other = conv.userA.id === myId ? conv.userB : conv.userA;
   const initials = other.Name.split(' ')
     .map((w) => w[0])
     .join('')
@@ -81,12 +81,12 @@ function mapDMMessage(m: DMMessageResponse, myId: string): Message {
     content: m.content,
     timestamp: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     date: d.toISOString().slice(0, 10), // "YYYY-MM-DD"
-    isOwn: m.senderId === myId,
+    isOwn: m.sender.id === myId,
     type: (m.type as Message['type']) ?? 'TEXT',
     fileUrl: m.fileUrl,
     fileName: m.fileName,
     fileSize: m.fileSize,
-    isRead: m.isRead,
+    isRead: m.isRead ?? false,
   };
 }
 
@@ -100,7 +100,7 @@ function updateDMPreview(
     if (dm.id !== msg.conversationId) return dm;
 
     const isOpened = openedConversationId === msg.conversationId;
-    const shouldIncrementUnread = msg.senderId !== myId && !isOpened;
+    const shouldIncrementUnread = msg.sender.id !== myId && !isOpened;
 
     return {
       ...dm,
@@ -361,7 +361,7 @@ export function ChatRoomsPage() {
       setMessages((prev) => [...prev, mapDMMessage(msg, myId)]);
       // ถ้าข้อความไม่ใช่ของตัวเอง → mark as read ทันที
       // เพราะ user กำลังเห็นข้อความนี้อยู่ → trigger dm_read ให้ผู้ส่งเห็น "Read"
-      if (msg.senderId !== myId) {
+      if (msg.sender.id !== myId) {
         dmService.markAsRead(selectedDM).catch(() => {});
       }
     };
@@ -595,6 +595,7 @@ export function ChatRoomsPage() {
               onLoadMore={handleLoadMore}
               onBack={() => setMobileView('list')}
               onShowDetail={() => setMobileView('detail')}
+              workspaceId={wsId}
               onStartVoiceCall={
                 currentDM
                   ? () => void startCall(currentDM.userId, currentDM.id, 'audio', currentDM.userName, currentDM.avatarUrl)

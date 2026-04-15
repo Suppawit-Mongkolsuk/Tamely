@@ -4,19 +4,39 @@ import { TypePayloadCreatePost, TypePayloadUpdatePost } from './post.model';
 /* ======================= SELECTS ======================= */
 
 const authorSelect = { id: true, Name: true, avatarUrl: true } as const;
+const postSelect = {
+  id: true,
+  title: true,
+  body: true,
+  isPinned: true,
+  imageUrls: true,
+  createdAt: true,
+  author: { select: authorSelect },
+  _count: { select: { comments: true } },
+} as const;
+const commentSelect = {
+  id: true,
+  content: true,
+  createdAt: true,
+  user: { select: authorSelect },
+} as const;
 
 /* ======================= WORKSPACE MEMBER ======================= */
 
 export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
   return prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
+    select: { userId: true, role: true },
   });
 };
 
 export const findWorkspaceMemberWithUser = async (workspaceId: string, userId: string) => {
   return prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
-    include: { user: { select: { id: true, Name: true } } },
+    select: {
+      userId: true,
+      user: { select: { id: true, Name: true } },
+    },
   });
 };
 
@@ -35,10 +55,7 @@ export const create = async (
       body: data.body,
       imageUrls: data.imageUrls ?? [],
     },
-    include: {
-      author: { select: authorSelect },
-      _count: { select: { comments: true } },
-    },
+    select: postSelect,
   });
 };
 
@@ -51,10 +68,7 @@ export const findMany = async (
   const [posts, total] = await Promise.all([
     prisma.post.findMany({
       where: { workspaceId },
-      include: {
-        author: { select: authorSelect },
-        _count: { select: { comments: true } },
-      },
+      select: postSelect,
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
       take: options.limit,
       skip: options.offset,
@@ -66,7 +80,10 @@ export const findMany = async (
 };
 
 export const findById = async (postId: string) => {
-  return prisma.post.findUnique({ where: { id: postId } });
+  return prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true, workspaceId: true, authorId: true },
+  });
 };
 
 /* ======================= UPDATE ======================= */
@@ -75,10 +92,7 @@ export const update = async (postId: string, data: TypePayloadUpdatePost) => {
   return prisma.post.update({
     where: { id: postId },
     data,
-    include: {
-      author: { select: authorSelect },
-      _count: { select: { comments: true } },
-    },
+    select: postSelect,
   });
 };
 
@@ -86,6 +100,7 @@ export const updatePin = async (postId: string, isPinned: boolean) => {
   return prisma.post.update({
     where: { id: postId },
     data: { isPinned },
+    select: { id: true, isPinned: true },
   });
 };
 
@@ -104,7 +119,7 @@ export const findComments = async (
   const [comments, total] = await Promise.all([
     prisma.postComment.findMany({
       where: { postId },
-      include: { user: { select: authorSelect } },
+      select: commentSelect,
       orderBy: { createdAt: 'asc' },
       take: options.limit,
       skip: options.offset,
@@ -122,14 +137,18 @@ export const createComment = async (
 ) => {
   return prisma.postComment.create({
     data: { postId, userId, content },
-    include: { user: { select: authorSelect } },
+    select: commentSelect,
   });
 };
 
 export const findCommentById = async (commentId: string) => {
   return prisma.postComment.findUnique({
     where: { id: commentId },
-    include: { post: true },
+    select: {
+      id: true,
+      userId: true,
+      post: { select: { id: true, workspaceId: true } },
+    },
   });
 };
 

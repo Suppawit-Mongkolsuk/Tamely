@@ -96,6 +96,7 @@ model User {
   createdTasks     Task[]            @relation("TaskCreatedByUser") // Task ที่สร้าง
   aiSummaries      AiSummary[]       @relation("AiSummaryRequestedBy") // AI Summary ที่ขอ
   aiQueries        AiQuery[] // คำถาม AI ที่ถาม
+  aiSessions       AiSession[] // Session การสนทนา AI
   receivedNotifications Notification[] @relation("NotificationReceiver") // แจ้งเตือนที่ได้รับ (ถูก @)
   sentNotifications     Notification[] @relation("NotificationSender") // แจ้งเตือนที่ trigger (คน @)
 
@@ -134,6 +135,7 @@ model Workspace {
   tasks       Task[] // Task ทั้งหมดใน Workspace (Calendar)
   aiSummaries AiSummary[] // สรุป AI ของ Workspace
   aiQueries   AiQuery[] // คำถาม AI ของ Workspace
+  aiSessions  AiSession[] // Session การสนทนา AI
   notifications Notification[] // แจ้งเตือนทั้งหมดใน Workspace
   directConversations DirectConversation[] // DM ทั้งหมดใน Workspace
 
@@ -417,10 +419,29 @@ model AiSummary {
 //     หน้าที่: เก็บ log คำถาม + คำตอบจาก AI (OpenAI API)
 //     ใช้ใน: AIChatPage
 // ======================================================
+// ======================================================
+// AI SESSION — เก็บ metadata ของแต่ละ session การสนทนา AI
+// ======================================================
+model AiSession {
+  id          String   @id @db.Uuid // = sessionId ที่ใช้ใน AiQuery
+  workspaceId String   @db.Uuid
+  userId      String   @db.Uuid
+  title       String   // ชื่อ session (default = คำถามแรก, แก้ได้)
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, isPinned, updatedAt])
+}
+
 model AiQuery {
   id          String   @id @default(uuid()) @db.Uuid
   workspaceId String   @db.Uuid // FK → Workspace
   userId      String   @db.Uuid // FK → User (ใครถาม)
+  sessionId   String?  @db.Uuid // กลุ่มการสนทนา (nullable เพื่อ backward compat)
   question    String // คำถามที่ User ถาม
   answer      String // คำตอบที่ AI ตอบ
   tokensUsed  Int? // จำนวน Token ที่ใช้ (nullable, สำหรับติดตามค่าใช้จ่าย)
@@ -432,6 +453,7 @@ model AiQuery {
 
   @@index([workspaceId, createdAt])
   @@index([userId, createdAt])
+  @@index([sessionId])
 }
 
 // ======================================================

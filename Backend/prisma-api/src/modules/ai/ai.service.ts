@@ -88,6 +88,25 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_all_rooms_messages',
+      description:
+        'ดึงข้อความจากทุกห้องที่ user เข้าถึงได้ใน workspace ใช้เมื่อ user ขอให้สแกนทุกห้องเพื่อหาข้อความที่มีวันที่หรือสร้าง task อัตโนมัติ',
+      parameters: {
+        type: 'object',
+        properties: {
+          date_filter: {
+            type: 'string',
+            enum: ['today', 'yesterday', 'this_week', 'last_3_days'],
+            description: 'ช่วงเวลาที่ต้องการดึง default = today',
+          },
+        },
+        required: [],
+      },
+    },
+  },
 ] as const;
 
 type UsageTracker = { totalTokens: number };
@@ -123,9 +142,10 @@ const startOfDay = (date: Date) =>
 const endOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 
-const buildSystemPrompt = (today: string, workspaceName: string, roomListText: string) => `คุณคือ AI Assistant ของ Tamely ซึ่งเป็นแอปพลิเคชัน Team Collaboration
+const buildSystemPrompt = (today: string, workspaceName: string, roomListText: string, userName: string) => `คุณคือ AI Assistant ของ Tamely ซึ่งเป็นแอปพลิเคชัน Team Collaboration
 วันที่วันนี้คือ: ${today}
 Workspace ที่ user อยู่: ${workspaceName}
+ชื่อของ user ที่คุยอยู่: ${userName}
 ห้องที่ user เข้าถึงได้:
 ${roomListText}
 
@@ -133,11 +153,25 @@ ${roomListText}
 - ตอบเป็นภาษาไทยเสมอ
 - ถ้าถามเรื่อง task หรือการสรุปการสนทนา ให้เรียก tool ก่อนตอบ
 - ถ้าถามทั่วไป ตอบตรงๆ ไม่ต้องเรียก tool
-- ถ้าต้องสรุปการสนทนาแต่ user ไม่บอกชื่อห้อง ให้ถามกลับว่าต้องการสรุปห้องไหน
-- ถ้า user บอกชื่อห้องให้ match กับรายการ accessible rooms แล้วใช้ room_id ที่ถูกต้อง
-- ถ้า user ขอดูห้องที่ไม่มีสิทธิ์ ให้บอกว่า "คุณไม่มีสิทธิ์เข้าถึงห้องนั้นครับ"
-- ห้ามสร้าง task โดยไม่ได้รับการยืนยันจาก user ก่อน (ยกเว้น user สั่งตรงๆ เช่น "ช่วยสร้าง task..." หรือ "ลงตาราง...")
-- เมื่อสร้าง task สำเร็จ ให้แจ้งผลลัพธ์พร้อมรายละเอียด task ที่สร้าง`;
+- ถ้า user ขอให้สแกนทุกห้องหรือสร้าง task อัตโนมัติจากทุกการสนทนา ให้เรียก get_all_rooms_messages ก่อนเสมอ แล้วค่อยสร้าง task จากข้อความที่มีวันที่ชัดเจน
+- ถ้าต้องสรุปการสนทนาแต่ user ไม่บอกชื่อห้อง ให้ถามกลับว่าต้องการสรุปห้องไหน หรือถ้า user ต้องการทุกห้องให้ใช้ get_all_rooms_messages
+- ถ้า user บอกชื่อห้องให้ match กับรายการ accessible rooms โดยใช้ partial match หรือ fuzzy match (เช่น "วิศวะ" match กับ "กลุ่มวิศวกรรม" ได้) แล้วใช้ room_id ที่ถูกต้อง
+- ถ้า match ชื่อห้องไม่ได้เลย ให้ถามกลับว่า "ไม่พบห้องที่ตรงกับ '...' หมายถึงห้อง '[ชื่อห้องที่ใกล้เคียงที่สุดจาก accessible rooms]' ใช่ไหมครับ?" โดยแสดงเฉพาะชื่อที่ใกล้เคียงจาก accessible rooms เท่านั้น ห้ามแสดงรายชื่อห้องทั้งหมด
+- บอกว่า "ไม่มีสิทธิ์" เฉพาะเมื่อ tool ส่ง ERROR permission กลับมาเท่านั้น
+- เมื่อ user ขอสร้าง task ให้ดึงชื่องาน วันที่ และรายละเอียดจาก context การสนทนาก่อนหน้าได้เลย ไม่ต้องถามซ้ำถ้ามีข้อมูลอยู่แล้ว
+- ถ้า user บอกแค่วันที่แต่ไม่บอกชื่อ task ให้ใช้ชื่องานจากสิ่งที่เพิ่งพูดถึงหรือสรุปมาก่อนหน้า เช่น ถ้าเพิ่งสรุปว่า "21 เมษา มีนัดประชุม" แล้ว user บอก "ลงปฏิทิน 21 เมษา" ให้สร้าง task ชื่อ "นัดประชุม" วันที่ 21 เมษาได้เลย
+- ถ้าไม่มี priority ให้ใช้ MEDIUM เป็นค่า default โดยไม่ต้องถาม
+- ถ้าข้อมูลไม่เพียงพอจริงๆ (ไม่รู้ชื่องานและ context ไม่มีเบาะแส) ให้ถามแค่ชื่อ task เท่านั้น ไม่ต้องถามทุกอย่างพร้อมกัน
+- เมื่อสร้าง task สำเร็จ ให้แจ้งผลลัพธ์พร้อมรายละเอียด task ที่สร้าง
+- เมื่อ user ขอให้วิเคราะห์การสนทนาแล้วสร้าง task อัตโนมัติ ให้สร้าง task เฉพาะข้อความที่:
+  * ระบุวันที่ชัดเจน: วันที่ตรง เช่น "15 เมษายน", "20/4" หรือวันสัมพัทธ์ เช่น "วันนี้", "พรุ่งนี้", "สัปดาห์หน้า"
+  * และเกี่ยวข้องกับ "${userName}" โดยตรง เช่น ถูกเรียกชื่อ, ถูก @mention หรือเป็น task ทั่วไปที่ไม่ได้ระบุว่าใครต้องทำโดยเฉพาะ
+  * ให้ดู context ของข้อความรอบข้างด้วย ไม่ใช่แค่ message เดียว เช่น ถ้าข้อความก่อนหน้าพูดถึง task แล้ว message ถัดมา @tag ชื่อใคร ให้ถือว่า task นั้นถูก assign ให้คนนั้น
+  * ถ้าข้อความระบุชื่อเต็มของคนอื่นชัดเจน (ชื่อที่ตรงกับสมาชิกคนอื่นในห้อง) ให้ข้ามไป
+  * ถ้าข้อความระบุชื่อเล่น ชื่อย่อ หรือคำเรียกที่ไม่แน่ใจว่าเป็นใคร (เช่น "เติ้ล", "โฟล์ค", "บอส") ให้สร้าง task ได้ แต่ใส่ใน description ว่า "(อาจเกี่ยวข้องกับ '[ชื่อ/คำเรียกนั้น]' — กรุณาตรวจสอบ)"
+  * ถ้าไม่พบข้อความที่เกี่ยวข้องกับ "${userName}" เลย ให้ตอบว่า "ไม่พบงานที่เกี่ยวข้องกับคุณในช่วงเวลานี้"
+- ห้ามแสดง id, UUID, หรือ internal key ใดๆ ในคำตอบเด็ดขาด ใช้แค่ชื่อห้องหรือชื่อ task เท่านั้น
+- room_id และ id ต่างๆ ใช้สำหรับเรียก tool ภายในเท่านั้น ห้ามนำมาแสดงให้ user เห็น`;
 
 const executeGetTasks = async (
   workspaceId: string,
@@ -372,11 +406,120 @@ const executeGetRoomMessages = async (
   return finalSummary || `สรุปการสนทนาในห้อง "${room.name}" ไม่สำเร็จ`;
 };
 
+const executeGetAllRoomsMessages = async (
+  workspaceId: string,
+  userId: string,
+  args: { date_filter?: string },
+): Promise<string> => {
+  const rooms = await repository.getAccessibleRooms(workspaceId, userId);
+  if (rooms.length === 0) return 'ไม่มีห้องที่เข้าถึงได้';
+
+  const now = new Date();
+  let startDate = startOfDay(now);
+  let endDate = endOfDay(now);
+
+  switch (args.date_filter ?? 'today') {
+    case 'yesterday': {
+      const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      startDate = startOfDay(yesterday);
+      endDate = endOfDay(yesterday);
+      break;
+    }
+    case 'last_3_days':
+      startDate = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2));
+      break;
+    case 'this_week': {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      startDate = startOfDay(new Date(now.getFullYear(), now.getMonth(), diff));
+      break;
+    }
+    default:
+      break;
+  }
+
+  const roomSections: string[] = [];
+
+  for (const room of rooms) {
+    const count = await repository.countMessages(room.id, startDate, endDate);
+    if (count === 0) continue;
+
+    const messages = await repository.getMessages(room.id, {
+      limit: Math.min(count, CHUNK_SIZE),
+      offset: 0,
+      startDate,
+      endDate,
+    });
+
+    const lines = messages.map(
+      (m) =>
+        `[${new Date(m.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}] ${m.sender.Name}: ${m.content}`,
+    );
+    roomSections.push(`=== ห้อง "${room.name}" ===\n${lines.join('\n')}`);
+  }
+
+  if (roomSections.length === 0) return 'ไม่มีข้อความในช่วงเวลาที่ระบุจากทุกห้อง';
+  return roomSections.join('\n\n');
+};
+
+export const getSessionList = async (workspaceId: string, userId: string) => {
+  const member = await repository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  const sessions = await repository.getSessionList(workspaceId, userId);
+  return sessions.map((s) => ({ sessionId: s.id, title: s.title, isPinned: s.isPinned, updatedAt: s.updatedAt }));
+};
+
+export const renameSession = async (workspaceId: string, userId: string, sessionId: string, title: string) => {
+  const member = await repository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  if (!title.trim()) throw new AppError(400, 'Title cannot be empty');
+  await repository.renameSession(sessionId, userId, title);
+};
+
+export const togglePinSession = async (workspaceId: string, userId: string, sessionId: string, isPinned: boolean) => {
+  const member = await repository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  await repository.togglePinSession(sessionId, userId, isPinned);
+};
+
+export const deleteSession = async (workspaceId: string, userId: string, sessionId: string) => {
+  const member = await repository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  await repository.deleteSession(sessionId, userId);
+};
+
+export const getSessionMessages = async (
+  workspaceId: string,
+  userId: string,
+  sessionId: string,
+) => {
+  const member = await repository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+
+  const queries = await repository.getSessionMessages(workspaceId, userId, sessionId);
+  return queries.flatMap((q) => [
+    { role: 'user' as const, content: q.question, createdAt: q.createdAt },
+    { role: 'assistant' as const, content: q.answer, createdAt: q.createdAt },
+  ]);
+};
+
+export const getAiHistory = async (workspaceId: string, userId: string, sessionId?: string) => {
+  const member = await repository.findWorkspaceMember(workspaceId, userId);
+  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+
+  const queries = await repository.getRecentQueries(workspaceId, userId, sessionId, 10);
+  return queries.reverse().flatMap((q) => [
+    { role: 'user' as const, content: q.question, createdAt: q.createdAt },
+    { role: 'assistant' as const, content: q.answer, createdAt: q.createdAt },
+  ]);
+};
+
 export const processAiChat = async (params: {
   workspaceId: string;
   userId: string;
   message: string;
   history: TypeHistoryItem[];
+  sessionId?: string;
 }): Promise<PublicAiChatResult> => {
   const member = await repository.findWorkspaceMember(params.workspaceId, params.userId);
   if (!member) {
@@ -388,7 +531,11 @@ export const processAiChat = async (params: {
     throw new AppError(404, 'Workspace not found');
   }
 
-  const accessibleRooms = await repository.getAccessibleRooms(params.workspaceId, params.userId);
+  const [accessibleRooms, currentUser] = await Promise.all([
+    repository.getAccessibleRooms(params.workspaceId, params.userId),
+    repository.findUserById(params.userId),
+  ]);
+
   const roomListText =
     accessibleRooms.length > 0
       ? accessibleRooms.map((room) => `- ${room.name} (id: ${room.id})`).join('\n')
@@ -403,7 +550,7 @@ export const processAiChat = async (params: {
   const currentMessages: any[] = [
     {
       role: 'system',
-      content: buildSystemPrompt(today, workspace.name, roomListText),
+      content: buildSystemPrompt(today, workspace.name, roomListText, currentUser?.Name ?? 'ไม่ทราบชื่อ'),
     },
     ...params.history.slice(-10).map((item) => ({
       role: item.role,
@@ -490,6 +637,12 @@ export const processAiChat = async (params: {
               tracker,
             );
           }
+        } else if (toolName === 'get_all_rooms_messages') {
+          toolResult = await executeGetAllRoomsMessages(
+            params.workspaceId,
+            params.userId,
+            toolArgs,
+          );
         }
       } catch (error) {
         toolResult =
@@ -512,10 +665,23 @@ export const processAiChat = async (params: {
     finalReply = 'ขออภัยครับ ตอนนี้ผมไม่สามารถตอบกลับได้ กรุณาลองใหม่อีกครั้ง';
   }
 
+  // สร้าง / อัพเดท AiSession (upsert) พร้อมกับ log
+  if (params.sessionId) {
+    repository
+      .createSession({
+        id: params.sessionId,
+        workspaceId: params.workspaceId,
+        userId: params.userId,
+        title: params.message.slice(0, 50),
+      })
+      .catch((err) => console.error('Failed to upsert AI session:', err));
+  }
+
   repository
     .logAiQuery({
       workspaceId: params.workspaceId,
       userId: params.userId,
+      sessionId: params.sessionId,
       question: params.message,
       answer: finalReply,
       tokensUsed: tracker.totalTokens || undefined,

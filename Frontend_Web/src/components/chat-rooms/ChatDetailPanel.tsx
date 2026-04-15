@@ -9,7 +9,6 @@ import {
   Users,
   LogOut,
   Hash,
-  Mail,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -247,13 +246,6 @@ function DMDetails({
       {/* Profile Details (expandable) */}
       {showProfile && (
         <div className="space-y-3 bg-gray-50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <Mail className="size-4 text-muted-foreground shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">Email</p>
-              <p className="text-sm truncate">{dmUserDetail?.user.email ?? '—'}</p>
-            </div>
-          </div>
           <div className="flex items-center gap-3">
             <Shield className="size-4 text-muted-foreground shrink-0" />
             <div className="min-w-0">

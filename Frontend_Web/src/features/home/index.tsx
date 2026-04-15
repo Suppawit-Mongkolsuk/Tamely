@@ -160,6 +160,7 @@ export function HomePage() {
                   >
                     <PostCard
                       post={post}
+                      workspaceId={currentWorkspace?.id ?? ''}
                       currentUserId={user?.id}
                       currentUserRole={currentWorkspace?.role}
                       onDelete={handleDeletePost}
@@ -184,6 +185,7 @@ export function HomePage() {
                 >
                   <PostCard
                     post={post}
+                    workspaceId={currentWorkspace?.id ?? ''}
                     currentUserId={user?.id}
                     currentUserRole={currentWorkspace?.role}
                     onDelete={handleDeletePost}

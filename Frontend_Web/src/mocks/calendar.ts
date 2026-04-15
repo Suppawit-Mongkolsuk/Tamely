@@ -10,6 +10,7 @@ export const mockTasks: Task[] = [
     priority: 'high',
     status: 'in-progress',
     assignee: 'John Doe',
+    assignedBy: 'John Doe',
     createdBy: 'user',
   },
   {
@@ -20,6 +21,7 @@ export const mockTasks: Task[] = [
     priority: 'medium',
     status: 'todo',
     assignee: 'Jane Smith',
+    assignedBy: 'Jane Smith',
     createdBy: 'user',
   },
   {
@@ -30,6 +32,7 @@ export const mockTasks: Task[] = [
     priority: 'high',
     status: 'todo',
     assignee: 'John Doe',
+    assignedBy: 'AI',
     createdBy: 'ai',
   },
   {
@@ -40,6 +43,7 @@ export const mockTasks: Task[] = [
     priority: 'low',
     status: 'completed',
     assignee: 'Sarah Johnson',
+    assignedBy: 'Sarah Johnson',
     createdBy: 'user',
   },
   {
@@ -50,6 +54,7 @@ export const mockTasks: Task[] = [
     priority: 'medium',
     status: 'todo',
     assignee: 'Team',
+    assignedBy: 'AI',
     createdBy: 'ai',
   },
 ];

@@ -5,7 +5,28 @@ import { TypePayloadCreateWorkspace, TypePayloadUpdateWorkspace } from './worksp
 /* ======================= SELECTS ======================= */
 
 const ownerSelect = { id: true, Name: true, email: true, avatarUrl: true } as const;
-const memberUserSelect = { id: true, Name: true, email: true, avatarUrl: true } as const;
+const workspaceBaseSelect = {
+  id: true,
+  name: true,
+  description: true,
+  iconUrl: true,
+  ownerId: true,
+  inviteCode: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+const workspaceWithOwnerSelect = {
+  ...workspaceBaseSelect,
+  owner: { select: ownerSelect },
+} as const;
+const memberUserSelect = { Name: true, avatarUrl: true } as const;
+const workspaceMemberSelect = {
+  userId: true,
+  role: true,
+  joinedAt: true,
+  user: { select: memberUserSelect },
+} as const;
 
 /* ======================= CREATE ======================= */
 
@@ -23,7 +44,7 @@ export const create = async (
         create: { userId: ownerId, role: WorkspaceRole.OWNER },
       },
     },
-    include: { owner: { select: { id: true, Name: true, email: true } } },
+    select: workspaceWithOwnerSelect,
   });
 };
 
@@ -32,11 +53,13 @@ export const create = async (
 export const findMembershipsByUser = async (userId: string) => {
   return prisma.workspaceMember.findMany({
     where: { userId },
-    include: {
+    select: {
+      role: true,
+      joinedAt: true,
       workspace: {
-        include: {
+        select: {
+          ...workspaceBaseSelect,
           _count: { select: { members: true, rooms: true } },
-          owner: { select: { id: true, Name: true, avatarUrl: true } },
         },
       },
     },
@@ -47,19 +70,25 @@ export const findMembershipsByUser = async (userId: string) => {
 export const findById = async (workspaceId: string) => {
   return prisma.workspace.findUnique({
     where: { id: workspaceId },
-    include: {
-      owner: { select: ownerSelect },
+    select: {
+      ...workspaceWithOwnerSelect,
       _count: { select: { members: true, rooms: true, posts: true } },
     },
   });
 };
 
 export const findByIdSimple = async (workspaceId: string) => {
-  return prisma.workspace.findUnique({ where: { id: workspaceId } });
+  return prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { id: true, ownerId: true },
+  });
 };
 
 export const findByInviteCode = async (inviteCode: string) => {
-  return prisma.workspace.findUnique({ where: { inviteCode } });
+  return prisma.workspace.findUnique({
+    where: { inviteCode },
+    select: workspaceBaseSelect,
+  });
 };
 
 /* ======================= UPDATE ======================= */
@@ -71,6 +100,7 @@ export const update = async (
   return prisma.workspace.update({
     where: { id: workspaceId },
     data,
+    select: workspaceBaseSelect,
   });
 };
 
@@ -93,19 +123,23 @@ export const remove = async (workspaceId: string) => {
 export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
   return prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
+    select: { userId: true, role: true },
   });
 };
 
 export const findAllMembers = async (workspaceId: string) => {
   return prisma.workspaceMember.findMany({
     where: { workspaceId },
-    include: { user: { select: memberUserSelect } },
+    select: workspaceMemberSelect,
     orderBy: { joinedAt: 'asc' },
   });
 };
 
 export const findUserByEmail = async (email: string) => {
-  return prisma.user.findUnique({ where: { email } });
+  return prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
 };
 
 export const createMember = async (
@@ -115,7 +149,7 @@ export const createMember = async (
 ) => {
   return prisma.workspaceMember.create({
     data: { workspaceId, userId, role },
-    include: { user: { select: memberUserSelect } },
+    select: workspaceMemberSelect,
   });
 };
 
@@ -133,6 +167,6 @@ export const updateMemberRole = async (
   return prisma.workspaceMember.update({
     where: { workspaceId_userId: { workspaceId, userId } },
     data: { role },
-    include: { user: { select: memberUserSelect } },
+    select: workspaceMemberSelect,
   });
 };

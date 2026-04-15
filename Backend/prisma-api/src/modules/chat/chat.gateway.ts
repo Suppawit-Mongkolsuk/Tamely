@@ -173,7 +173,9 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
   ): Promise<CallContext | null> => {
     const conversation = await prisma.directConversation.findUnique({
       where: { id: conversationId },
-      include: {
+      select: {
+        userAId: true,
+        userBId: true,
         userA: { select: { id: true, Name: true, avatarUrl: true } },
         userB: { select: { id: true, Name: true, avatarUrl: true } },
       },
@@ -294,7 +296,11 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
             data.content,
           );
           // ส่งให้ทุกคนในห้อง DM (รวมผู้ส่งด้วย เพื่อ sync ทุก tab)
-          io.to(`dm:${data.conversationId}`).emit('dm_received', message);
+          // เพิ่ม conversationId ไว้ใน event เพื่อให้ client routing ได้ถูกต้อง
+          io.to(`dm:${data.conversationId}`).emit('dm_received', {
+            ...message,
+            conversationId: data.conversationId,
+          });
           callback?.({ success: true, data: message });
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Send failed';

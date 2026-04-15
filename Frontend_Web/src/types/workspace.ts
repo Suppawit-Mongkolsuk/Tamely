@@ -14,16 +14,13 @@ export interface Workspace {
 }
 
 export interface WorkspaceMember {
-  id: string;
   userId: string;
-  workspaceId: string;
   role: WorkspaceMemberRole;
   joinedAt: string;
   user: {
-    id: string;
     Name: string;
-    email: string;
     avatarUrl?: string | null;
+    // email ถูกนำออกแล้ว — ไม่แสดง PII ของ member คนอื่น
   };
 }
 

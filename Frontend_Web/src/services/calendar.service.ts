@@ -10,8 +10,8 @@ export interface TaskResponse {
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
   createdBy: 'USER' | 'AI';
-  assignee?: { id: string; Name: string; avatarUrl?: string | null };
-  createdByUser?: { id: string; Name: string };
+  assignee?: { Name: string };
+  createdByUser?: { Name: string };
   createdAt: string;
   updatedAt: string;
 }

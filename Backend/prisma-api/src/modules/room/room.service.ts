@@ -38,18 +38,21 @@ export const getRooms = async (workspaceId: string, userId: string) => {
 };
 
 export const getRoomById = async (roomId: string, userId: string) => {
-  const room = await roomRepository.findById(roomId);
+  // ดึงข้อมูล room พร้อม workspaceId เพื่อใช้ filter workspaceMembers
+  const roomSimple = await roomRepository.findByIdSimple(roomId);
+  if (!roomSimple) throw new AppError(404, 'Room not found');
+
+  await assertWorkspaceMember(roomSimple.workspaceId, userId);
+
+  const room = await roomRepository.findById(roomId, roomSimple.workspaceId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  await assertWorkspaceMember(room.workspaceId, userId);
-
-  // Map สมาชิก — เพิ่ม workspaceRole จาก workspaceMembers ของห้องนี้
+  // Map สมาชิก — workspaceMembers[0] คือ role ใน workspace นี้ (filtered by workspaceId)
   const members = (room.members ?? []).map((m) => {
     const { workspaceMembers, ...userFields } = m.user as typeof m.user & {
-      workspaceMembers: { workspaceId: string; role: string }[];
+      workspaceMembers: { role: string }[];
     };
-    const workspaceRole =
-      workspaceMembers.find((wm) => wm.workspaceId === room.workspaceId)?.role ?? 'MEMBER';
+    const workspaceRole = workspaceMembers[0]?.role ?? 'MEMBER';
     return { ...m, user: { ...userFields, workspaceRole } };
   });
 

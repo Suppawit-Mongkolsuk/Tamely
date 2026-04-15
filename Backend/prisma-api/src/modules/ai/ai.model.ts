@@ -17,6 +17,7 @@ export const AiChatPayloadSchema = z.object({
     .min(1, 'Message is required')
     .max(2000),
   history: z.array(HistoryItemSchema).max(10).default([]),
+  sessionId: z.string().uuid().optional(),
 });
 
 export const AiChatSchema = z.object({

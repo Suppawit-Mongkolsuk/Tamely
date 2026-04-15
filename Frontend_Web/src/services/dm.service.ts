@@ -11,27 +11,21 @@ export interface DMUserInfo {
 
 export interface DMMessageResponse {
   id: string;
-  conversationId: string;
-  senderId: string;
+  conversationId?: string;  // เพิ่มโดย socket gateway เพื่อ client routing
   content: string;
   type: string;
   fileUrl?: string | null;
   fileName?: string | null;
   fileSize?: number | null;
-  isRead: boolean;
+  isRead?: boolean;
   createdAt: string;
   sender: DMUserInfo;
 }
 
 export interface DMConversationResponse {
   id: string;
-  workspaceId: string;
-  userAId: string;
-  userBId: string;
   userA: DMUserInfo;
   userB: DMUserInfo;
-  createdAt: string;
-  updatedAt: string;
   unreadCount: number;
   lastMessage: DMMessageResponse | null;
 }

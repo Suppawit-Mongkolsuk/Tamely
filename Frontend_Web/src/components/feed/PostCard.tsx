@@ -10,8 +10,6 @@ import { ImageLightbox } from '@/components/ui/ImageLightbox';
 
 export interface PostComment {
   id: string;
-  postId: string;
-  userId: string;
   content: string;
   createdAt: string;
   user: { id: string; Name: string; avatarUrl?: string | null };
@@ -19,13 +17,11 @@ export interface PostComment {
 
 export interface PostData {
   id: string;
-  workspaceId: string;
   title: string;
   body: string;
   isPinned: boolean;
   imageUrls?: string[];
   createdAt: string;
-  updatedAt: string;
   author: { id: string; Name: string; avatarUrl?: string | null };
   commentCount?: number;
   _count?: { comments: number };
@@ -33,6 +29,7 @@ export interface PostData {
 
 interface PostCardProps {
   post: PostData;
+  workspaceId: string;
   currentUserId?: string;
   currentUserRole?: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
   onDelete?: (postId: string) => void;
@@ -119,7 +116,7 @@ function Avatar({ name, avatarUrl, size = 'md' }: { name: string; avatarUrl?: st
   );
 }
 
-export function PostCard({ post, currentUserId, currentUserRole, onDelete, onTogglePin, highlighted = false }: PostCardProps) {
+export function PostCard({ post, workspaceId, currentUserId, currentUserRole, onDelete, onTogglePin, highlighted = false }: PostCardProps) {
   const commentCount = post.commentCount ?? post._count?.comments ?? 0;
   const canModerate = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN';
   const timeAgo = new Date(post.createdAt).toLocaleDateString('th-TH');
@@ -349,7 +346,7 @@ export function PostCard({ post, currentUserId, currentUserRole, onDelete, onTog
                           </div>
                         </div>
                         {/* Delete — เจ้าของ comment หรือ OWNER/ADMIN ลบได้ */}
-                        {(currentUserId === comment.userId || canModerate) && (
+                        {(currentUserId === comment.user.id || canModerate) && (
                           <button
                             className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive align-middle"
                             onClick={() => handleDeleteComment(comment.id)}
@@ -369,7 +366,7 @@ export function PostCard({ post, currentUserId, currentUserRole, onDelete, onTog
                 <MentionInput
                   value={newComment}
                   onChange={setNewComment}
-                  workspaceId={post.workspaceId}
+                  workspaceId={workspaceId}
                   placeholder="เขียนคอมเมนต์... (พิมพ์ @ เพื่อแท็ก)"
                   className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground border-none shadow-none rounded-none ring-0 focus-visible:ring-0 focus-visible:border-none px-0 py-0"
                   onKeyDown={(e) => {

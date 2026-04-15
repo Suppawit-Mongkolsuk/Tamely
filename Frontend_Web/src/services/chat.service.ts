@@ -14,14 +14,12 @@ export interface RoomResponse {
   updatedAt: string;
   createdBy?: { id: string; Name: string; avatarUrl?: string | null };
   members?: {
-    user: { id: string; Name: string; email: string; avatarUrl?: string | null; workspaceRole?: string };
+    user: { id: string; Name: string; avatarUrl?: string | null; workspaceRole?: string };
   }[];
 }
 
 export interface MessageResponse {
   id: string;
-  roomId: string;
-  senderId: string;
   content: string;
   type: string;
   createdAt: string;

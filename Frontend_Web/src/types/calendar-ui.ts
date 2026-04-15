@@ -8,6 +8,7 @@ export interface Task {
   priority: 'high' | 'medium' | 'low';
   status: 'todo' | 'in-progress' | 'completed';
   assignee: string;
+  assignedBy: string; // ชื่อคนที่มอบหมายงาน (createdByUser)
   createdBy: 'user' | 'ai';
 }
 
@@ -48,7 +49,12 @@ export function getDaysInMonth(date: Date) {
 
 export function getTasksForDate(tasks: Task[], date: Date | null) {
   if (!date) return [];
-  const dateStr = date.toISOString().split('T')[0];
+  // ใช้ local date components แทน toISOString() เพราะ toISOString() แปลงเป็น UTC
+  // ทำให้ผิดวัน +1 ในโซนเวลา UTC+7 (ไทย)
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${y}-${m}-${d}`;
   return tasks.filter((task) => task.date === dateStr);
 }
 

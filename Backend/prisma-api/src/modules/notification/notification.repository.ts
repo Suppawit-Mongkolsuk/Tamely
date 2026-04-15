@@ -4,8 +4,19 @@ import { MentionTargetType, WorkspaceRole } from '@prisma/client';
 /* ======================= SELECTS ======================= */
 
 const senderSelect = { id: true, Name: true, avatarUrl: true } as const;
-const postSelect = { id: true, title: true, body: true } as const;
+const postSelect = { id: true, title: true } as const;
 const commentSelect = { id: true, content: true } as const;
+const notificationSelect = {
+  id: true,
+  type: true,
+  targetRole: true,
+  content: true,
+  isRead: true,
+  createdAt: true,
+  sender: { select: senderSelect },
+  post: { select: postSelect },
+  comment: { select: commentSelect },
+} as const;
 
 /* ======================= CREATE ======================= */
 
@@ -45,11 +56,7 @@ export const findMany = async (
   const [notifications, total, unreadCount] = await Promise.all([
     prisma.notification.findMany({
       where,
-      include: {
-        sender: { select: senderSelect },
-        post: { select: postSelect },
-        comment: { select: commentSelect },
-      },
+      select: notificationSelect,
       orderBy: { createdAt: 'desc' },
       take: options.limit,
       skip: options.offset,
@@ -64,7 +71,10 @@ export const findMany = async (
 };
 
 export const findById = async (id: string) => {
-  return prisma.notification.findUnique({ where: { id } });
+  return prisma.notification.findUnique({
+    where: { id },
+    select: { id: true, userId: true },
+  });
 };
 
 /* ======================= UPDATE ======================= */
@@ -99,7 +109,7 @@ export const findMembersByNames = async (
       workspaceId,
       user: { Name: { in: names, mode: 'insensitive' } },
     },
-    include: { user: { select: { id: true, Name: true } } },
+    select: { userId: true },
   });
 };
 
@@ -117,6 +127,6 @@ export const findMembersByRoles = async (
       workspaceId,
       role: { in: roles },
     },
-    include: { user: { select: { id: true, Name: true } } },
+    select: { userId: true, role: true },
   });
 };

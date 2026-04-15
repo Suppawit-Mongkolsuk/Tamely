@@ -7,6 +7,13 @@ export const findWorkspaceMember = async (workspaceId: string, userId: string) =
   });
 };
 
+export const findUserById = async (userId: string) => {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { Name: true },
+  });
+};
+
 export const findWorkspaceById = async (workspaceId: string) => {
   return prisma.workspace.findUnique({
     where: { id: workspaceId },
@@ -211,9 +218,88 @@ export const saveSummaryCache = async (data: {
 export const logAiQuery = async (data: {
   workspaceId: string;
   userId: string;
+  sessionId?: string;
   question: string;
   answer: string;
   tokensUsed?: number;
 }) => {
   return prisma.aiQuery.create({ data });
+};
+
+/* ======================= AI SESSION ======================= */
+
+// สร้าง session ใหม่ (เรียกตอนส่งข้อความครั้งแรกของ session)
+export const createSession = async (data: {
+  id: string; // sessionId
+  workspaceId: string;
+  userId: string;
+  title: string;
+}) => {
+  return prisma.aiSession.upsert({
+    where: { id: data.id },
+    create: data,
+    update: { updatedAt: new Date() }, // ถ้ามีแล้ว update เวลา
+  });
+};
+
+// ดึงรายการ sessions — pinned ขึ้นก่อน แล้วเรียงตาม updatedAt
+export const getSessionList = async (workspaceId: string, userId: string) => {
+  return prisma.aiSession.findMany({
+    where: { workspaceId, userId },
+    select: { id: true, title: true, isPinned: true, updatedAt: true },
+    orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
+  });
+};
+
+// เปลี่ยนชื่อ session
+export const renameSession = async (sessionId: string, userId: string, title: string) => {
+  return prisma.aiSession.updateMany({
+    where: { id: sessionId, userId },
+    data: { title: title.trim().slice(0, 80) },
+  });
+};
+
+// toggle pin
+export const togglePinSession = async (sessionId: string, userId: string, isPinned: boolean) => {
+  return prisma.aiSession.updateMany({
+    where: { id: sessionId, userId },
+    data: { isPinned },
+  });
+};
+
+// ลบ session + messages ทั้งหมดในนั้น
+export const deleteSession = async (sessionId: string, userId: string) => {
+  await prisma.aiQuery.deleteMany({ where: { sessionId, userId } });
+  await prisma.aiSession.deleteMany({ where: { id: sessionId, userId } });
+};
+
+// ดึง messages ของ session นั้น
+export const getSessionMessages = async (
+  workspaceId: string,
+  userId: string,
+  sessionId: string,
+) => {
+  return prisma.aiQuery.findMany({
+    where: { workspaceId, userId, sessionId },
+    select: { id: true, question: true, answer: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
+};
+
+export const getRecentQueries = async (
+  workspaceId: string,
+  userId: string,
+  sessionId?: string,
+  limit = 10,
+) => {
+  return prisma.aiQuery.findMany({
+    where: {
+      workspaceId,
+      userId,
+      ...(sessionId ? { sessionId } : {}),
+    },
+    select: { id: true, question: true, answer: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
 };

@@ -11,8 +11,8 @@ import {
   Info,
   Phone,
 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { MentionInput } from '@/components/feed/MentionInput';
 import { MessageBubble } from './MessageBubble';
 import type { ChatRoom, DirectMessage, Message, ChatTab } from '@/types/chat-ui';
 
@@ -99,6 +99,7 @@ interface ChatWindowProps {
   onShowDetail?: () => void;
   onStartVoiceCall?: () => void;
   disableCallActions?: boolean;
+  workspaceId?: string;
 }
 
 export function ChatWindow({
@@ -119,6 +120,7 @@ export function ChatWindow({
   onShowDetail,
   onStartVoiceCall,
   disableCallActions = false,
+  workspaceId,
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -411,7 +413,8 @@ export function ChatWindow({
             </>
           )}
 
-          <Input
+          <MentionInput
+            workspaceId={activeTab === 'rooms' ? workspaceId : undefined}
             placeholder={
               pendingFile
                 ? 'เพิ่มข้อความ (ไม่จำเป็น) แล้วกด Enter'
@@ -420,7 +423,7 @@ export function ChatWindow({
                   : `Message ${currentDM?.userName ?? '...'}`
             }
             value={messageInput}
-            onChange={(e) => onMessageInputChange(e.target.value)}
+            onChange={onMessageInputChange}
             onKeyDown={handleKeyDown}
             className="flex-1"
             disabled={isUploading}

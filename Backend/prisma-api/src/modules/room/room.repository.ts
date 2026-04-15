@@ -5,7 +5,39 @@ import { TypePayloadCreateRoom, TypePayloadUpdateRoom } from './room.model';
 /* ======================= SELECTS ======================= */
 
 const creatorSelect = { id: true, Name: true, avatarUrl: true } as const;
-const memberUserSelect = { id: true, Name: true, email: true, avatarUrl: true } as const;
+const memberUserSelect = { id: true, Name: true, avatarUrl: true } as const;
+const roomBaseSelect = {
+  id: true,
+  workspaceId: true,
+  name: true,
+  description: true,
+  isPrivate: true,
+  createdById: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+const roomSummarySelect = {
+  ...roomBaseSelect,
+  _count: { select: { members: true } },
+  createdBy: { select: creatorSelect },
+} as const;
+const roomDetailSelect = {
+  ...roomSummarySelect,
+  members: {
+    select: {
+      userId: true,
+      user: {
+        select: {
+          ...memberUserSelect,
+          workspaceMembers: {
+            select: { role: true },
+          },
+        },
+      },
+    },
+  },
+} as const;
 
 /* ======================= CREATE ======================= */
 
@@ -26,10 +58,7 @@ export const create = async (
         create: { userId },
       },
     },
-    include: {
-      _count: { select: { members: true } },
-      createdBy: { select: creatorSelect },
-    },
+    select: roomSummarySelect,
   });
 };
 
@@ -47,28 +76,25 @@ export const findMany = async (workspaceId: string, userId: string, userRole: Wo
         { allowedRoles: { has: userRole } },  // role ของ user อยู่ใน list
       ],
     },
-    include: {
-      _count: { select: { members: true } },
-      createdBy: { select: creatorSelect },
-    },
+    select: roomSummarySelect,
     orderBy: { createdAt: 'asc' },
   });
 };
 
-export const findById = async (roomId: string) => {
+export const findById = async (roomId: string, workspaceId?: string) => {
   return prisma.room.findUnique({
     where: { id: roomId },
-    include: {
-      _count: { select: { members: true } },
-      createdBy: { select: creatorSelect },
+    select: {
+      ...roomDetailSelect,
       members: {
-        include: {
+        select: {
+          userId: true,
           user: {
             select: {
               ...memberUserSelect,
-              // ดึง workspace role มาด้วยเพื่อแสดงในห้อง
               workspaceMembers: {
-                select: { workspaceId: true, role: true },
+                where: workspaceId ? { workspaceId } : undefined,
+                select: { role: true },
               },
             },
           },
@@ -79,7 +105,10 @@ export const findById = async (roomId: string) => {
 };
 
 export const findByIdSimple = async (roomId: string) => {
-  return prisma.room.findUnique({ where: { id: roomId } });
+  return prisma.room.findUnique({
+    where: { id: roomId },
+    select: { id: true, workspaceId: true, createdById: true, isPrivate: true },
+  });
 };
 
 /* ======================= UPDATE ======================= */
@@ -88,9 +117,7 @@ export const update = async (roomId: string, data: TypePayloadUpdateRoom) => {
   return prisma.room.update({
     where: { id: roomId },
     data,
-    include: {
-      _count: { select: { members: true } },
-    },
+    select: roomSummarySelect,
   });
 };
 
@@ -105,13 +132,15 @@ export const remove = async (roomId: string) => {
 export const findRoomMember = async (roomId: string, userId: string) => {
   return prisma.roomMember.findUnique({
     where: { roomId_userId: { roomId, userId } },
+    select: { roomId: true, userId: true },
   });
 };
 
 export const createRoomMember = async (roomId: string, userId: string) => {
   return prisma.roomMember.create({
     data: { roomId, userId },
-    include: {
+    select: {
+      userId: true,
       user: { select: memberUserSelect },
     },
   });
@@ -129,5 +158,6 @@ export const deleteRoomMember = async (roomId: string, userId: string) => {
 export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
   return prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
+    select: { userId: true, role: true },
   });
 };

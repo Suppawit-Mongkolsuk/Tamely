@@ -170,7 +170,7 @@ export const MentionInput = forwardRef<
     const userSuggestions: MentionSuggestion[] = members
       .filter((m) => m.user.Name.toLowerCase().includes(lowerQ))
       .map((m) => ({
-        id: m.user.id,
+        id: m.userId,
         label: m.user.Name,
         value: m.user.Name.includes(' ') ? `[${m.user.Name}]` : m.user.Name,
         type: 'user' as const,

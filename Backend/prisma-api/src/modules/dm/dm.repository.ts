@@ -4,6 +4,33 @@ import { MessageType } from '@prisma/client';
 /* ======================= SELECTS ======================= */
 
 const userSelect = { id: true, Name: true, avatarUrl: true } as const;
+const previewSenderSelect = { id: true, Name: true } as const;
+const lastMessageSelect = {
+  content: true,
+  type: true,
+  createdAt: true,
+  sender: { select: previewSenderSelect },
+} as const;
+const conversationSelect = {
+  id: true,
+  userA: { select: userSelect },
+  userB: { select: userSelect },
+  messages: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
+    select: lastMessageSelect,
+  },
+} as const;
+const dmMessageSelect = {
+  id: true,
+  content: true,
+  type: true,
+  fileUrl: true,
+  fileName: true,
+  fileSize: true,
+  createdAt: true,
+  sender: { select: userSelect },
+} as const;
 
 /* ======================= CONVERSATION ======================= */
 
@@ -21,36 +48,21 @@ export const findOrCreateConversation = async (
 
   const existing = await prisma.directConversation.findUnique({
     where: { workspaceId_userAId_userBId: { workspaceId, userAId, userBId } },
-    include: {
-      userA: { select: userSelect },
-      userB: { select: userSelect },
-      messages: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-        include: { sender: { select: userSelect } },
-      },
-    },
+    select: conversationSelect,
   });
 
   if (existing) return existing;
 
   return prisma.directConversation.create({
     data: { workspaceId, userAId, userBId },
-    include: {
-      userA: { select: userSelect },
-      userB: { select: userSelect },
-      messages: false,
-    },
+    select: conversationSelect,
   });
 };
 
 export const findConversationById = async (conversationId: string) => {
   return prisma.directConversation.findUnique({
     where: { id: conversationId },
-    include: {
-      userA: { select: userSelect },
-      userB: { select: userSelect },
-    },
+    select: { id: true, userAId: true, userBId: true },
   });
 };
 
@@ -64,15 +76,7 @@ export const findConversationsByUser = async (workspaceId: string, userId: strin
       workspaceId,
       OR: [{ userAId: userId }, { userBId: userId }],
     },
-    include: {
-      userA: { select: userSelect },
-      userB: { select: userSelect },
-      messages: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-        include: { sender: { select: userSelect } },
-      },
-    },
+    select: conversationSelect,
     orderBy: { updatedAt: 'desc' },
   });
 };
@@ -91,7 +95,7 @@ export const findMessages = async (
   const [messages, total] = await Promise.all([
     prisma.directMessage.findMany({
       where,
-      include: { sender: { select: userSelect } },
+      select: dmMessageSelect,
       orderBy: { createdAt: 'desc' },
       take: options.limit,
       skip: options.offset,
@@ -120,7 +124,7 @@ export const createMessage = async (
         fileName: fileData?.fileName ?? null,
         fileSize: fileData?.fileSize ?? null,
       },
-      include: { sender: { select: userSelect } },
+      select: dmMessageSelect,
     }),
     // อัพเดต updatedAt ของ conversation เพื่อให้ sort ล่าสุดได้ถูกต้อง
     prisma.directConversation.update({
@@ -157,5 +161,8 @@ export const deleteMessage = async (messageId: string) => {
 };
 
 export const findMessageById = async (messageId: string) => {
-  return prisma.directMessage.findUnique({ where: { id: messageId } });
+  return prisma.directMessage.findUnique({
+    where: { id: messageId },
+    select: { id: true, senderId: true, fileUrl: true },
+  });
 };

@@ -1,5 +1,5 @@
 // ===== Calendar Grid — Month View =====
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getDaysInMonth, getTasksForDate, monthNames, dayNames } from '@/types/calendar-ui';
@@ -97,15 +97,28 @@ export function CalendarGrid({
                     {dayTasks.slice(0, 2).map((task) => (
                       <div
                         key={task.id}
-                        className={`text-xs p-0.5 sm:p-1 rounded truncate hidden sm:block ${
-                          task.priority === 'high'
-                            ? 'bg-red-100 text-red-700'
-                            : task.priority === 'medium'
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-blue-100 text-blue-700'
+                        className={`text-xs p-0.5 sm:p-1 rounded hidden sm:flex items-center gap-1 ${
+                          task.status === 'completed'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                            : task.priority === 'high'
+                              ? 'bg-red-100 text-red-700'
+                              : task.priority === 'medium'
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-blue-100 text-blue-700'
                         }`}
                       >
-                        {task.title.substring(0, 15)}...
+                        {task.status === 'completed' && (
+                          <Check className="size-3 shrink-0" />
+                        )}
+                        <span
+                          className={`truncate ${
+                            task.status === 'completed'
+                              ? 'line-through opacity-80'
+                              : ''
+                          }`}
+                        >
+                          {task.title.substring(0, 15)}...
+                        </span>
                       </div>
                     ))}
                     {/* Mobile: show colored dots */}

@@ -4,6 +4,16 @@ import { MessageType } from '@prisma/client';
 /* ======================= SELECTS ======================= */
 
 const senderSelect = { id: true, Name: true, avatarUrl: true } as const;
+const messageSelect = {
+  id: true,
+  content: true,
+  type: true,
+  createdAt: true,
+  fileUrl: true,
+  fileName: true,
+  fileSize: true,
+  sender: { select: senderSelect },
+} as const;
 
 /* ======================= READ ======================= */
 
@@ -19,7 +29,7 @@ export const findMany = async (
   const [messages, total] = await Promise.all([
     prisma.message.findMany({
       where,
-      include: { sender: { select: senderSelect } },
+      select: messageSelect,
       orderBy: { createdAt: 'desc' },
       take: options.limit,
       skip: options.offset,
@@ -47,7 +57,7 @@ export const create = async (
       type,
       ...(fileData ?? {}),
     },
-    include: { sender: { select: senderSelect } },
+    select: messageSelect,
   });
 };
 
@@ -56,6 +66,7 @@ export const create = async (
 export const findById = async (messageId: string) => {
   return prisma.message.findUnique({
     where: { id: messageId },
+    select: { id: true, senderId: true },
   });
 };
 
@@ -68,7 +79,10 @@ export const remove = async (messageId: string) => {
 /* ======================= ROOM ======================= */
 
 export const findRoom = async (roomId: string) => {
-  return prisma.room.findUnique({ where: { id: roomId } });
+  return prisma.room.findUnique({
+    where: { id: roomId },
+    select: { id: true },
+  });
 };
 
 export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
@@ -80,5 +94,6 @@ export const findWorkspaceMember = async (workspaceId: string, userId: string) =
 export const findRoomMember = async (roomId: string, userId: string) => {
   return prisma.roomMember.findUnique({
     where: { roomId_userId: { roomId, userId } },
+    select: { roomId: true, userId: true },
   });
 };

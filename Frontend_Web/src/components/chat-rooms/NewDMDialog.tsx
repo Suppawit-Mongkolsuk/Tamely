@@ -94,7 +94,6 @@ export function NewDMDialog({ open, onOpenChange, onSelectUser }: NewDMDialogPro
                   <UserAvatar displayName={member.user.Name} size="md" />
                   <div className="text-left">
                     <p className="text-sm font-medium">{member.user.Name}</p>
-                    <p className="text-xs text-muted-foreground">{member.user.email}</p>
                   </div>
                   <span className="ml-auto text-xs text-muted-foreground capitalize">
                     {member.role.toLowerCase()}
