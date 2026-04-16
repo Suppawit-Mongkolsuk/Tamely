@@ -81,7 +81,8 @@ export const remove = async (messageId: string) => {
 export const findRoom = async (roomId: string) => {
   return prisma.room.findUnique({
     where: { id: roomId },
-    select: { id: true },
+    select: { id: true, name: true },
+    
   });
 };
 

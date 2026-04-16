@@ -466,7 +466,12 @@ export const getSessionList = async (workspaceId: string, userId: string) => {
   const member = await repository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
   const sessions = await repository.getSessionList(workspaceId, userId);
-  return sessions.map((s) => ({ sessionId: s.id, title: s.title, isPinned: s.isPinned, updatedAt: s.updatedAt }));
+    return sessions.map((s: { id: string; title: string; isPinned: boolean; updatedAt: Date }) => ({
+    sessionId: s.id,
+    title: s.title,
+    isPinned: s.isPinned,
+    updatedAt: s.updatedAt,
+}));
 };
 
 export const renameSession = async (workspaceId: string, userId: string, sessionId: string, title: string) => {

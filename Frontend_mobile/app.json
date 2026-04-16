@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Frontend_mobile",
+    "name": "Tamely",
     "slug": "Frontend_mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,7 +12,8 @@
       "enabled": false
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tamely.app"
     },
     "android": {
       "package": "com.tamely.app",
@@ -43,11 +44,25 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#425C95",
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ae72affe-d522-4a16-a802-e89e2a298334"
+      }
     }
   }
 }

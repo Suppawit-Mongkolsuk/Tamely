@@ -157,8 +157,8 @@ export default function WorkspaceScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
-
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+      
       {/* ส่วน Header */}
       <LinearGradient
         colors={['#152C53', '#234476', '#42639B']}

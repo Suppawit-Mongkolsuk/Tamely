@@ -3,6 +3,7 @@ import * as dmRepository from './dm.repository';
 import { prisma } from '../../index';
 import { MessageType } from '@prisma/client';
 import { deleteFromStorage, CHAT_FILES_BUCKET } from '../../utils/supabase-storage';
+import { pushToUsers } from '../push/push.service';
 
 /* ======================= HELPERS ======================= */
 
@@ -25,9 +26,6 @@ const assertConversationParticipant = (
 
 /* ======================= OPEN / GET CONVERSATION ======================= */
 
-/**
- * เปิด DM กับ user อีกคน — ถ้ามีอยู่แล้วให้ return เดิม, ถ้าไม่มีให้สร้างใหม่
- */
 export const openConversation = async (
   workspaceId: string,
   userId: string,
@@ -43,15 +41,11 @@ export const openConversation = async (
   return dmRepository.findOrCreateConversation(workspaceId, userId, targetUserId);
 };
 
-/**
- * ดึง list DM conversations ของ user ใน workspace
- */
 export const getConversations = async (workspaceId: string, userId: string) => {
   await assertWorkspaceMember(workspaceId, userId);
 
   const conversations = await dmRepository.findConversationsByUser(workspaceId, userId);
 
-  // เพิ่ม unread count ให้แต่ละ conversation
   const withUnread = await Promise.all(
     conversations.map(async (conv) => {
       const unread = await dmRepository.countUnread(conv.id, userId);
@@ -83,7 +77,6 @@ export const getMessages = async (
     before: options.before,
   });
 
-  // mark as read เมื่อ fetch
   await dmRepository.markMessagesAsRead(conversationId, userId);
 
   return { data: messages, total, limit, offset };
@@ -100,7 +93,22 @@ export const sendMessage = async (
   if (!conv) throw new AppError(404, 'Conversation not found');
   assertConversationParticipant(conv, senderId);
 
-  return dmRepository.createMessage(conversationId, senderId, content, type, fileData);
+  const message = await dmRepository.createMessage(conversationId, senderId, content, type, fileData);
+
+  // ส่ง push notification ให้อีกฝ่าย (fire and forget ไม่ block response)
+  const receiverId = conv.userAId === senderId ? conv.userBId : conv.userAId;
+  prisma.user.findUnique({ where: { id: senderId }, select: { Name: true } })
+    .then((sender) => {
+      pushToUsers(
+        [receiverId],
+        sender?.Name ?? 'มีข้อความใหม่',
+        content,
+        { conversationId, type: 'dm' },
+      );
+    })
+    .catch(() => {});
+
+  return message;
 };
 
 export const deleteMessage = async (messageId: string, userId: string) => {
@@ -110,7 +118,6 @@ export const deleteMessage = async (messageId: string, userId: string) => {
     throw new AppError(403, 'You can only delete your own messages');
   }
 
-  // ลบไฟล์จาก Supabase Storage ก่อน (ถ้าเป็นข้อความที่แนบไฟล์)
   if (msg.fileUrl) {
     await deleteFromStorage(CHAT_FILES_BUCKET, msg.fileUrl);
   }
@@ -123,7 +130,6 @@ export const clearMessages = async (conversationId: string, userId: string) => {
   if (!conv) throw new AppError(404, 'Conversation not found');
   assertConversationParticipant(conv, userId);
 
-  // ลบไฟล์ใน Supabase Storage ก่อน
   const msgs = await dmRepository.findAllMessagesWithFiles(conversationId);
   await Promise.all(
     msgs

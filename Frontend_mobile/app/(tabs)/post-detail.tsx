@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Image,
-  TextInput, FlatList, KeyboardAvoidingView, Platform,
+  TextInput, KeyboardAvoidingView, Platform,
   Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Pin, Heart, MessageCircle, ImageIcon, Send, Trash2 } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DecorativeBubble from '../../components/ui/DecBubble';
 
 /* ======================= TYPES ======================= */
@@ -88,28 +89,34 @@ export default function PostDetailScreen() {
   const params = useLocalSearchParams();
 
   const postStr = Array.isArray(params.post) ? params.post[0] : (params.post ?? '');
-  const rawToken = params.token;
   const rawWsId = params.wsId;
   const rawCurrentUserId = params.currentUserId;
 
   const post: Post | null = postStr ? JSON.parse(postStr) : null;
-  const token = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
   const wsId = Array.isArray(rawWsId) ? rawWsId[0] : (rawWsId ?? '');
   const currentUserId = Array.isArray(rawCurrentUserId) ? rawCurrentUserId[0] : (rawCurrentUserId ?? '');
 
-  // Like state — UI เท่านั้น รอ backend
+  // อ่าน token จาก AsyncStorage โดยตรง เพื่อหลีกเลี่ยงปัญหา URL encoding
+  const [token, setToken] = useState('');
+  const [storageLoaded, setStorageLoaded] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('token').then((t) => {
+      setToken(t ?? '');
+      setStorageLoaded(true);
+    });
+  }, []);
+
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
-  // Comments
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
 
-  // Comment input + @ mention
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null); // null = ไม่ได้พิมพ์ @
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
 
   /* ======================= LOAD COMMENTS ======================= */
@@ -125,13 +132,12 @@ export default function PostDetailScreen() {
       const json = await res.json();
       setComments(json.data);
     } catch {
-      // ไม่แสดง error เพราะ comment ไม่ใช่ส่วนหลัก
     } finally {
       setCommentsLoading(false);
     }
   }, [post?.id, token]);
 
-  /* ======================= LOAD MEMBERS (สำหรับ @ mention) ======================= */
+  /* ======================= LOAD MEMBERS ======================= */
 
   const loadMembers = useCallback(async () => {
     if (!wsId || !token) return;
@@ -146,20 +152,19 @@ export default function PostDetailScreen() {
   }, [wsId, token]);
 
   useEffect(() => {
-    loadComments();
-    loadMembers();
-  }, [loadComments, loadMembers]);
+    if (storageLoaded) {
+      loadComments();
+      loadMembers();
+    }
+  }, [storageLoaded, loadComments, loadMembers]);
 
   /* ======================= HANDLE TEXT INPUT + @ DETECTION ======================= */
 
   const handleCommentChange = (text: string) => {
     setCommentText(text);
-
-    // ตรวจหา @ ล่าสุดที่ยังไม่มี space ตามหลัง
     const lastAt = text.lastIndexOf('@');
     if (lastAt !== -1) {
       const afterAt = text.slice(lastAt + 1);
-      // ถ้าไม่มี space หลัง @ = กำลัง mention อยู่
       if (!afterAt.includes(' ') && !afterAt.includes('\n')) {
         setMentionQuery(afterAt);
         return;
@@ -172,7 +177,6 @@ export default function PostDetailScreen() {
     const lastAt = commentText.lastIndexOf('@');
     const before = commentText.slice(0, lastAt);
     const name = member.user.Name;
-    // ใช้ format @[ชื่อ] ถ้าชื่อมีช่องว่าง, @ชื่อ ถ้าไม่มี
     const mention = name.includes(' ') ? `@[${name}] ` : `@${name} `;
     setCommentText(before + mention);
     setMentionQuery(null);
@@ -235,10 +239,9 @@ export default function PostDetailScreen() {
       ).slice(0, 5)
     : [];
 
-  /* ======================= RENDER MENTION TAG (ใน comment text) ======================= */
+  /* ======================= RENDER MENTION TAG ======================= */
 
   const renderCommentContent = (content: string) => {
-    // แยก mention @[name] หรือ @word ออกมาใส่สีน้ำเงิน
     const parts = content.split(/(@\[[^\]]+\]|@\w+)/g);
     return (
       <Text style={{ fontSize: 14, color: '#374151', lineHeight: 22 }}>
@@ -265,7 +268,7 @@ export default function PostDetailScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
-        {/* ===== CREATIVE HEADER ===== */}
+        {/* HEADER */}
         <LinearGradient
           colors={['#152C53', '#234476', '#42639B']}
           start={{ x: 0, y: 1 }}
@@ -275,7 +278,6 @@ export default function PostDetailScreen() {
           <DecorativeBubble size={80} top={-30} right={-20} opacity={0.08} />
           <DecorativeBubble size={40} bottom={-10} left={30} opacity={0.06} />
 
-          {/* Back button row */}
           <TouchableOpacity
             onPress={() => router.back()}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16, alignSelf: 'flex-start' }}
@@ -284,7 +286,6 @@ export default function PostDetailScreen() {
             <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>ประกาศ</Text>
           </TouchableOpacity>
 
-          {/* Author + Pinned */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <Avatar name={post.author.Name} size={36} light />
             <View style={{ flex: 1 }}>
@@ -303,29 +304,26 @@ export default function PostDetailScreen() {
             )}
           </View>
 
-          {/* Post title */}
           <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', lineHeight: 28 }}>
             {post.title}
           </Text>
         </LinearGradient>
 
-        {/* ===== CONTENT ===== */}
+        {/* CONTENT */}
         <ScrollView
           contentContainerStyle={{ padding: 20, paddingBottom: 16 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Body */}
           <Text style={{ fontSize: 15, color: '#374151', lineHeight: 26, marginBottom: 24 }}>
             {post.body}
           </Text>
 
-          {/* Images */}
           {post.imageUrls.length > 0 && (
             <View style={{ marginBottom: 24, gap: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <ImageIcon size={14} color="#9ca3af" />
                 <Text style={{ fontSize: 13, color: '#9ca3af', fontWeight: '600' }}>
-                  รูปภาพ ({post.imageUrls.length})
+                  {`รูปภาพ (${post.imageUrls.length})`}
                 </Text>
               </View>
               {post.imageUrls.map((url, index) => (
@@ -339,14 +337,12 @@ export default function PostDetailScreen() {
             </View>
           )}
 
-          {/* Divider */}
           <View style={{ height: 1, backgroundColor: '#f3f4f6', marginBottom: 20 }} />
 
-          {/* Like + Comment count bar */}
+          {/* Like + Comment count */}
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
             <TouchableOpacity
               onPress={() => {
-                // TODO: เชื่อม POST /api/posts/:id/like เมื่อ backend พร้อม
                 setLiked((v) => !v);
                 setLikeCount((c) => liked ? c - 1 : c + 1);
               }}
@@ -367,7 +363,7 @@ export default function PostDetailScreen() {
             </View>
           </View>
 
-          {/* Comments section */}
+          {/* Comments */}
           <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
             ความคิดเห็น
           </Text>
@@ -376,8 +372,8 @@ export default function PostDetailScreen() {
             <ActivityIndicator color="#425C95" style={{ marginVertical: 20 }} />
           ) : comments.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-              <Text style={{ fontSize: 28, marginBottom: 6 }}>💬</Text>
-              <Text style={{ color: '#9ca3af', fontSize: 13 }}>ยังไม่มีความคิดเห็น</Text>
+              <MessageCircle size={28} color="#d1d5db" />
+              <Text style={{ color: '#9ca3af', fontSize: 13, marginTop: 8 }}>ยังไม่มีความคิดเห็น</Text>
               <Text style={{ color: '#d1d5db', fontSize: 12, marginTop: 2 }}>เป็นคนแรกที่แสดงความคิดเห็น</Text>
             </View>
           ) : (
@@ -406,15 +402,13 @@ export default function PostDetailScreen() {
           )}
         </ScrollView>
 
-        {/* ===== @ MENTION SUGGESTIONS ===== */}
+        {/* MENTION SUGGESTIONS */}
         {mentionSuggestions.length > 0 && (
           <View style={{ backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f3f4f6', maxHeight: 180 }}>
-            <FlatList
-              data={mentionSuggestions}
-              keyExtractor={(m) => m.user.id}
-              keyboardShouldPersistTaps="always"
-              renderItem={({ item }) => (
+            <ScrollView keyboardShouldPersistTaps="always">
+              {mentionSuggestions.map((item) => (
                 <TouchableOpacity
+                  key={item.user.id}
                   onPress={() => handleSelectMention(item)}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f9fafb' }}
                 >
@@ -424,12 +418,12 @@ export default function PostDetailScreen() {
                     <Text style={{ fontSize: 11, color: '#9ca3af' }}>{item.role}</Text>
                   </View>
                 </TouchableOpacity>
-              )}
-            />
+              ))}
+            </ScrollView>
           </View>
         )}
 
-        {/* ===== COMMENT INPUT ===== */}
+        {/* COMMENT INPUT */}
         <View style={{ backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f3f4f6', paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
           <TextInput
             ref={inputRef}

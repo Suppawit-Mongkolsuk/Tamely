@@ -1,10 +1,11 @@
 import { MentionTargetType, WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
 import * as notificationRepository from './notification.repository';
+import { pushToUsers } from '../push/push.service';
+import { getIO } from '../chat/chat.gateway';
 
 /* ======================= CONSTANTS ======================= */
 
-// Map ชื่อยศ (case-insensitive) → WorkspaceRole enum
 const ROLE_ALIASES: Record<string, WorkspaceRole> = {
   owner: WorkspaceRole.OWNER,
   admin: WorkspaceRole.ADMIN,
@@ -14,21 +15,12 @@ const ROLE_ALIASES: Record<string, WorkspaceRole> = {
 
 /* ======================= MENTION PARSER ======================= */
 
-/**
- * Parse ข้อความเพื่อหา @mention ทั้งหมด
- * รูปแบบ: @[ชื่อที่มีช่องว่าง] หรือ @ชื่อไม่มีช่องว่าง
- * ตัวอย่าง:
- *   "@[Somchai Jaidee]"  → "Somchai Jaidee"
- *   "@Admin"             → "Admin"
- *   "@John"              → "John"
- */
 export const parseMentions = (
   text: string,
 ): { userNames: string[]; roleNames: string[] } => {
   const userNames: string[] = [];
   const roleNames: string[] = [];
 
-  // Pattern 1: @[Name With Spaces]
   const bracketPattern = /@\[([^\]]+)\]/g;
   let match: RegExpExecArray | null;
   while ((match = bracketPattern.exec(text)) !== null) {
@@ -40,8 +32,6 @@ export const parseMentions = (
     }
   }
 
-  // Pattern 2: @SingleWord (ยกเว้นตัวที่อยู่ใน [] แล้ว)
-  // ลบ @[...] ออกก่อนเพื่อไม่ให้ซ้ำ
   const cleaned = text.replace(/@\[[^\]]+\]/g, '');
   const wordPattern = /@(\w+)/g;
   while ((match = wordPattern.exec(cleaned)) !== null) {
@@ -53,7 +43,6 @@ export const parseMentions = (
     }
   }
 
-  // Deduplicate
   return {
     userNames: [...new Set(userNames)],
     roleNames: [...new Set(roleNames)],
@@ -62,10 +51,6 @@ export const parseMentions = (
 
 /* ======================= RESOLVE & CREATE NOTIFICATIONS ======================= */
 
-/**
- * จาก text ที่มี @mention → resolve เป็น user IDs → สร้าง notification records
- * ถ้าไม่มี @ เลย → ไม่สร้างอะไร (ตามที่ user ต้องการ)
- */
 export const processAndCreateMentionNotifications = async (params: {
   workspaceId: string;
   senderId: string;
@@ -75,12 +60,10 @@ export const processAndCreateMentionNotifications = async (params: {
   commentId?: string;
   context: 'post' | 'comment';
 }) => {
-  const { workspaceId, senderId, senderName, text, postId, commentId, context } =
-    params;
+  const { workspaceId, senderId, senderName, text, postId, commentId, context } = params;
 
   const { userNames, roleNames } = parseMentions(text);
 
-  // ถ้าไม่มี mention ใดเลย → ไม่ต้องทำอะไร
   if (userNames.length === 0 && roleNames.length === 0) return;
 
   const notifications: {
@@ -98,13 +81,9 @@ export const processAndCreateMentionNotifications = async (params: {
 
   // 1. Resolve @UserName mentions
   if (userNames.length > 0) {
-    const members = await notificationRepository.findMembersByNames(
-      workspaceId,
-      userNames,
-    );
+    const members = await notificationRepository.findMembersByNames(workspaceId, userNames);
 
     for (const member of members) {
-      // ไม่แจ้งเตือนตัวเอง
       if (member.userId === senderId) continue;
 
       notifications.push({
@@ -126,16 +105,10 @@ export const processAndCreateMentionNotifications = async (params: {
       .filter((r): r is WorkspaceRole => r !== undefined);
 
     if (resolvedRoles.length > 0) {
-      const members = await notificationRepository.findMembersByRoles(
-        workspaceId,
-        resolvedRoles,
-      );
-
-      // Track user IDs ที่เพิ่มไปแล้ว เพื่อไม่ซ้ำ
+      const members = await notificationRepository.findMembersByRoles(workspaceId, resolvedRoles);
       const existingUserIds = new Set(notifications.map((n) => n.userId));
 
       for (const member of members) {
-        // ไม่แจ้งเตือนตัวเอง + ไม่ซ้ำกับที่ @ ชื่อไปแล้ว
         if (member.userId === senderId) continue;
         if (existingUserIds.has(member.userId)) continue;
 
@@ -156,9 +129,31 @@ export const processAndCreateMentionNotifications = async (params: {
     }
   }
 
-  // 3. Batch insert
+  // 3. Batch insert + notify
   if (notifications.length > 0) {
     await notificationRepository.createMany(notifications);
+
+    const receiverIds = [...new Set(notifications.map((n) => n.userId))];
+
+    // push notification (fire and forget)
+    pushToUsers(
+      receiverIds,
+      'มีการแท็กถึงคุณ',
+      `${senderName} แท็กคุณใน${contextLabel}`,
+      { type: 'mention' },
+    ).catch(() => {});
+
+    // in-app notification ผ่าน socket สำหรับ user ที่แอปเปิดอยู่
+    const io = getIO();
+    if (io) {
+      for (const notif of notifications) {
+        io.to(`user:${notif.userId}`).emit('new_notification', {
+          id: `${Date.now()}-${notif.userId}`,
+          senderName,
+          content: notif.content,
+        });
+      }
+    }
   }
 
   return notifications;

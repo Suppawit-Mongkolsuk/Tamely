@@ -29,7 +29,6 @@ interface CallContext {
   callType: CallType;
 }
 
-// Export io instance สำหรับให้ REST routes ใช้ emit event ได้
 let ioInstance: Server | null = null;
 export const getIO = (): Server | null => ioInstance;
 
@@ -41,9 +40,8 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
     },
   });
 
-  ioInstance = io; // Store reference for REST routes
+  ioInstance = io;
 
-  // Map userId → Set of socketId (user อาจเปิดหลาย tab)
   const onlineUsers = new Map<string, Set<string>>();
   const activeCalls = new Map<string, ActiveCall>();
 
@@ -110,14 +108,10 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
     },
   ) => {
     if (!callLogId) return;
-
     try {
-      await prisma.callLog.update({
-        where: { id: callLogId },
-        data,
-      });
+      await prisma.callLog.update({ where: { id: callLogId }, data });
     } catch {
-      // Ignore logging failures to avoid breaking signaling.
+      // ignore
     }
   };
 
@@ -128,14 +122,9 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
     const seconds = durationSeconds % 60;
 
     if (hours > 0) {
-      return [hours, minutes, seconds]
-        .map((value) => String(value).padStart(2, '0'))
-        .join(':');
+      return [hours, minutes, seconds].map((v) => String(v).padStart(2, '0')).join(':');
     }
-
-    return [minutes, seconds]
-      .map((value) => String(value).padStart(2, '0'))
-      .join(':');
+    return [minutes, seconds].map((v) => String(v).padStart(2, '0')).join(':');
   };
 
   const createCallSystemMessage = async (
@@ -149,11 +138,11 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
 
     let content = '';
     if (status === 'ENDED' && activeCall.startedAt) {
-      content = `📞 ${callLabel} ended • ${formatCallDuration(duration)}`;
+      content = `${callLabel} ended - ${formatCallDuration(duration)}`;
     } else if (status === 'REJECTED') {
-      content = `📞 ${callLabel} declined`;
+      content = `${callLabel} declined`;
     } else {
-      content = `📞 Missed ${callLabel.toLowerCase()}`;
+      content = `Missed ${callLabel.toLowerCase()}`;
     }
 
     const message = await dmRepository.createMessage(
@@ -225,11 +214,12 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
   io.on('connection', (socket: Socket) => {
     const userId: string = socket.data.userId;
 
-    // Mark user as online และ broadcast ให้คนอื่นรู้
     setOnline(userId, socket.id);
     socket.broadcast.emit('user_online', { userId });
 
-    // ให้ client ถาม status ของ user list ที่ต้องการได้
+    // join personal room เพื่อรับ in-app notification
+    socket.join(`user:${userId}`);
+
     socket.on('get_online_status', (userIds: string[], callback?: (res: Record<string, boolean>) => void) => {
       const statusMap: Record<string, boolean> = {};
       userIds.forEach((id) => { statusMap[id] = isOnline(id); });
@@ -248,11 +238,7 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
       'send_message',
       async (data: { roomId: string; content: string }, callback?: (res: any) => void) => {
         try {
-          const message = await messageService.sendMessage(
-            data.roomId,
-            userId,
-            data.content,
-          );
+          const message = await messageService.sendMessage(data.roomId, userId, data.content);
           io.to(data.roomId).emit('message_received', message);
           callback?.({ success: true, data: message });
         } catch (error) {
@@ -271,10 +257,9 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
     });
 
     // ================================================================
-    // DM — Direct Message events
+    // DM
     // ================================================================
 
-    // เข้าร่วม room ของ DM conversation
     socket.on('join_dm', (conversationId: string) => {
       socket.join(`dm:${conversationId}`);
     });
@@ -283,7 +268,6 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
       socket.leave(`dm:${conversationId}`);
     });
 
-    // ส่งข้อความ DM
     socket.on(
       'send_dm',
       async (
@@ -291,13 +275,7 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
         callback?: (res: any) => void,
       ) => {
         try {
-          const message = await dmService.sendMessage(
-            data.conversationId,
-            userId,
-            data.content,
-          );
-          // ส่งให้ทุกคนในห้อง DM (รวมผู้ส่งด้วย เพื่อ sync ทุก tab)
-          // เพิ่ม conversationId ไว้ใน event เพื่อให้ client routing ได้ถูกต้อง
+          const message = await dmService.sendMessage(data.conversationId, userId, data.content);
           io.to(`dm:${data.conversationId}`).emit('dm_received', {
             ...message,
             conversationId: data.conversationId,
@@ -310,7 +288,6 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
       },
     );
 
-    // Typing indicator สำหรับ DM
     socket.on('dm_typing', (data: { conversationId: string; isTyping: boolean }) => {
       socket.to(`dm:${data.conversationId}`).emit('dm_user_typing', {
         userId,
@@ -320,8 +297,9 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
     });
 
     // ================================================================
-    // 1-1 Call signaling events
+    // Call signaling
     // ================================================================
+
     socket.on(
       'call_user',
       async (
@@ -329,24 +307,17 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
         callback?: (res: { success: boolean; error?: string }) => void,
       ) => {
         try {
-          const context = await getCallContext(
-            userId,
-            data.targetUserId,
-            data.conversationId,
-            data.callType,
-          );
+          const context = await getCallContext(userId, data.targetUserId, data.conversationId, data.callType);
           if (!context) {
             callback?.({ success: false, error: 'Invalid call context' });
             return;
           }
 
-          // Busy check — caller กำลังโทรอยู่แล้ว
           if (activeCalls.has(userId)) {
             callback?.({ success: false, error: 'already_in_call' });
             return;
           }
 
-          // Busy check — target กำลังโทรอยู่แล้ว
           if (activeCalls.has(data.targetUserId)) {
             socket.emit('call_failed', {
               targetUserId: data.targetUserId,
@@ -409,144 +380,62 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
       },
     );
 
-    socket.on(
-      'call_accepted',
-      async (data: { callerId: string; conversationId: string }) => {
-        const activeCall = activeCalls.get(userId);
-        if (
-          !activeCall ||
-          activeCall.peerId !== data.callerId ||
-          activeCall.conversationId !== data.conversationId
-        ) {
-          return;
-        }
+    socket.on('call_accepted', async (data: { callerId: string; conversationId: string }) => {
+      const activeCall = activeCalls.get(userId);
+      if (!activeCall || activeCall.peerId !== data.callerId || activeCall.conversationId !== data.conversationId) return;
 
-        const startedAt = Date.now();
-        setActivePair(
-          userId,
-          data.callerId,
-          data.conversationId,
-          activeCall.callLogId,
-          startedAt,
-          activeCall.callerId,
-          activeCall.receiverId,
-          activeCall.callType,
-        );
-        setActivePair(
-          data.callerId,
-          userId,
-          data.conversationId,
-          activeCall.callLogId,
-          startedAt,
-          activeCall.callerId,
-          activeCall.receiverId,
-          activeCall.callType,
-        );
-        await safeUpdateCallLog(activeCall.callLogId, {
-          status: 'ANSWERED',
-          startedAt: new Date(startedAt),
-        });
+      const startedAt = Date.now();
+      setActivePair(userId, data.callerId, data.conversationId, activeCall.callLogId, startedAt, activeCall.callerId, activeCall.receiverId, activeCall.callType);
+      setActivePair(data.callerId, userId, data.conversationId, activeCall.callLogId, startedAt, activeCall.callerId, activeCall.receiverId, activeCall.callType);
+      await safeUpdateCallLog(activeCall.callLogId, { status: 'ANSWERED', startedAt: new Date(startedAt) });
 
-        emitToUser(data.callerId, 'call_accepted', {
-          accepterId: userId,
-          conversationId: data.conversationId,
-        });
-      },
-    );
+      emitToUser(data.callerId, 'call_accepted', { accepterId: userId, conversationId: data.conversationId });
+    });
 
-    socket.on(
-      'call_rejected',
-      async (data: { callerId: string; conversationId: string }) => {
-        const activeCall = activeCalls.get(userId);
-        if (
-          !activeCall ||
-          activeCall.peerId !== data.callerId ||
-          activeCall.conversationId !== data.conversationId
-        ) {
-          return;
-        }
+    socket.on('call_rejected', async (data: { callerId: string; conversationId: string }) => {
+      const activeCall = activeCalls.get(userId);
+      if (!activeCall || activeCall.peerId !== data.callerId || activeCall.conversationId !== data.conversationId) return;
 
-        await safeUpdateCallLog(activeCall.callLogId, {
-          status: 'REJECTED',
-          endedAt: new Date(),
-          duration: 0,
-        });
-        await createCallSystemMessage(activeCall, 'REJECTED');
-        clearActivePair(userId, data.callerId);
+      await safeUpdateCallLog(activeCall.callLogId, { status: 'REJECTED', endedAt: new Date(), duration: 0 });
+      await createCallSystemMessage(activeCall, 'REJECTED');
+      clearActivePair(userId, data.callerId);
 
-        emitToUser(data.callerId, 'call_rejected', {
-          rejecterId: userId,
-          conversationId: data.conversationId,
-        });
-      },
-    );
+      emitToUser(data.callerId, 'call_rejected', { rejecterId: userId, conversationId: data.conversationId });
+    });
 
-    socket.on(
-      'call_ended',
-      async (data: { targetUserId: string; conversationId: string }) => {
-        const activeCall = activeCalls.get(userId);
-        if (
-          !activeCall ||
-          activeCall.peerId !== data.targetUserId ||
-          activeCall.conversationId !== data.conversationId
-        ) {
-          return;
-        }
+    socket.on('call_ended', async (data: { targetUserId: string; conversationId: string }) => {
+      const activeCall = activeCalls.get(userId);
+      if (!activeCall || activeCall.peerId !== data.targetUserId || activeCall.conversationId !== data.conversationId) return;
 
-        const duration = getDurationSeconds(activeCall.startedAt);
-        await safeUpdateCallLog(activeCall.callLogId, {
-          status: activeCall.startedAt ? 'ENDED' : 'MISSED',
-          endedAt: new Date(),
-          duration,
-        });
-        await createCallSystemMessage(activeCall, activeCall.startedAt ? 'ENDED' : 'MISSED');
-        clearActivePair(userId, data.targetUserId);
+      const duration = getDurationSeconds(activeCall.startedAt);
+      await safeUpdateCallLog(activeCall.callLogId, {
+        status: activeCall.startedAt ? 'ENDED' : 'MISSED',
+        endedAt: new Date(),
+        duration,
+      });
+      await createCallSystemMessage(activeCall, activeCall.startedAt ? 'ENDED' : 'MISSED');
+      clearActivePair(userId, data.targetUserId);
 
-        emitToUser(data.targetUserId, 'call_ended', {
-          endedBy: userId,
-          conversationId: data.conversationId,
-        });
-      },
-    );
+      emitToUser(data.targetUserId, 'call_ended', { endedBy: userId, conversationId: data.conversationId });
+    });
 
-    socket.on(
-      'webrtc_offer',
-      (data: { targetUserId: string; offer: unknown }) => {
-        emitToUser(data.targetUserId, 'webrtc_offer', {
-          callerId: userId,
-          offer: data.offer,
-        });
-      },
-    );
+    socket.on('webrtc_offer', (data: { targetUserId: string; offer: unknown }) => {
+      emitToUser(data.targetUserId, 'webrtc_offer', { callerId: userId, offer: data.offer });
+    });
 
-    socket.on(
-      'webrtc_answer',
-      (data: { targetUserId: string; answer: unknown }) => {
-        emitToUser(data.targetUserId, 'webrtc_answer', {
-          answererId: userId,
-          answer: data.answer,
-        });
-      },
-    );
+    socket.on('webrtc_answer', (data: { targetUserId: string; answer: unknown }) => {
+      emitToUser(data.targetUserId, 'webrtc_answer', { answererId: userId, answer: data.answer });
+    });
 
-    socket.on(
-      'webrtc_ice_candidate',
-      (data: { targetUserId: string; candidate: unknown }) => {
-        emitToUser(data.targetUserId, 'webrtc_ice_candidate', {
-          fromUserId: userId,
-          candidate: data.candidate,
-        });
-      },
-    );
+    socket.on('webrtc_ice_candidate', (data: { targetUserId: string; candidate: unknown }) => {
+      emitToUser(data.targetUserId, 'webrtc_ice_candidate', { fromUserId: userId, candidate: data.candidate });
+    });
 
     socket.on('disconnect', () => {
       setOffline(userId, socket.id);
 
-      if (isOnline(userId)) {
-        return;
-      }
+      if (isOnline(userId)) return;
 
-      // บันทึกเวลาออฟไลน์ล่าสุด
       void authRepository.updateUser(userId, { lastSeenAt: new Date() });
 
       const activeCall = activeCalls.get(userId);
