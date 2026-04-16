@@ -18,7 +18,10 @@ export const createRoom = async (
   userId: string,
   data: TypePayloadCreateRoom,
 ) => {
-  await assertWorkspaceMember(workspaceId, userId);
+  const member = await assertWorkspaceMember(workspaceId, userId);
+  if (member.role !== WorkspaceRole.OWNER && member.role !== WorkspaceRole.ADMIN) {
+    throw new AppError(403, 'Only workspace owner/admin can create rooms');
+  }
 
   const room = await roomRepository.create(workspaceId, userId, data);
   return { ...room, memberCount: room._count.members };

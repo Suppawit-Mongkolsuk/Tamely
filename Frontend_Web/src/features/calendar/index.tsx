@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { CalendarHeader } from '@/components/calendar/CalendarHeader';
 import { CalendarGrid } from '@/components/calendar/CalendarGrid';
 import { TaskList } from '@/components/calendar/TaskList';
-import { CreateTaskDialog, EditTaskDialog, AICreateDialog, emptyNewTask } from '@/components/calendar/Dialogs';
+import { CreateTaskDialog, EditTaskDialog, emptyNewTask } from '@/components/calendar/Dialogs';
 import type { NewTaskForm, EditTaskForm, AssignableMember } from '@/components/calendar/Dialogs';
 import { getTasksForDate } from '@/types/calendar-ui';
 import type { Task } from '@/types/calendar-ui';
@@ -11,7 +11,6 @@ import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { calendarService } from '@/services/calendar.service';
 import { workspaceService } from '@/services/workspace.service';
-import { apiClient } from '@/services/api';
 import type { TaskResponse } from '@/services/calendar.service';
 
 function mapTask(t: TaskResponse): Task {
@@ -39,7 +38,6 @@ export function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showAIDialog, setShowAIDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditTaskForm>({
@@ -171,35 +169,11 @@ export function CalendarPage() {
     }
   };
 
-  const handleAICreateTasks = async () => {
-    if (!wsId) return;
-    setShowAIDialog(false);
-    const loadingToast = toast.loading('AI กำลังวิเคราะห์และสร้าง task...');
-    try {
-      const res = await apiClient.post<{
-        success: true;
-        data: { reply: string; taskCreated?: { title: string } };
-      }>(`/workspaces/${wsId}/ai/chat`, {
-        message: 'วิเคราะห์การสนทนาในทุกห้องแล้วสร้าง task เฉพาะข้อความที่ระบุวันที่ชัดเจนเท่านั้น เช่น วันที่ระบุตรงๆ (15 เมษายน, 20/4) หรือวันสัมพัทธ์ (วันนี้ พรุ่งนี้ เมื่อวาน สัปดาห์หน้า) ถ้าข้อความไม่มีการระบุวันที่ชัดเจนให้ข้ามไป ห้ามเดาหรือสร้าง task ที่ไม่มีวันที่',
-        history: [],
-      });
-      toast.dismiss(loadingToast);
-      toast.success(res.data.taskCreated
-        ? `AI สร้าง task "${res.data.taskCreated.title}" สำเร็จ`
-        : 'AI วิเคราะห์เสร็จแล้ว');
-      fetchTasks();
-    } catch {
-      toast.dismiss(loadingToast);
-      toast.error('AI สร้าง task ไม่สำเร็จ');
-    }
-  };
-
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <CalendarHeader
         tasks={tasks}
         onCreateTask={() => setShowCreateDialog(true)}
-        onAICreate={() => setShowAIDialog(true)}
       />
 
       <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
@@ -241,11 +215,6 @@ export function CalendarPage() {
         members={members}
       />
 
-      <AICreateDialog
-        open={showAIDialog}
-        onOpenChange={setShowAIDialog}
-        onConfirm={handleAICreateTasks}
-      />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useAuthContext } from '@/contexts';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { AppLayout } from '@/components/layout';
-import { RequireAuth, RequireWorkspace, RedirectIfAuthenticated } from '../components/common/ProtectedRoute';
+import { RequireAuth, RequireWorkspace, RequireManagementAccess, RedirectIfAuthenticated } from '../components/common/ProtectedRoute';
 
 // ── Lazy page imports ────────────────────────────────────────────────────────
 const LoginRegisterPage = lazy(() =>
@@ -178,6 +178,16 @@ function SettingsWrapper() {
   );
 }
 
+function ManagementWrapper() {
+  return (
+    <RequireManagementAccess>
+      <Suspense fallback={<PageLoader />}>
+        <ManagementPage />
+      </Suspense>
+    </RequireManagementAccess>
+  );
+}
+
 // ── Router ───────────────────────────────────────────────────────────────────
 export const router = createBrowserRouter([
   // Public — เข้าได้เสมอ
@@ -196,7 +206,10 @@ export const router = createBrowserRouter([
       { path: '/chat-rooms', element: <Suspense fallback={<PageLoader />}><ChatRoomsPage /></Suspense> },
       { path: '/ai-chat', element: <Suspense fallback={<PageLoader />}><AIChatPage /></Suspense> },
       { path: '/calendar', element: <Suspense fallback={<PageLoader />}><CalendarPage /></Suspense> },
-      { path: '/management', element: <Suspense fallback={<PageLoader />}><ManagementPage /></Suspense> },
+      { path: '/management', element: <Navigate to="/management/members" replace /> },
+      { path: '/management/members', element: <ManagementWrapper /> },
+      { path: '/management/rooms', element: <ManagementWrapper /> },
+      { path: '/management/workspace', element: <ManagementWrapper /> },
       { path: '/settings', element: <SettingsWrapper /> },
     ],
   },

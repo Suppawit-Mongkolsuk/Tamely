@@ -122,7 +122,9 @@ export function TaskList({
             className={`p-3 rounded-lg border hover:shadow-md transition-shadow ${
               task.status === 'completed'
                 ? 'border-emerald-200 bg-emerald-50/60'
-                : 'border-border'
+                : task.status === 'in-progress'
+                  ? 'border-orange-200 bg-orange-50/60'
+                  : 'border-red-200 bg-red-50/60'
             }`}
           >
             {/* Row 1: status + title + 3-dot */}

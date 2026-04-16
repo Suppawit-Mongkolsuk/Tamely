@@ -16,6 +16,9 @@ export const ROUTES = {
   AI_CHAT: '/ai-chat',
   CALENDAR: '/calendar',
   MANAGEMENT: '/management',
+  MANAGEMENT_MEMBERS: '/management/members',
+  MANAGEMENT_ROOMS: '/management/rooms',
+  MANAGEMENT_WORKSPACE: '/management/workspace',
   SETTINGS: '/settings',
 } as const;
 

@@ -1,7 +1,8 @@
 // ===== ManagementPage — Orchestrator =====
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Users, Hash, Settings } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
 import { MembersTab } from '@/components/management/MembersTab';
 import { RoomsTab } from '@/components/management/RoomsTab';
 import { WorkspaceSettingsTab } from '@/components/management/WorkspaceSettingsTab';
@@ -10,11 +11,52 @@ import { mockTeamMembers, mockRooms, mockRoles } from '@/mocks/management';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import type { Workspace } from '@/types';
 
+type ManagementSection = 'users' | 'rooms' | 'workspace';
+
 export function ManagementPage() {
+  const location = useLocation();
   const { currentWorkspace, updateCurrentWorkspace } = useWorkspaceContext();
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
   const [showCreateRoleDialog, setShowCreateRoleDialog] = useState(false);
+
+  const sections: Array<{
+    id: ManagementSection;
+    label: string;
+    title: string;
+    description: string;
+    icon: typeof Users;
+  }> = [
+    {
+      id: 'users',
+      label: 'จัดการสมาชิก',
+      title: 'สมาชิกใน Workspace',
+      description: 'เชิญสมาชิกใหม่ ปรับบทบาท และติดตามสถานะการใช้งาน',
+      icon: Users,
+    },
+    {
+      id: 'rooms',
+      label: 'จัดการห้อง',
+      title: 'ห้องแชททั้งหมด',
+      description: 'ดูแลห้องแชท สร้างห้องใหม่ และจัดการสิทธิ์การเข้าถึง',
+      icon: Hash,
+    },
+    {
+      id: 'workspace',
+      label: 'ตั้งค่า Workspace',
+      title: 'ค่าตั้งค่า Workspace',
+      description: 'แก้ไขข้อมูล workspace จัดการ invite code และกำหนดสิทธิ์เพิ่มเติม',
+      icon: Settings,
+    },
+  ];
+
+  const activeSection: ManagementSection = location.pathname.endsWith('/rooms')
+    ? 'rooms'
+    : location.pathname.endsWith('/workspace')
+      ? 'workspace'
+      : 'users';
+  const activeItem = sections.find((section) => section.id === activeSection) ?? sections[0];
+  const ActiveIcon = activeItem.icon;
 
   const handleWorkspaceUpdated = (updated: Workspace) => {
     updateCurrentWorkspace(updated);
@@ -30,45 +72,44 @@ export function ManagementPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="users" className="space-y-4 sm:space-y-6">
-        <TabsList className="bg-white border border-border w-full sm:w-auto">
-          <TabsTrigger value="users" className="gap-1 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm">
-            <Users className="size-4" />
-            <span className="hidden sm:inline">จัดการ</span>สมาชิก
-          </TabsTrigger>
-          <TabsTrigger value="rooms" className="gap-1 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm">
-            <Hash className="size-4" />
-            <span className="hidden sm:inline">จัดการ</span>ห้อง
-          </TabsTrigger>
-          <TabsTrigger value="workspace" className="gap-1 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm">
-            <Settings className="size-4" />
-            <span className="hidden sm:inline">ตั้งค่า</span> Workspace
-          </TabsTrigger>
-        </TabsList>
+      <div className="space-y-4 sm:space-y-6 min-w-0">
+        <Card className="bg-white p-4 sm:p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex size-11 items-center justify-center rounded-xl bg-[#003366] text-white shrink-0">
+              <ActiveIcon className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg text-foreground">{activeItem.title}</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {activeItem.description}
+              </p>
+            </div>
+          </div>
+        </Card>
 
-        <TabsContent value="users">
+        {activeSection === 'users' && (
           <MembersTab
             members={mockTeamMembers}
             onInvite={() => setShowInviteDialog(true)}
           />
-        </TabsContent>
+        )}
 
-        <TabsContent value="rooms">
+        {activeSection === 'rooms' && (
           <RoomsTab
             rooms={mockRooms}
             onCreateRoom={() => setShowCreateRoomDialog(true)}
           />
-        </TabsContent>
+        )}
 
-        <TabsContent value="workspace">
+        {activeSection === 'workspace' && (
           <WorkspaceSettingsTab
             roles={mockRoles}
             workspace={currentWorkspace}
             onCreateRole={() => setShowCreateRoleDialog(true)}
             onWorkspaceUpdated={handleWorkspaceUpdated}
           />
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       {/* Dialogs */}
       <InviteDialog

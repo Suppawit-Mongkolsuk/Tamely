@@ -161,6 +161,7 @@ export function ChatRoomsPage() {
   const socketRef = useRef<ReturnType<typeof connectSocket> | null>(null);
 
   const isFirstRoomLoad = useRef(true);
+  const canCreateRoom = myWorkspaceRole === 'OWNER' || myWorkspaceRole === 'ADMIN';
 
   const fetchRooms = useCallback(async () => {
     if (!wsId) return;
@@ -466,6 +467,11 @@ export function ChatRoomsPage() {
 
   const handleCreateRoom = async (name: string, allowedRoles: string[]) => {
     if (!wsId) return;
+    if (!canCreateRoom) {
+      toast.error('เฉพาะ Admin และ Owner เท่านั้นที่สร้างห้องได้');
+      setIsCreateRoomDialogOpen(false);
+      return;
+    }
     const room = await chatService.createRoom(wsId, { name, allowedRoles });
     setRooms((prev) => [...prev, mapRoom(room)]);
     setIsCreateRoomDialogOpen(false);
@@ -571,6 +577,7 @@ export function ChatRoomsPage() {
           isCreateRoomOpen={isCreateRoomDialogOpen}
           onCreateRoomOpenChange={setIsCreateRoomDialogOpen}
           onCreateRoom={handleCreateRoom}
+          canCreateRoom={canCreateRoom}
           onOpenDMWithUser={handleOpenNewDM}
         />
       </div>

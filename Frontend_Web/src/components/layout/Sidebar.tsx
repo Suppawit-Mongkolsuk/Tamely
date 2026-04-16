@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -6,8 +7,13 @@ import {
   FolderKanban,
   Settings,
   Calendar,
+  ChevronDown,
+  Users,
+  Hash,
+  Cog,
 } from 'lucide-react';
 import { useAuthContext } from '@/contexts';
+import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useUnreadDMs } from '@/hooks';
 
 const navigation = [
@@ -25,6 +31,11 @@ const navigation = [
     path: '/management',
     name: 'Workspace Management',
     icon: FolderKanban,
+    children: [
+      { id: 'management-members', path: '/management/members', name: 'จัดการสมาชิก', icon: Users },
+      { id: 'management-rooms', path: '/management/rooms', name: 'จัดการห้อง', icon: Hash },
+      { id: 'management-workspace', path: '/management/workspace', name: 'ตั้งค่า Workspace', icon: Cog },
+    ],
   },
   { id: 'settings', path: '/settings', name: 'Settings', icon: Settings },
 ];
@@ -40,7 +51,13 @@ export function Sidebar({ isOpen, isMobile = false, onNavigate }: SidebarProps) 
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthContext();
+  const { currentWorkspace } = useWorkspaceContext();
   const { totalUnread } = useUnreadDMs();
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+    management: location.pathname.startsWith('/management'),
+  });
+  const canAccessManagement =
+    currentWorkspace?.role === 'OWNER' || currentWorkspace?.role === 'ADMIN';
 
   const displayName = user?.displayName ?? 'User';
   const initials = displayName
@@ -54,6 +71,12 @@ export function Sidebar({ isOpen, isMobile = false, onNavigate }: SidebarProps) 
     navigate(path);
     onNavigate?.();
   };
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/management')) {
+      setExpandedMenus((prev) => ({ ...prev, management: true }));
+    }
+  }, [location.pathname]);
 
   // Mobile: fixed overlay (slide in/out)
   // Desktop: relative push content (collapse to w-0)
@@ -73,12 +96,70 @@ export function Sidebar({ isOpen, isMobile = false, onNavigate }: SidebarProps) 
 
       {/* Navigation */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        {navigation.map((item) => {
+        {navigation
+          .filter((item) => (item.id === 'management' ? canAccessManagement : true))
+          .map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const hasChildren = !!item.children?.length;
+          const isActive = hasChildren
+            ? location.pathname.startsWith(item.path)
+            : location.pathname === item.path;
           const isChatRooms = item.id === 'chat-rooms';
           // แสดง badge เฉพาะ Chat Rooms และมี unread DM และไม่ได้อยู่หน้านั้น
           const showBadge = isChatRooms && totalUnread > 0 && !isActive;
+          const isExpanded = expandedMenus[item.id] ?? false;
+
+          if (hasChildren) {
+            return (
+              <div key={item.id} className="space-y-1">
+                <button
+                  onClick={() =>
+                    setExpandedMenus((prev) => ({
+                      ...prev,
+                      [item.id]: !isExpanded,
+                    }))
+                  }
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-[#174978] text-white'
+                      : 'text-white/70 hover:bg-[#174978]/50 hover:text-white'
+                  }`}
+                >
+                  <Icon className="size-5 shrink-0" />
+                  <span className="flex-1 text-left truncate">{item.name}</span>
+                  <ChevronDown
+                    className={`size-4 shrink-0 transition-transform ${
+                      isExpanded ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {isExpanded && (
+                  <div className="ml-6 pl-3 border-l border-white/10 space-y-1">
+                    {item.children!.map((child) => {
+                      const ChildIcon = child.icon;
+                      const isChildActive = location.pathname === child.path;
+
+                      return (
+                        <button
+                          key={child.id}
+                          onClick={() => handleNavigate(child.path)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                            isChildActive
+                              ? 'bg-white/10 text-white'
+                              : 'text-white/65 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <ChildIcon className="size-4 shrink-0" />
+                          <span className="flex-1 text-left truncate">{child.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
 
           return (
             <button

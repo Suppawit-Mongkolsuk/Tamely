@@ -27,6 +27,7 @@ interface ChatSidebarProps {
   isCreateRoomOpen: boolean;
   onCreateRoomOpenChange: (open: boolean) => void;
   onCreateRoom: (name: string, allowedRoles: string[]) => Promise<void>;
+  canCreateRoom: boolean;
   onOpenDMWithUser: (userId: string) => void;
 }
 
@@ -46,6 +47,7 @@ export function ChatSidebar({
   isCreateRoomOpen,
   onCreateRoomOpenChange,
   onCreateRoom,
+  canCreateRoom,
   onOpenDMWithUser,
 }: ChatSidebarProps) {
   const filteredRooms = rooms.filter((room) =>
@@ -112,11 +114,13 @@ export function ChatSidebar({
         <div className="p-2 space-y-0.5">
           {activeTab === 'rooms' ? (
             <>
-              <CreateRoomDialog
-                open={isCreateRoomOpen}
-                onOpenChange={onCreateRoomOpenChange}
-                onCreateRoom={onCreateRoom}
-              />
+              {canCreateRoom && (
+                <CreateRoomDialog
+                  open={isCreateRoomOpen}
+                  onOpenChange={onCreateRoomOpenChange}
+                  onCreateRoom={onCreateRoom}
+                />
+              )}
               {filteredRooms.map((room) => (
                 <Button
                   key={room.id}
@@ -215,4 +219,3 @@ export function ChatSidebar({
     </div>
   );
 }
-

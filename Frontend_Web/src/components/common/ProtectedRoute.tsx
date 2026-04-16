@@ -52,6 +52,26 @@ export function RequireWorkspace({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+export function RequireManagementAccess({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isSessionReady } = useAuthContext();
+  const { currentWorkspace, isWorkspaceReady } = useWorkspaceContext();
+
+  if (!isSessionReady || (isAuthenticated && !isWorkspaceReady)) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-muted">
+        <LoadingSpinner size="lg" text="Loading..." />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!currentWorkspace) return <Navigate to="/workspace" replace />;
+  if (currentWorkspace.role !== 'OWNER' && currentWorkspace.role !== 'ADMIN') {
+    return <Navigate to="/home" replace />;
+  }
+  return <>{children}</>;
+}
+
 // ── Guard: ถ้า login แล้ว ไม่ให้เข้าหน้า /login อีก ─────────────────────────
 export function RedirectIfAuthenticated({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isSessionReady } = useAuthContext();
