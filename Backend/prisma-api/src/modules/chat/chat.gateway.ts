@@ -5,6 +5,7 @@ import { verifyToken } from '../../utils/jwt.utils';
 import * as messageService from '../message/message.service';
 import * as dmService from '../dm/dm.service';
 import * as dmRepository from '../dm/dm.repository';
+import * as authRepository from '../auth/auth.repository';
 import { prisma } from '../../index';
 
 type CallType = 'audio' | 'video';
@@ -544,6 +545,9 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
       if (isOnline(userId)) {
         return;
       }
+
+      // บันทึกเวลาออฟไลน์ล่าสุด
+      void authRepository.updateUser(userId, { lastSeenAt: new Date() });
 
       const activeCall = activeCalls.get(userId);
       if (activeCall) {

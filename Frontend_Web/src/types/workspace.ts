@@ -20,7 +20,7 @@ export interface WorkspaceMember {
   user: {
     Name: string;
     avatarUrl?: string | null;
-    // email ถูกนำออกแล้ว — ไม่แสดง PII ของ member คนอื่น
+    lastSeenAt?: string | null;
   };
 }
 
