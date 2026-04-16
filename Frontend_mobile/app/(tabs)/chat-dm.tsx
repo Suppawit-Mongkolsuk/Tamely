@@ -5,14 +5,44 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, Send, Phone } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+
+// ไม่ import useWebRTC และ CallOverlay ตรงๆ เพราะ react-native-webrtc ไม่รองรับ Expo Go
+// ใช้ require แบบ lazy แทนเพื่อให้ Expo Go โหลดไฟล์นี้ได้
+const isExpoGo = Constants.appOwnership === 'expo';
 
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
 interface DmMessage { id: string; content: string; createdAt: string; sender: Sender; isRead: boolean; }
 
 const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+
+// dummy call state สำหรับ Expo Go
+const dummyCallState = {
+  status: 'idle' as const,
+  peerId: null,
+  peerName: null,
+  peerAvatarUrl: null,
+  conversationId: null,
+  localStream: null,
+  remoteStream: null,
+  isMuted: false,
+  callDuration: 0,
+  isMinimized: false,
+};
+
+const dummyWebRTC = {
+  callState: dummyCallState,
+  startCall: async () => {},
+  acceptCall: async () => {},
+  rejectCall: () => {},
+  endCall: () => {},
+  toggleMute: () => {},
+  minimizeCallUI: () => {},
+  expandCallUI: () => {},
+};
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
@@ -32,15 +62,22 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   );
 }
 
+// hook wrapper ที่ใช้ useWebRTC จริงบน dev build และ dummy บน Expo Go
+function useCallFeature(socket: Socket | null, currentUserId: string) {
+  if (isExpoGo) return dummyWebRTC;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { useWebRTC } = require('../../hooks/useWebRTC');
+  return useWebRTC({ socket, currentUserId });
+}
+
 export default function ChatDmScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
   const conversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : (params.conversationId ?? '');
   const otherName = Array.isArray(params.otherName) ? params.otherName[0] : (params.otherName ?? '');
+  const otherUserId = Array.isArray(params.otherUserId) ? params.otherUserId[0] : (params.otherUserId ?? '');
 
-  // อ่าน token และ currentUserId จาก AsyncStorage โดยตรง
-  // ไม่รับผ่าน params เพราะ expo-router encode URL อาจทำให้ token ขาดหาย
   const [token, setToken] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
   const [storageLoaded, setStorageLoaded] = useState(false);
@@ -67,6 +104,17 @@ export default function ChatDmScreen() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const {
+    callState,
+    startCall,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleMute,
+    minimizeCallUI,
+    expandCallUI,
+  } = useCallFeature(socketRef.current, currentUserId);
+
   const loadMessages = useCallback(async (silent = false) => {
     if (!conversationId || !token) return;
     try {
@@ -84,7 +132,6 @@ export default function ChatDmScreen() {
     }
   }, [conversationId, token]);
 
-  /* ===== Socket.IO setup — รอให้ storage โหลดก่อนค่อย connect ===== */
   useEffect(() => {
     if (!storageLoaded || !token || !conversationId) return;
 
@@ -138,7 +185,6 @@ export default function ChatDmScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageLoaded, token, conversationId]);
 
-  /* ===== Focus: rejoin ถ้า socket หลุด + silent reload ===== */
   useFocusEffect(
     useCallback(() => {
       if (!storageLoaded) return;
@@ -181,6 +227,18 @@ export default function ChatDmScreen() {
     }, 2000);
   };
 
+  const handleStartCall = () => {
+    if (isExpoGo) {
+      Alert.alert('ไม่รองรับ', 'ฟีเจอร์โทรต้องใช้งานผ่าน Development Build ครับ');
+      return;
+    }
+    if (!otherUserId) {
+      Alert.alert('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลผู้รับสาย');
+      return;
+    }
+    void startCall(otherUserId, conversationId, otherName, null);
+  };
+
   const renderMessage = ({ item, index }: { item: DmMessage; index: number }) => {
     const isMe = item.sender.id === currentUserId;
     const prevMsg = messages[index - 1];
@@ -203,6 +261,12 @@ export default function ChatDmScreen() {
     );
   };
 
+  // โหลด CallOverlay แบบ lazy เฉพาะตอนไม่ได้อยู่บน Expo Go
+  const CallOverlayComponent = isExpoGo ? null : (() => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require('../../components/ui/CallOverlay').default;
+  })();
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -215,6 +279,12 @@ export default function ChatDmScreen() {
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{otherName}</Text>
             {isTyping && <Text style={{ fontSize: 12, color: '#425C95' }}>กำลังพิมพ์...</Text>}
           </View>
+          <TouchableOpacity
+            onPress={handleStartCall}
+            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#f0f4ff', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Phone size={18} color="#425C95" />
+          </TouchableOpacity>
         </View>
 
         {loading ? (
@@ -258,6 +328,18 @@ export default function ChatDmScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {CallOverlayComponent && (
+        <CallOverlayComponent
+          callState={callState}
+          acceptCall={acceptCall}
+          rejectCall={rejectCall}
+          endCall={endCall}
+          toggleMute={toggleMute}
+          minimizeCallUI={minimizeCallUI}
+          expandCallUI={expandCallUI}
+        />
+      )}
     </SafeAreaView>
   );
 }

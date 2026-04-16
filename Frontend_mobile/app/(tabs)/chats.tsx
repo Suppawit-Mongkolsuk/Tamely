@@ -164,7 +164,11 @@ export default function ChatsScreen() {
 
   const goToDm = (dm: DmConversation) => {
     const other = dm.userA.id === userData?.id ? dm.userB : dm.userA;
-    router.push({ pathname: '/(tabs)/chat-dm' as any, params: { conversationId: dm.id, otherName: other.Name, token, currentUserId: userData?.id ?? '' } });
+    router.push({ pathname: '/(tabs)/chat-dm' as any, params: {
+      conversationId: dm.id,
+      otherName: other.Name,
+      otherUserId: other.id, 
+    }});
   };
 
   /* ===== Build combined list ===== */
