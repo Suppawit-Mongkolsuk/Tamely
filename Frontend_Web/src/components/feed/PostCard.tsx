@@ -32,6 +32,7 @@ interface PostCardProps {
   workspaceId: string;
   currentUserId?: string;
   currentUserRole?: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
+  currentUserPermissions?: string[];
   onDelete?: (postId: string) => void;
   onTogglePin?: (postId: string, isPinned: boolean) => void;
   /** เมื่อ true → แสดง ring ไฮไลต์ชั่วคราว (มาจาก notification click) */
@@ -116,9 +117,22 @@ function Avatar({ name, avatarUrl, size = 'md' }: { name: string; avatarUrl?: st
   );
 }
 
-export function PostCard({ post, workspaceId, currentUserId, currentUserRole, onDelete, onTogglePin, highlighted = false }: PostCardProps) {
+export function PostCard({
+  post,
+  workspaceId,
+  currentUserId,
+  currentUserRole,
+  currentUserPermissions,
+  onDelete,
+  onTogglePin,
+  highlighted = false,
+}: PostCardProps) {
   const commentCount = post.commentCount ?? post._count?.comments ?? 0;
-  const canModerate = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN';
+  const canModerate =
+    currentUserRole === 'OWNER' ||
+    currentUserPermissions?.includes('DELETE_ANY_POST') ||
+    currentUserPermissions?.includes('PIN_POST') ||
+    currentUserPermissions?.includes('DELETE_ANY_COMMENT');
   const timeAgo = new Date(post.createdAt).toLocaleDateString('th-TH');
 
   const [showComments, setShowComments] = useState(false);

@@ -174,10 +174,21 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
           {/* Workspace Role */}
           {currentWorkspace?.role && (
             <div>
-              <div className="mt-2 flex items-center gap-3">
+              <Label>ยศใน {currentWorkspace.name}</Label>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <RoleBadge role={currentWorkspace.role as WorkspaceMemberRole} />
-                <span className="text-sm text-muted-foreground">
-                </span>
+                {(currentWorkspace.myCustomRoles ?? []).map((role) => (
+                  <span
+                    key={role.id}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-xs font-medium"
+                  >
+                    <span
+                      className="size-2 rounded-full shrink-0"
+                      style={{ backgroundColor: role.color }}
+                    />
+                    {role.name}
+                  </span>
+                ))}
               </div>
             </div>
           )}

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { connectSocket } from '@/lib/socket';
-import { Users, Hash, Settings, UserMinus } from 'lucide-react';
+import { Users, Hash, Settings, UserMinus, ShieldOff } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { MembersTab } from '@/components/management/MembersTab';
 import { RoomsTab } from '@/components/management/RoomsTab';
@@ -10,6 +10,7 @@ import { WorkspaceSettingsTab } from '@/components/management/WorkspaceSettingsT
 import {
   CreateRoomDialog,
   CreateRoleDialog,
+  EditRoleDialog,
   EditRoomDialog,
   ManageRoomMembersDialog,
 } from '@/components/management/Dialogs';
@@ -18,10 +19,10 @@ import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { workspaceService } from '@/services';
 import { chatService } from '@/services/chat.service';
-import { mockRoles } from '@/mocks/management';
+import { canDo, PERMISSIONS } from '@/lib/permissions';
 import { toast } from 'sonner';
 import type { Workspace, WorkspaceMember, WorkspaceMemberRole } from '@/types';
-import type { TeamMember } from '@/types/management-ui';
+import type { Role, TeamMember } from '@/types/management-ui';
 import type { RoomMemberResponse, RoomResponse } from '@/services/chat.service';
 
 type ManagementSection = 'users' | 'rooms' | 'workspace';
@@ -41,6 +42,8 @@ function mapWorkspaceMember(
     id: member.userId,
     name: member.user.Name,
     role: member.role,
+    email: member.user.email,
+    customRoles: member.customRoles,
     status: 'active',
     joinDate: formatMemberJoinDate(member.joinedAt),
     avatarUrl: member.user.avatarUrl,
@@ -75,6 +78,14 @@ export function ManagementPage() {
   const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [onlineStatus, setOnlineStatus] = useState<Record<string, boolean>>({});
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [creatingRole, setCreatingRole] = useState(false);
+  const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [isDeletingRole, setIsDeletingRole] = useState(false);
+  const [processingCustomRoleKey, setProcessingCustomRoleKey] = useState<string | null>(null);
 
   const sections: Array<{
     id: ManagementSection;
@@ -113,9 +124,10 @@ export function ManagementPage() {
       : 'users';
   const activeItem = sections.find((section) => section.id === activeSection) ?? sections[0];
   const ActiveIcon = activeItem.icon;
-  const canManageMembers =
-    currentWorkspace?.role === 'OWNER' || currentWorkspace?.role === 'ADMIN';
-  const canManageRoles = currentWorkspace?.role === 'OWNER';
+  const canManageMembers = canDo(currentWorkspace, PERMISSIONS.MANAGE_MEMBERS);
+  const canManageRoles = canDo(currentWorkspace, PERMISSIONS.MANAGE_ROLES);
+  const canManageWorkspace = canDo(currentWorkspace, PERMISSIONS.MANAGE_WORKSPACE);
+  const canRegenerateInvite = canDo(currentWorkspace, PERMISSIONS.REGENERATE_INVITE);
 
   const handleWorkspaceUpdated = (updated: Workspace) => {
     updateCurrentWorkspace(updated);
@@ -151,6 +163,23 @@ export function ManagementPage() {
       );
     } finally {
       setMembersLoading(false);
+    }
+  };
+
+  const loadRoles = async () => {
+    if (!currentWorkspace) {
+      setRoles([]);
+      return;
+    }
+
+    setRolesLoading(true);
+    try {
+      const data = await workspaceService.getCustomRoles(currentWorkspace.id);
+      setRoles(data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'โหลด custom roles ไม่สำเร็จ');
+    } finally {
+      setRolesLoading(false);
     }
   };
 
@@ -299,6 +328,11 @@ export function ManagementPage() {
     void loadRooms();
   }, [activeSection, currentWorkspace?.id]);
 
+  useEffect(() => {
+    if (activeSection !== 'workspace' && activeSection !== 'users') return;
+    void loadRoles();
+  }, [activeSection, currentWorkspace?.id]);
+
   // ติดตาม online status ผ่าน socket (เฉพาะแท็บ users)
   useEffect(() => {
     if (activeSection !== 'users' || members.length === 0) return;
@@ -379,6 +413,119 @@ export function ManagementPage() {
     }
   };
 
+  const handleAssignCustomRole = async (userId: string, roleId: string) => {
+    if (!currentWorkspace) return;
+
+    const role = roles.find((item) => item.id === roleId);
+    if (!role) return;
+
+    const actionKey = `${userId}:${roleId}:assign`;
+    setProcessingCustomRoleKey(actionKey);
+    try {
+      await workspaceService.assignCustomRole(currentWorkspace.id, userId, roleId);
+      setMembers((prev) =>
+        prev.map((member) =>
+          member.id === userId
+            ? {
+                ...member,
+                customRoles: [...(member.customRoles ?? []), role].sort(
+                  (a, b) => b.position - a.position,
+                ),
+              }
+            : member,
+        ),
+      );
+      toast.success(`เพิ่มยศ ${role.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'เพิ่ม custom role ไม่สำเร็จ');
+    } finally {
+      setProcessingCustomRoleKey(null);
+    }
+  };
+
+  const handleRevokeCustomRole = async (userId: string, roleId: string) => {
+    if (!currentWorkspace) return;
+
+    const role = roles.find((item) => item.id === roleId);
+    if (!role) return;
+
+    const actionKey = `${userId}:${roleId}:revoke`;
+    setProcessingCustomRoleKey(actionKey);
+    try {
+      await workspaceService.revokeCustomRole(currentWorkspace.id, userId, roleId);
+      setMembers((prev) =>
+        prev.map((member) =>
+          member.id === userId
+            ? {
+                ...member,
+                customRoles: (member.customRoles ?? []).filter((item) => item.id !== roleId),
+              }
+            : member,
+        ),
+      );
+      toast.success(`นำยศ ${role.name} ออกแล้ว`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'เอา custom role ออกไม่สำเร็จ');
+    } finally {
+      setProcessingCustomRoleKey(null);
+    }
+  };
+
+  const handleConfirmDeleteRole = async () => {
+    if (!currentWorkspace || !roleToDelete) return;
+    setIsDeletingRole(true);
+    try {
+      await workspaceService.deleteCustomRole(currentWorkspace.id, roleToDelete.id);
+      setRoles((prev) => prev.filter((r) => r.id !== roleToDelete.id));
+      toast.success(`ลบยศ ${roleToDelete.name} แล้ว`);
+      setRoleToDelete(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'ลบยศไม่สำเร็จ');
+    } finally {
+      setIsDeletingRole(false);
+    }
+  };
+
+  const handleCreateRole = async (data: {
+    name: string;
+    color: string;
+    permissions: string[];
+  }) => {
+    if (!currentWorkspace) return;
+
+    setCreatingRole(true);
+    try {
+      const role = await workspaceService.createCustomRole(currentWorkspace.id, data);
+      setRoles((prev) => [role, ...prev]);
+      setShowCreateRoleDialog(false);
+      toast.success(`สร้างยศ ${role.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'สร้างยศไม่สำเร็จ');
+    } finally {
+      setCreatingRole(false);
+    }
+  };
+
+  const handleUpdateRole = async (data: {
+    name: string;
+    color: string;
+    permissions: string[];
+  }) => {
+    if (!currentWorkspace || !roleToEdit) return;
+
+    setIsUpdatingRole(true);
+    try {
+      const updated = await workspaceService.updateCustomRole(currentWorkspace.id, roleToEdit.id, data);
+      setRoles((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setRoleToEdit(null);
+      toast.success(`อัปเดตยศ ${updated.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'อัปเดตยศไม่สำเร็จ');
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
+
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -413,6 +560,10 @@ export function ManagementPage() {
             onChangeRole={(userId, role) => void handleChangeMemberRole(userId, role)}
             onRemoveMember={canManageMembers ? setMemberToRemove : undefined}
             canManageRoles={canManageRoles}
+            availableCustomRoles={roles}
+            onAssignCustomRole={canManageRoles ? handleAssignCustomRole : undefined}
+            onRevokeCustomRole={canManageRoles ? handleRevokeCustomRole : undefined}
+            processingCustomRoleKey={processingCustomRoleKey}
             updatingRoleUserId={updatingRoleUserId}
             removingUserId={isRemovingMember ? memberToRemove?.id ?? null : null}
             onlineStatus={onlineStatus}
@@ -445,10 +596,15 @@ export function ManagementPage() {
 
         {activeSection === 'workspace' && (
           <WorkspaceSettingsTab
-            roles={mockRoles}
+            roles={roles}
             workspace={currentWorkspace}
             onCreateRole={() => setShowCreateRoleDialog(true)}
+            onEditRole={(role) => setRoleToEdit(role)}
+            onDeleteRole={(role) => setRoleToDelete(role)}
             onWorkspaceUpdated={handleWorkspaceUpdated}
+            canManageWorkspace={canManageWorkspace}
+            canManageRoles={canManageRoles}
+            canRegenerateInvite={canRegenerateInvite}
           />
         )}
       </div>
@@ -520,6 +676,41 @@ export function ManagementPage() {
       <CreateRoleDialog
         open={showCreateRoleDialog}
         onOpenChange={setShowCreateRoleDialog}
+        onSubmit={handleCreateRole}
+        submitting={creatingRole || rolesLoading}
+      />
+      <EditRoleDialog
+        open={roleToEdit !== null}
+        onOpenChange={(open) => {
+          if (!open && !isUpdatingRole) setRoleToEdit(null);
+        }}
+        initialValues={
+          roleToEdit
+            ? {
+                name: roleToEdit.name,
+                color: roleToEdit.color,
+                permissions: roleToEdit.permissions,
+              }
+            : undefined
+        }
+        onSubmit={handleUpdateRole}
+        submitting={isUpdatingRole}
+      />
+      <ConfirmDialog
+        open={roleToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingRole) setRoleToDelete(null);
+        }}
+        title="ลบยศ"
+        description={
+          roleToDelete ? `คุณต้องการลบยศ "${roleToDelete.name}" ใช่หรือไม่?` : undefined
+        }
+        warningMessage="สมาชิกที่มียศนี้จะสูญเสียสิทธิ์ที่ได้รับจากยศนี้ทันที"
+        confirmLabel="ลบยศ"
+        confirmVariant="destructive"
+        confirmIcon={<ShieldOff className="size-4" />}
+        onConfirm={() => void handleConfirmDeleteRole()}
+        loading={isDeletingRole}
       />
       <ConfirmDialog
         open={memberToRemove !== null}

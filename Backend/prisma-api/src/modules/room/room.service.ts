@@ -1,5 +1,7 @@
 import { WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
+import { PERMISSIONS } from '../../types/permissions';
+import { hasPermission } from '../../utils/permissions';
 import { TypePayloadCreateRoom, TypePayloadUpdateRoom } from './room.model';
 import * as roomRepository from './room.repository';
 
@@ -11,12 +13,12 @@ const assertWorkspaceMember = async (workspaceId: string, userId: string) => {
   return member;
 };
 
-const assertWorkspaceAdmin = async (workspaceId: string, userId: string) => {
-  const member = await assertWorkspaceMember(workspaceId, userId);
-  if (member.role !== WorkspaceRole.OWNER && member.role !== WorkspaceRole.ADMIN) {
-    throw new AppError(403, 'Only workspace owner/admin can manage rooms');
+const assertManageChannelsPermission = async (workspaceId: string, userId: string) => {
+  await assertWorkspaceMember(workspaceId, userId);
+  const allowed = await hasPermission(workspaceId, userId, PERMISSIONS.MANAGE_CHANNELS);
+  if (!allowed) {
+    throw new AppError(403, 'Insufficient permissions');
   }
-  return member;
 };
 
 /* ======================= CREATE ======================= */
@@ -26,7 +28,7 @@ export const createRoom = async (
   userId: string,
   data: TypePayloadCreateRoom,
 ) => {
-  await assertWorkspaceAdmin(workspaceId, userId);
+  await assertManageChannelsPermission(workspaceId, userId);
 
   const room = await roomRepository.create(workspaceId, userId, data);
   return { ...room, memberCount: room._count.members, unreadCount: 0 };
@@ -52,7 +54,7 @@ export const getRooms = async (workspaceId: string, userId: string) => {
 };
 
 export const getManagementRooms = async (workspaceId: string, userId: string) => {
-  await assertWorkspaceAdmin(workspaceId, userId);
+  await assertManageChannelsPermission(workspaceId, userId);
 
   const rooms = await roomRepository.findManyForManagement(workspaceId);
   return rooms.map((room) => ({
@@ -93,15 +95,7 @@ export const updateRoom = async (
   const room = await roomRepository.findByIdSimple(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  const member = await roomRepository.findWorkspaceMember(room.workspaceId, userId);
-  if (
-    !member ||
-    (member.role !== WorkspaceRole.OWNER &&
-      member.role !== WorkspaceRole.ADMIN &&
-      room.createdById !== userId)
-  ) {
-    throw new AppError(403, 'Only workspace owner/admin or room creator can update');
-  }
+  await assertManageChannelsPermission(room.workspaceId, userId);
 
   const updatedRoom = await roomRepository.update(roomId, data);
   return { ...updatedRoom, memberCount: updatedRoom._count.members };
@@ -113,15 +107,7 @@ export const deleteRoom = async (roomId: string, userId: string) => {
   const room = await roomRepository.findByIdSimple(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  const member = await roomRepository.findWorkspaceMember(room.workspaceId, userId);
-  if (
-    !member ||
-    (member.role !== WorkspaceRole.OWNER &&
-      member.role !== WorkspaceRole.ADMIN &&
-      room.createdById !== userId)
-  ) {
-    throw new AppError(403, 'Only workspace owner/admin or room creator can delete');
-  }
+  await assertManageChannelsPermission(room.workspaceId, userId);
 
   await roomRepository.remove(roomId);
 };
@@ -136,7 +122,7 @@ export const addRoomMember = async (
   const room = await roomRepository.findByIdSimple(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  await assertWorkspaceAdmin(room.workspaceId, requesterId);
+  await assertManageChannelsPermission(room.workspaceId, requesterId);
   await assertWorkspaceMember(room.workspaceId, targetUserId);
 
   const existing = await roomRepository.findRoomMember(roomId, targetUserId);
@@ -170,14 +156,7 @@ export const removeRoomMember = async (
   if (!room) throw new AppError(404, 'Room not found');
 
   if (requesterId !== targetUserId) {
-    const member = await roomRepository.findWorkspaceMember(room.workspaceId, requesterId);
-    if (
-      !member ||
-      (member.role !== WorkspaceRole.OWNER &&
-        member.role !== WorkspaceRole.ADMIN)
-    ) {
-      throw new AppError(403, 'Only workspace owner/admin can remove others');
-    }
+    await assertManageChannelsPermission(room.workspaceId, requesterId);
   }
 
   await roomRepository.deleteRoomMember(roomId, targetUserId);

@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import { TaskPriority } from '@prisma/client';
 import { AppError } from '../../types';
+import { PERMISSIONS } from '../../types/permissions';
+import { hasPermission } from '../../utils/permissions';
 import * as repository from './ai.repository';
 import { TypeHistoryItem } from './ai.model';
 
@@ -465,6 +467,9 @@ const executeGetAllRoomsMessages = async (
 export const getSessionList = async (workspaceId: string, userId: string) => {
   const member = await repository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) {
+    throw new AppError(403, 'Insufficient permissions');
+  }
   const sessions = await repository.getSessionList(workspaceId, userId);
   return sessions.map((s) => ({ sessionId: s.id, title: s.title, isPinned: s.isPinned, updatedAt: s.updatedAt }));
 };
@@ -472,6 +477,9 @@ export const getSessionList = async (workspaceId: string, userId: string) => {
 export const renameSession = async (workspaceId: string, userId: string, sessionId: string, title: string) => {
   const member = await repository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) {
+    throw new AppError(403, 'Insufficient permissions');
+  }
   if (!title.trim()) throw new AppError(400, 'Title cannot be empty');
   await repository.renameSession(sessionId, userId, title);
 };
@@ -479,12 +487,18 @@ export const renameSession = async (workspaceId: string, userId: string, session
 export const togglePinSession = async (workspaceId: string, userId: string, sessionId: string, isPinned: boolean) => {
   const member = await repository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) {
+    throw new AppError(403, 'Insufficient permissions');
+  }
   await repository.togglePinSession(sessionId, userId, isPinned);
 };
 
 export const deleteSession = async (workspaceId: string, userId: string, sessionId: string) => {
   const member = await repository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) {
+    throw new AppError(403, 'Insufficient permissions');
+  }
   await repository.deleteSession(sessionId, userId);
 };
 
@@ -495,6 +509,9 @@ export const getSessionMessages = async (
 ) => {
   const member = await repository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) {
+    throw new AppError(403, 'Insufficient permissions');
+  }
 
   const queries = await repository.getSessionMessages(workspaceId, userId, sessionId);
   return queries.flatMap((q) => [
@@ -506,6 +523,9 @@ export const getSessionMessages = async (
 export const getAiHistory = async (workspaceId: string, userId: string, sessionId?: string) => {
   const member = await repository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) {
+    throw new AppError(403, 'Insufficient permissions');
+  }
 
   const queries = await repository.getRecentQueries(workspaceId, userId, sessionId, 10);
   return queries.reverse().flatMap((q) => [
@@ -524,6 +544,9 @@ export const processAiChat = async (params: {
   const member = await repository.findWorkspaceMember(params.workspaceId, params.userId);
   if (!member) {
     throw new AppError(403, 'You are not a member of this workspace');
+  }
+  if (!(await hasPermission(params.workspaceId, params.userId, PERMISSIONS.USE_AI))) {
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   const workspace = await repository.findWorkspaceById(params.workspaceId);

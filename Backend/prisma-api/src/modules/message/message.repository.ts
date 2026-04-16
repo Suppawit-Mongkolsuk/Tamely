@@ -66,7 +66,15 @@ export const create = async (
 export const findById = async (messageId: string) => {
   return prisma.message.findUnique({
     where: { id: messageId },
-    select: { id: true, senderId: true },
+    select: {
+      id: true,
+      senderId: true,
+      room: {
+        select: {
+          workspaceId: true,
+        },
+      },
+    },
   });
 };
 
@@ -81,7 +89,7 @@ export const remove = async (messageId: string) => {
 export const findRoom = async (roomId: string) => {
   return prisma.room.findUnique({
     where: { id: roomId },
-    select: { id: true },
+    select: { id: true, workspaceId: true },
   });
 };
 

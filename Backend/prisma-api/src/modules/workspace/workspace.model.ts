@@ -99,7 +99,7 @@ export const AddMemberSchema = z.object({
       .email({ message: "รูปแบบอีเมลไม่ถูกต้อง" })
       .transform((v) => v.trim().toLowerCase()),
     role: z
-      .enum(["MEMBER", "ADMIN"], { message: "บทบาทไม่ถูกต้อง" })
+      .enum(["MEMBER", "MODERATOR", "ADMIN"], { message: "บทบาทไม่ถูกต้อง" })
       .optional()
       .default("MEMBER"),
   }),
@@ -118,7 +118,7 @@ export const UpdateMemberRoleSchema = z.object({
     userId: zodUuid,
   }),
   body: z.object({
-    role: z.enum(["MEMBER", "ADMIN", "OWNER"], {
+    role: z.enum(["MEMBER", "MODERATOR", "ADMIN"], {
       message: "บทบาทไม่ถูกต้อง",
     }),
   }),

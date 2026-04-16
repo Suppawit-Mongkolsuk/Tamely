@@ -14,6 +14,7 @@ import type { RoomResponse, MessageResponse } from '@/services/chat.service';
 import type { DMConversationResponse, DMMessageResponse } from '@/services/dm.service';
 import { connectSocket } from '@/lib/socket';
 import { isConversationMuted, toggleConversationMute } from '@/lib/notification-prefs';
+import { canDo, PERMISSIONS } from '@/lib/permissions';
 import type { ChatRoom, Message, Member, ChatTab, DirectMessage } from '@/types/chat-ui';
 import type { WorkspaceMember } from '@/types/workspace';
 import { toast } from 'sonner';
@@ -202,7 +203,7 @@ export function ChatRoomsPage() {
   });
 
   const isFirstRoomLoad = useRef(true);
-  const canCreateRoom = myWorkspaceRole === 'OWNER' || myWorkspaceRole === 'ADMIN';
+  const canCreateRoom = canDo(currentWorkspace, PERMISSIONS.MANAGE_CHANNELS);
 
   const fetchRooms = useCallback(async () => {
     if (!wsId) return;

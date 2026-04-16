@@ -20,13 +20,14 @@ const workspaceWithOwnerSelect = {
   ...workspaceBaseSelect,
   owner: { select: ownerSelect },
 } as const;
-const memberUserSelect = { Name: true, avatarUrl: true, lastSeenAt: true } as const;
-const workspaceMemberSelect = {
-  userId: true,
-  role: true,
-  joinedAt: true,
-  user: { select: memberUserSelect },
+const customRoleSelect = {
+  id: true,
+  name: true,
+  color: true,
+  position: true,
+  permissions: true,
 } as const;
+const memberUserSelect = { Name: true, email: true, avatarUrl: true, lastSeenAt: true } as const;
 
 /* ======================= CREATE ======================= */
 
@@ -127,10 +128,49 @@ export const findWorkspaceMember = async (workspaceId: string, userId: string) =
   });
 };
 
+export const findWorkspaceMemberDetailed = async (workspaceId: string, userId: string) => {
+  return prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+    select: {
+      userId: true,
+      role: true,
+      user: {
+        select: {
+          customRoles: {
+            where: { workspaceId },
+            select: {
+              customRole: {
+                select: customRoleSelect,
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+};
+
 export const findAllMembers = async (workspaceId: string) => {
   return prisma.workspaceMember.findMany({
     where: { workspaceId },
-    select: workspaceMemberSelect,
+    select: {
+      userId: true,
+      role: true,
+      joinedAt: true,
+      user: {
+        select: {
+          ...memberUserSelect,
+          customRoles: {
+            where: { workspaceId },
+            select: {
+              customRole: {
+                select: customRoleSelect,
+              },
+            },
+          },
+        },
+      },
+    },
     orderBy: { joinedAt: 'asc' },
   });
 };
@@ -149,7 +189,24 @@ export const createMember = async (
 ) => {
   return prisma.workspaceMember.create({
     data: { workspaceId, userId, role },
-    select: workspaceMemberSelect,
+    select: {
+      userId: true,
+      role: true,
+      joinedAt: true,
+      user: {
+        select: {
+          ...memberUserSelect,
+          customRoles: {
+            where: { workspaceId },
+            select: {
+              customRole: {
+                select: customRoleSelect,
+              },
+            },
+          },
+        },
+      },
+    },
   });
 };
 
@@ -167,6 +224,23 @@ export const updateMemberRole = async (
   return prisma.workspaceMember.update({
     where: { workspaceId_userId: { workspaceId, userId } },
     data: { role },
-    select: workspaceMemberSelect,
+    select: {
+      userId: true,
+      role: true,
+      joinedAt: true,
+      user: {
+        select: {
+          ...memberUserSelect,
+          customRoles: {
+            where: { workspaceId },
+            select: {
+              customRole: {
+                select: customRoleSelect,
+              },
+            },
+          },
+        },
+      },
+    },
   });
 };

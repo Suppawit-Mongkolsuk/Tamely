@@ -1,4 +1,6 @@
 import { AppError } from '../../types';
+import { PERMISSIONS } from '../../types/permissions';
+import { hasPermission } from '../../utils/permissions';
 import { TypePayloadCreateTask, TypePayloadUpdateTask } from './task.model';
 import * as taskRepository from './task.repository';
 
@@ -11,6 +13,9 @@ export const createTask = async (
 ) => {
   const member = await taskRepository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
+
+  const allowed = await hasPermission(workspaceId, userId, PERMISSIONS.CREATE_TASK);
+  if (!allowed) throw new AppError(403, 'Insufficient permissions');
 
   return taskRepository.create(workspaceId, userId, {
     title: data.title,
@@ -56,6 +61,14 @@ export const updateTask = async (
   const member = await taskRepository.findWorkspaceMember(task.workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
+  if (
+    data.assigneeId !== undefined &&
+    data.assigneeId !== task.assigneeId &&
+    !(await hasPermission(task.workspaceId, userId, PERMISSIONS.ASSIGN_TASK))
+  ) {
+    throw new AppError(403, 'Insufficient permissions');
+  }
+
   const updateData: Record<string, unknown> = {};
   if (data.title !== undefined) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
@@ -79,8 +92,7 @@ export const deleteTask = async (taskId: string, userId: string) => {
   if (
     task.createdById !== userId &&
     task.assigneeId !== userId &&
-    member.role !== 'OWNER' &&
-    member.role !== 'ADMIN'
+    !(await hasPermission(task.workspaceId, userId, PERMISSIONS.DELETE_ANY_TASK))
   ) {
     throw new AppError(403, 'Not authorized to delete this task');
   }

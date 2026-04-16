@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { PERMISSION_OPTIONS } from '@/lib/permissions';
 import type { WorkspaceMember, WorkspaceMemberRole } from '@/types';
 import type { RoomMemberResponse, RoomResponse } from '@/services/chat.service';
 
@@ -501,27 +502,72 @@ export function ManageRoomMembersDialog({
 interface CreateRoleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSubmit?: (data: {
+    name: string;
+    color: string;
+    permissions: string[];
+  }) => Promise<void>;
+  submitting?: boolean;
 }
 
 export function CreateRoleDialog({
   open,
   onOpenChange,
+  onSubmit,
+  submitting = false,
 }: CreateRoleDialogProps) {
+  const [name, setName] = useState('');
+  const [color, setColor] = useState('#6B7280');
+  const [permissions, setPermissions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!open) {
+      setName('');
+      setColor('#6B7280');
+      setPermissions([]);
+    }
+  }, [open]);
+
+  const togglePermission = (permission: string, checked: boolean) => {
+    setPermissions((prev) =>
+      checked ? [...prev, permission] : prev.filter((value) => value !== permission),
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!onSubmit) return;
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      toast.error('กรุณากรอกชื่อยศ');
+      return;
+    }
+
+    await onSubmit({
+      name: trimmedName,
+      color,
+      permissions,
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>สร้างยศใหม่</DialogTitle>
           <DialogDescription>กำหนดชื่อและสิทธิ์สำหรับยศใหม่</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
+        <div className="space-y-4 mt-2">
           <div>
             <Label htmlFor="role-name">ชื่อยศ</Label>
             <Input
               id="role-name"
               placeholder="เช่น Developer, Designer"
               className="mt-1.5"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={submitting}
             />
           </div>
 
@@ -531,54 +577,182 @@ export function CreateRoleDialog({
               <Input
                 id="role-color"
                 type="color"
-                defaultValue="#6B7280"
-                className="w-20"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-20 shrink-0"
+                disabled={submitting}
               />
-              <Input defaultValue="#6B7280" className="flex-1" />
+              <Input
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="flex-1"
+                disabled={submitting}
+              />
             </div>
           </div>
 
           <div>
             <Label>สิทธิ์</Label>
-            <div className="space-y-2 mt-2">
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <span className="text-sm">จัดการ workspace</span>
-                <Switch />
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <span className="text-sm">จัดการสมาชิก</span>
-                <Switch />
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <span className="text-sm">จัดการห้อง</span>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <span className="text-sm">ลบข้อความ</span>
-                <Switch />
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <span className="text-sm">ส่งข้อความ</span>
-                <Switch defaultChecked />
+            <div className="mt-2 rounded-lg border border-border overflow-y-auto max-h-[40vh]">
+              <div className="p-1 space-y-1">
+                {PERMISSION_OPTIONS.map((permission) => (
+                  <div
+                    key={permission.value}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md hover:bg-muted/50"
+                  >
+                    <span className="text-sm">{permission.label}</span>
+                    <Switch
+                      checked={permissions.includes(permission.value)}
+                      onCheckedChange={(checked) => togglePermission(permission.value, checked)}
+                      disabled={submitting}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              ยกเลิก
-            </Button>
-            <Button
-              className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
-              onClick={() => {
-                onOpenChange(false);
-                toast.success('สร้างยศสำเร็จ!');
-              }}
-            >
-              <Save className="size-4 mr-2" />
-              สร้างยศ
-            </Button>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            ยกเลิก
+          </Button>
+          <Button
+            className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+            onClick={() => void handleSubmit()}
+            disabled={submitting}
+          >
+            <Save className="size-4 mr-2" />
+            {submitting ? 'กำลังสร้าง...' : 'สร้างยศ'}
+          </Button>
+        </div>
+      </DialogContent>
+
+    </Dialog>
+  );
+}
+
+// ===== Edit Role Dialog =====
+interface EditRoleDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialValues?: { name?: string; color?: string; permissions?: string[] };
+  onSubmit?: (data: { name: string; color: string; permissions: string[] }) => Promise<void>;
+  submitting?: boolean;
+}
+
+export function EditRoleDialog({
+  open,
+  onOpenChange,
+  initialValues,
+  onSubmit,
+  submitting = false,
+}: EditRoleDialogProps) {
+  const [name, setName] = useState(initialValues?.name ?? '');
+  const [color, setColor] = useState(initialValues?.color ?? '#6B7280');
+  const [permissions, setPermissions] = useState<string[]>(initialValues?.permissions ?? []);
+
+  useEffect(() => {
+    if (open) {
+      setName(initialValues?.name ?? '');
+      setColor(initialValues?.color ?? '#6B7280');
+      setPermissions(initialValues?.permissions ?? []);
+    }
+  }, [open, initialValues?.name, initialValues?.color, initialValues?.permissions]);
+
+  const togglePermission = (permission: string, checked: boolean) => {
+    setPermissions((prev) =>
+      checked ? [...prev, permission] : prev.filter((value) => value !== permission),
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!onSubmit) return;
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      toast.error('กรุณากรอกชื่อยศ');
+      return;
+    }
+
+    await onSubmit({ name: trimmedName, color, permissions });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>แก้ไขยศ</DialogTitle>
+          <DialogDescription>แก้ไขชื่อ สี และสิทธิ์สำหรับยศนี้</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          <div>
+            <Label htmlFor="edit-role-name">ชื่อยศ</Label>
+            <Input
+              id="edit-role-name"
+              placeholder="เช่น Developer, Designer"
+              className="mt-1.5"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={submitting}
+            />
           </div>
+
+          <div>
+            <Label htmlFor="edit-role-color">สี</Label>
+            <div className="flex gap-2 mt-1.5">
+              <Input
+                id="edit-role-color"
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-20 shrink-0"
+                disabled={submitting}
+              />
+              <Input
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="flex-1"
+                disabled={submitting}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label>สิทธิ์</Label>
+            <div className="mt-2 rounded-lg border border-border overflow-y-auto max-h-[40vh]">
+              <div className="p-1 space-y-1">
+                {PERMISSION_OPTIONS.map((permission) => (
+                  <div
+                    key={permission.value}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md hover:bg-muted/50"
+                  >
+                    <span className="text-sm">{permission.label}</span>
+                    <Switch
+                      checked={permissions.includes(permission.value)}
+                      onCheckedChange={(checked) => togglePermission(permission.value, checked)}
+                      disabled={submitting}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            ยกเลิก
+          </Button>
+          <Button
+            className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+            onClick={() => void handleSubmit()}
+            disabled={submitting}
+          >
+            <Save className="size-4 mr-2" />
+            {submitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
