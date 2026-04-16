@@ -163,7 +163,6 @@ function SkeletonCard() {
 type FilterType = 'all' | 'unread' | 'mentions';
 
 export default function AlertsScreen() {
-  // ✅ ดึงจาก AsyncStorage แทน params
   const [token, setToken] = useState('');
   const [wsId, setWsId] = useState('');
   const [userData, setUserData] = useState<any>(null);
