@@ -276,58 +276,6 @@ export function WorkspaceSettingsTab({
         </Card>
       </div>
 
-      {/* Additional Settings */}
-      <Card className="p-6 bg-white">
-        <h3 className="mb-4">การตั้งค่าเพิ่มเติม</h3>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">อนุญาตให้สมาชิกเชิญคนอื่น</p>
-              <p className="text-sm text-muted-foreground">
-                สมาชิกสามารถสร้างลิงก์เชิญและเชิญคนอื่นเข้า workspace
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">อนุญาตให้สมาชิกสร้างห้องได้</p>
-              <p className="text-sm text-muted-foreground">
-                สมาชิกสามารถสร้างห้องแชทใหม่ได้เอง
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">แสดงสถานะออนไลน์</p>
-              <p className="text-sm text-muted-foreground">
-                แสดงว่าสมาชิกกำลังออนไลน์หรือไม่
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">เปิดใช้งาน AI Assistant</p>
-              <p className="text-sm text-muted-foreground">
-                ให้ AI ช่วยสรุปการสนทนาและสร้าง tasks อัตโนมัติ
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }
