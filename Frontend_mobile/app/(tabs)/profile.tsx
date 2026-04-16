@@ -5,16 +5,15 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   ArrowLeft, User, Lock, Bell, BellRing, Moon, HelpCircle, 
-  Info, LogOut, ChevronRight, Sparkles, Wand2 
+  LogOut, ChevronRight, Sparkles, Wand2 
 } from 'lucide-react-native';
+import { unregisterPushToken } from '../../hooks/useNotifications';
 
-// ฟังก์ชันสร้างอักษรย่อจากชื่อ
 function getInitials(name: string): string {
   if (!name) return 'YO';
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-// คอมโพเนนต์ไอคอนเมนู
 const MenuIcon = ({ icon: Icon, color, bgColor }: any) => (
   <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center' }}>
     <Icon size={18} color={color} />
@@ -26,15 +25,13 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
 
-  // สถานะเปิด/ปิดฟีเจอร์ต่างๆ
   const [pushEnabled, setPushEnabled] = useState(true);
   const [dmEnabled, setDmEnabled] = useState(true);
-  const [mentionsEnabled, setMentionsEnabled] = useState(true); 
+  const [mentionsEnabled, setMentionsEnabled] = useState(true);
   const [autoSumEnabled, setAutoSumEnabled] = useState(true);
   const [smartSugEnabled, setSmartSugEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
-  // ดึงข้อมูลผู้ใช้จากเครื่องมาแสดง
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -47,14 +44,20 @@ export default function ProfileScreen() {
     loadData();
   }, []);
 
-  // ฟังก์ชันออกจากระบบ
   const handleLogOut = async () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: async () => {
-        await AsyncStorage.clear();
-        router.replace('/(auth)/login');
-      }}
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          // ลบ push token ออกจาก server ก่อน logout
+          // เพื่อไม่ให้ส่ง notification หลัง logout
+          await unregisterPushToken();
+          await AsyncStorage.clear();
+          router.replace('/(auth)/login');
+        },
+      },
     ]);
   };
 
@@ -62,14 +65,12 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
-      {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}>
         <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={22} color="#111827" /></TouchableOpacity>
         <Text style={{ fontSize: 18, fontWeight: '700', marginLeft: 12 }}>Settings</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Profile Card - แสดงชื่อและอีเมลจริง */}
         <TouchableOpacity style={{ margin: 20, padding: 16, backgroundColor: '#f5f7ff', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700' }}>
@@ -84,7 +85,6 @@ export default function ProfileScreen() {
           <ChevronRight size={20} color="#d1d5db" />
         </TouchableOpacity>
 
-        {/* Account Section */}
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 10, marginBottom: 8 }}>ACCOUNT</Text>
         <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={User} color="#3b82f6" bgColor="#eff6ff" />
@@ -103,7 +103,6 @@ export default function ProfileScreen() {
           <ChevronRight size={18} color="#d1d5db" />
         </TouchableOpacity>
 
-        {/* Notifications Section */}
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>NOTIFICATIONS</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={BellRing} color="#10b981" bgColor="#ecfdf5" />
@@ -122,7 +121,6 @@ export default function ProfileScreen() {
           <Switch value={dmEnabled} onValueChange={setDmEnabled} trackColor={{ true: '#111827' }} />
         </View>
 
-        {/* AI Assistant Section */}
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>AI ASSISTANT</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={Sparkles} color="#8b5cf6" bgColor="#f5f3ff" />
@@ -139,9 +137,8 @@ export default function ProfileScreen() {
             <Text style={{ fontSize: 12, color: '#9ca3af' }}>Get AI-powered recommendations</Text>
           </View>
           <Switch value={smartSugEnabled} onValueChange={setSmartSugEnabled} trackColor={{ true: '#111827' }} />
-        </View> {/* ✅ แก้ไข: เปลี่ยนจาก </TouchableOpacity> เป็น </View> แล้วครับ */}
+        </View>
 
-        {/* Appearance Section */}
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>APPEARANCE</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={Moon} color="#6366f1" bgColor="#eef2ff" />
@@ -152,7 +149,6 @@ export default function ProfileScreen() {
           <Switch value={darkMode} onValueChange={setDarkMode} />
         </View>
 
-        {/* Help & Support Section */}
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>HELP & SUPPORT</Text>
         <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={HelpCircle} color="#f97316" bgColor="#fff7ed" />
@@ -160,8 +156,7 @@ export default function ProfileScreen() {
           <ChevronRight size={18} color="#d1d5db" />
         </TouchableOpacity>
 
-        {/* Sign Out Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleLogOut}
           style={{ margin: 20, padding: 14, backgroundColor: '#fff1f2', borderRadius: 12, borderWidth: 1, borderColor: '#fca5a5', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }}
         >

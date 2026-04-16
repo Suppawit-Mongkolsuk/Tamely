@@ -471,7 +471,12 @@ export const getSessionList = async (workspaceId: string, userId: string) => {
     throw new AppError(403, 'Insufficient permissions');
   }
   const sessions = await repository.getSessionList(workspaceId, userId);
-  return sessions.map((s) => ({ sessionId: s.id, title: s.title, isPinned: s.isPinned, updatedAt: s.updatedAt }));
+    return sessions.map((s: { id: string; title: string; isPinned: boolean; updatedAt: Date }) => ({
+    sessionId: s.id,
+    title: s.title,
+    isPinned: s.isPinned,
+    updatedAt: s.updatedAt,
+}));
 };
 
 export const renameSession = async (workspaceId: string, userId: string, sessionId: string, title: string) => {

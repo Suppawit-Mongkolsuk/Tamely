@@ -54,7 +54,7 @@ export default function WorkspaceCard({
         {/*จำนวน USER*/}
         <View className="flex-row items-center mb-2">
           <Users size={12} color="#9ca3af" />
-          <Text className="text-gray-400 text-xs ml-1 mr-3">{memberCount}</Text>
+          <Text className="text-gray-400 text-xs ml-1 mr-3">{`${memberCount} members`}</Text>
           
           {/*เวลาที่ใช้งานล่าสุด*/}
           <Clock size={12} color="#9ca3af" />
@@ -72,7 +72,7 @@ export default function WorkspaceCard({
             
             {unreadCount !== undefined && unreadCount > 0 && (
               <View className="bg-[#425C95] px-2 py-1 rounded-full">
-                <Text className="text-white text-xs font-bold">{unreadCount} unread</Text>
+                <Text className="text-white text-xs font-bold">{`${unreadCount} unread`}</Text>
               </View>
             )}
           </View>

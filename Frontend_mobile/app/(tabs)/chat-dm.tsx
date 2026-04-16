@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
 interface DmMessage { id: string; content: string; createdAt: string; sender: Sender; isRead: boolean; }
@@ -37,8 +38,24 @@ export default function ChatDmScreen() {
 
   const conversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : (params.conversationId ?? '');
   const otherName = Array.isArray(params.otherName) ? params.otherName[0] : (params.otherName ?? '');
-  const token = Array.isArray(params.token) ? params.token[0] : (params.token ?? '');
-  const currentUserId = Array.isArray(params.currentUserId) ? params.currentUserId[0] : (params.currentUserId ?? '');
+
+  // อ่าน token และ currentUserId จาก AsyncStorage โดยตรง
+  // ไม่รับผ่าน params เพราะ expo-router encode URL อาจทำให้ token ขาดหาย
+  const [token, setToken] = useState('');
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [storageLoaded, setStorageLoaded] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const t = await AsyncStorage.getItem('token') ?? '';
+      const u = await AsyncStorage.getItem('user') ?? '';
+      const userData = u ? JSON.parse(u) : null;
+      setToken(t);
+      setCurrentUserId(userData?.id ?? '');
+      setStorageLoaded(true);
+    };
+    load();
+  }, []);
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,29 +67,30 @@ export default function ChatDmScreen() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadMessages = useCallback(async () => {
+  const loadMessages = useCallback(async (silent = false) => {
     if (!conversationId || !token) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await fetch(`${API_BASE}/api/dm/${conversationId}/messages?limit=50`, {
         headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(`status ${res.status}`);
       const json = await res.json();
       setMessages(json.data ?? []);
     } catch {
-      Alert.alert('เกิดข้อผิดพลาด', 'โหลดข้อความไม่สำเร็จ');
+      if (!silent) Alert.alert('เกิดข้อผิดพลาด', 'โหลดข้อความไม่สำเร็จ');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [conversationId, token]);
 
-  /* ===== Socket.IO setup (ครั้งเดียว) ===== */
+  /* ===== Socket.IO setup — รอให้ storage โหลดก่อนค่อย connect ===== */
   useEffect(() => {
-    if (!token || !conversationId) return;
+    if (!storageLoaded || !token || !conversationId) return;
 
     const socket = io(API_BASE, {
       auth: { token },
+      transports: ['websocket'],
       extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
     });
 
@@ -84,15 +102,25 @@ export default function ChatDmScreen() {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
       }).catch(() => {});
+      loadMessages(true);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket] connect_error:', err.message);
     });
 
     socket.on('dm_received', (msg: DmMessage) => {
       setMessages((prev) => {
-        // ป้องกัน duplicate
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    });
+
+    socket.on('dm_read', () => {
+      setMessages((prev) =>
+        prev.map((m) => (m.sender.id === currentUserId ? { ...m, isRead: true } : m)),
+      );
     });
 
     socket.on('dm_user_typing', (data: { userId: string; isTyping: boolean }) => {
@@ -105,24 +133,27 @@ export default function ChatDmScreen() {
     return () => {
       socket.emit('leave_dm', conversationId);
       socket.disconnect();
+      socketRef.current = null;
     };
-  }, [token, conversationId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageLoaded, token, conversationId]);
 
-  /* ===== Focus: rejoin + reload ===== */
+  /* ===== Focus: rejoin ถ้า socket หลุด + silent reload ===== */
   useFocusEffect(
     useCallback(() => {
-      console.log('[Focus] socket connected:', socketRef.current?.connected);
-      console.log('[Focus] socket id:', socketRef.current?.id);
-      loadMessages();
-      if (socketRef.current?.connected) {
-        socketRef.current.emit('join_dm', conversationId);
-        console.log('[Focus] rejoined dm:', conversationId);
-      } else if (socketRef.current) {
-        socketRef.current.connect();
-        console.log('[Focus] reconnecting...');
+      if (!storageLoaded) return;
+      const socket = socketRef.current;
+      if (!socket) return;
+
+      if (socket.connected) {
+        socket.emit('join_dm', conversationId);
+        loadMessages(true);
+      } else {
+        socket.connect();
       }
+
       return () => {};
-    }, [loadMessages, conversationId])
+    }, [storageLoaded, conversationId, loadMessages]),
   );
 
   const handleSend = async () => {
@@ -164,7 +195,7 @@ export default function ChatDmScreen() {
               <Text style={{ fontSize: 14, color: isMe ? '#fff' : '#111827', lineHeight: 20 }}>{item.content}</Text>
             </View>
             <Text style={{ fontSize: 10, color: '#9ca3af', textAlign: isMe ? 'right' : 'left', marginTop: 2 }}>
-              {formatTime(item.createdAt)}{isMe && item.isRead ? ' ✓✓' : ''}
+              {formatTime(item.createdAt)}{isMe && item.isRead ? ' read' : ''}
             </Text>
           </View>
         </View>

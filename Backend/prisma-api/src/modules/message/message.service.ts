@@ -3,6 +3,8 @@ import { AppError } from '../../types';
 import { PERMISSIONS } from '../../types/permissions';
 import { hasPermission } from '../../utils/permissions';
 import * as messageRepository from './message.repository';
+import { prisma } from '../../index';
+import { pushToUsers } from '../push/push.service';
 
 /* ======================= READ ======================= */
 
@@ -14,7 +16,6 @@ export const getMessages = async (
   const room = await messageRepository.findRoom(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  // ตรวจสอบว่าเป็น RoomMember (ถ้าถูกเตะออกจะไม่มีสิทธิ์อ่านข้อความ)
   const roomMember = await messageRepository.findRoomMember(roomId, userId);
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
@@ -47,14 +48,33 @@ export const sendMessage = async (
   const room = await messageRepository.findRoom(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  // ตรวจสอบว่าเป็น RoomMember (ถ้าถูกเตะออกจะส่งข้อความไม่ได้)
   const roomMember = await messageRepository.findRoomMember(roomId, senderId);
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
   const allowed = await hasPermission(room.workspaceId, senderId, PERMISSIONS.SEND_MESSAGES);
   if (!allowed) throw new AppError(403, 'Insufficient permissions');
 
-  return messageRepository.create(roomId, senderId, content, type, fileData);
+  const message = await messageRepository.create(roomId, senderId, content, type, fileData);
+
+  // ส่ง push notification ให้สมาชิกในห้องทุกคน ยกเว้นผู้ส่ง (fire and forget)
+  prisma.roomMember.findMany({
+    where: { roomId, userId: { not: senderId } },
+    select: { userId: true },
+  }).then(async (members) => {
+    const sender = await prisma.user.findUnique({
+      where: { id: senderId },
+      select: { Name: true },
+    });
+    const memberIds = members.map((m) => m.userId);
+    await pushToUsers(
+      memberIds,
+      room.name ?? 'ห้องแชท',
+      `${sender?.Name ?? 'ใครบางคน'}: ${content}`,
+      { roomId, type: 'room' },
+    );
+  }).catch(() => {});
+
+  return message;
 };
 
 /* ======================= DELETE ======================= */
@@ -85,3 +105,5 @@ export const markAsRead = async (
 
   await messageRepository.updateRoomReadState(roomId, userId, readAt);
 };
+
+

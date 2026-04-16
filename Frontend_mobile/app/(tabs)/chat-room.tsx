@@ -5,11 +5,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { ArrowLeft, Send, Hash } from 'lucide-react-native';
+import { ArrowLeft, Send } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
-interface Message { id: string; content: string; createdAt: string; sender: Sender; }
+interface DmMessage { id: string; content: string; createdAt: string; sender: Sender; isRead: boolean; }
 
 const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
 
@@ -31,99 +31,125 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   );
 }
 
-export default function ChatRoomScreen() {
+export default function ChatDmScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const roomId = Array.isArray(params.roomId) ? params.roomId[0] : (params.roomId ?? '');
-  const roomName = Array.isArray(params.roomName) ? params.roomName[0] : (params.roomName ?? '');
+  const conversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : (params.conversationId ?? '');
+  const otherName = Array.isArray(params.otherName) ? params.otherName[0] : (params.otherName ?? '');
   const token = Array.isArray(params.token) ? params.token[0] : (params.token ?? '');
   const currentUserId = Array.isArray(params.currentUserId) ? params.currentUserId[0] : (params.currentUserId ?? '');
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<DmMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadMessages = useCallback(async () => {
-    if (!roomId || !token) return;
+  const isLoadingRef = useRef(false);
+  const initialLoadDoneRef = useRef(false);
+
+  const loadMessages = useCallback(async (silent = false) => {
+    if (!conversationId || !token) return;
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     try {
-      setLoading(true);
-      const res = await fetch(`${API_BASE}/api/rooms/${roomId}/messages?limit=50`, {
+      if (!silent) setLoading(true);
+      const res = await fetch(`${API_BASE}/api/dm/${conversationId}/messages?limit=50`, {
         headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
       });
       if (!res.ok) throw new Error();
       const json = await res.json();
       setMessages(json.data ?? []);
+      initialLoadDoneRef.current = true;
     } catch {
-      Alert.alert('เกิดข้อผิดพลาด', 'โหลดข้อความไม่สำเร็จ');
+      if (!silent) Alert.alert('เกิดข้อผิดพลาด', 'โหลดข้อความไม่สำเร็จ');
     } finally {
-      setLoading(false);
+      isLoadingRef.current = false;
+      if (!silent) setLoading(false);
     }
-  }, [roomId, token]);
+  }, [conversationId, token]);
 
-  /* ===== Socket.IO setup (ครั้งเดียว) ===== */
+  /* ===== Socket.IO setup — mount ครั้งเดียว ===== */
   useEffect(() => {
-    if (!token || !roomId) return;
+    if (!token || !conversationId) return;
 
     const socket = io(API_BASE, {
       auth: { token },
+      transports: ['websocket'],
       extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      socket.emit('join_room', roomId);
+      socket.emit('join_dm', conversationId);
+      fetch(`${API_BASE}/api/dm/${conversationId}/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+      }).catch(() => {});
+      // โหลดใหม่เฉพาะตอน reconnect (initial load ไม่ต้องทำซ้ำ)
+      if (initialLoadDoneRef.current) {
+        loadMessages(true);
+      }
     });
 
-    socket.on('message_received', (msg: Message) => {
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket] connect_error:', err.message);
+    });
+
+    socket.on('dm_received', (msg: DmMessage) => {
       setMessages((prev) => {
-        // ป้องกัน duplicate
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
 
-    socket.on('user_typing', (data: { userId: string; roomId: string; isTyping: boolean }) => {
-      if (data.roomId !== roomId || data.userId === currentUserId) return;
-      setTypingUsers((prev) =>
-        data.isTyping
-          ? prev.includes(data.userId) ? prev : [...prev, data.userId]
-          : prev.filter((id) => id !== data.userId)
+    socket.on('dm_read', () => {
+      // อัพเดต isRead ของข้อความที่เราส่ง
+      setMessages((prev) =>
+        prev.map((m) => (m.sender.id === currentUserId ? { ...m, isRead: true } : m)),
       );
     });
 
+    socket.on('dm_user_typing', (data: { userId: string; isTyping: boolean }) => {
+      if (data.userId === currentUserId) return;
+      setIsTyping(data.isTyping);
+    });
+
+    // โหลดข้อความครั้งแรก
     loadMessages();
 
     return () => {
-      socket.emit('leave_room', roomId);
+      socket.emit('leave_dm', conversationId);
       socket.disconnect();
+      socketRef.current = null;
     };
-  }, [token, roomId]);
+  // loadMessages ตั้งใจไม่ใส่ใน deps เพื่อให้ effect รันครั้งเดียวตาม token/conversationId
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, conversationId]);
 
-  /* ===== Focus: rejoin + reload ===== */
+  /* ===== Focus: rejoin ถ้า socket หลุด + silent reload ===== */
   useFocusEffect(
-  useCallback(() => {
-    console.log('[Focus] socket connected:', socketRef.current?.connected);
-    console.log('[Focus] socket id:', socketRef.current?.id);
-    loadMessages();
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('join_room', roomId);
-      console.log('[Focus] rejoined room:', roomId);
-    } else if (socketRef.current) {
-      socketRef.current.connect();
-      console.log('[Focus] reconnecting...');
-    }
-    return () => {};
-  }, [loadMessages, roomId])
-);
+    useCallback(() => {
+      const socket = socketRef.current;
+      if (!socket) return;
+
+      if (socket.connected) {
+        socket.emit('join_dm', conversationId);
+        loadMessages(true);
+      } else {
+        socket.connect();
+      }
+
+      return () => {};
+    }, [conversationId, loadMessages]),
+  );
 
   const handleSend = async () => {
     if (!text.trim() || sending) return;
@@ -131,7 +157,7 @@ export default function ChatRoomScreen() {
     setText('');
     setSending(true);
     try {
-      socketRef.current?.emit('send_message', { roomId, content }, (res: any) => {
+      socketRef.current?.emit('send_dm', { conversationId, content }, (res: any) => {
         if (!res?.success) Alert.alert('เกิดข้อผิดพลาด', 'ส่งข้อความไม่สำเร็จ');
       });
     } catch {
@@ -143,34 +169,29 @@ export default function ChatRoomScreen() {
 
   const handleTyping = (value: string) => {
     setText(value);
-    socketRef.current?.emit('typing', { roomId, isTyping: true });
+    socketRef.current?.emit('dm_typing', { conversationId, isTyping: true });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      socketRef.current?.emit('typing', { roomId, isTyping: false });
+      socketRef.current?.emit('dm_typing', { conversationId, isTyping: false });
     }, 2000);
   };
 
-  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
+  const renderMessage = ({ item, index }: { item: DmMessage; index: number }) => {
     const isMe = item.sender.id === currentUserId;
     const prevMsg = messages[index - 1];
-    const showName = (!prevMsg || prevMsg.sender.id !== item.sender.id) && !isMe;
+    const showAvatar = !isMe && (!prevMsg || prevMsg.sender.id !== item.sender.id);
 
     return (
       <View style={{ marginBottom: 4, paddingHorizontal: 16 }}>
-        {showName && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, marginTop: 8 }}>
-            <Avatar name={item.sender.Name} size={28} />
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#374151' }}>{item.sender.Name}</Text>
-            <Text style={{ fontSize: 11, color: '#9ca3af' }}>{formatTime(item.createdAt)}</Text>
-          </View>
-        )}
-        <View style={{ flexDirection: 'row', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
-          {!isMe && <View style={{ width: 28, marginRight: 8 }} />}
+        <View style={{ flexDirection: 'row', justifyContent: isMe ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8 }}>
+          {!isMe && (showAvatar ? <Avatar name={item.sender.Name} size={28} /> : <View style={{ width: 28 }} />)}
           <View style={{ maxWidth: '75%' }}>
             <View style={{ backgroundColor: isMe ? '#425C95' : '#fff', borderRadius: 16, borderBottomRightRadius: isMe ? 4 : 16, borderBottomLeftRadius: isMe ? 16 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: isMe ? 0 : 1, borderColor: '#f3f4f6', elevation: 1 }}>
               <Text style={{ fontSize: 14, color: isMe ? '#fff' : '#111827', lineHeight: 20 }}>{item.content}</Text>
             </View>
-            {isMe && <Text style={{ fontSize: 10, color: '#9ca3af', textAlign: 'right', marginTop: 2 }}>{formatTime(item.createdAt)}</Text>}
+            <Text style={{ fontSize: 10, color: '#9ca3af', textAlign: isMe ? 'right' : 'left', marginTop: 2 }}>
+              {formatTime(item.createdAt)}{isMe && item.isRead ? ' read' : ''}
+            </Text>
           </View>
         </View>
       </View>
@@ -184,12 +205,10 @@ export default function ChatRoomScreen() {
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
             <ArrowLeft size={22} color="#111827" />
           </TouchableOpacity>
-          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' }}>
-            <Hash size={18} color="#425C95" />
-          </View>
+          <Avatar name={otherName} size={36} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{roomName}</Text>
-            {typingUsers.length > 0 && <Text style={{ fontSize: 12, color: '#425C95' }}>กำลังพิมพ์...</Text>}
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{otherName}</Text>
+            {isTyping && <Text style={{ fontSize: 12, color: '#425C95' }}>กำลังพิมพ์...</Text>}
           </View>
         </View>
 
@@ -207,8 +226,8 @@ export default function ChatRoomScreen() {
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
               <View style={{ alignItems: 'center', paddingTop: 80 }}>
-                <Hash size={40} color="#d1d5db" />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151', marginTop: 12 }}>ยังไม่มีข้อความ</Text>
+                <Avatar name={otherName} size={60} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151', marginTop: 12 }}>{otherName}</Text>
                 <Text style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>เริ่มต้นบทสนทนากัน</Text>
               </View>
             }
@@ -219,7 +238,7 @@ export default function ChatRoomScreen() {
           <TextInput
             value={text}
             onChangeText={handleTyping}
-            placeholder="พิมพ์ข้อความ..."
+            placeholder={`ส่งข้อความถึง ${otherName}...`}
             placeholderTextColor="#d1d5db"
             multiline
             maxLength={4000}
