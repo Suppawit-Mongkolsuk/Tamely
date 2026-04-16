@@ -11,7 +11,7 @@ export type TypePayloadCreateRoom = {
 
 export type TypePayloadUpdateRoom = {
   name?: string;
-  description?: string;
+  description?: string | null;
   isPrivate?: boolean;
 };
 
@@ -63,6 +63,7 @@ export const UpdateRoomSchema = z.object({
       .string()
       .max(500, { message: "คำอธิบายต้องไม่เกิน 500 ตัวอักษร" })
       .transform((v) => v.trim())
+      .nullable()
       .optional(),
     isPrivate: z.boolean().optional(),
   }),

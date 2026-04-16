@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
 import { AuthRequest } from '../../types';
-import { CreateRoomSchema, AddMemberSchema } from './room.model';
+import { CreateRoomSchema, UpdateRoomSchema, AddMemberSchema } from './room.model';
 import * as roomService from './room.service';
 
 const router = Router();
@@ -24,6 +24,12 @@ router.get('/workspaces/:wsId/rooms', asyncHandler(async (req: AuthRequest, res:
   res.json({ success: true, data: rooms });
 }));
 
+// GET /api/workspaces/:wsId/management/rooms
+router.get('/workspaces/:wsId/management/rooms', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const rooms = await roomService.getManagementRooms(param(req.params.wsId), req.userId!);
+  res.json({ success: true, data: rooms });
+}));
+
 // GET /api/rooms/:id
 router.get('/rooms/:id', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const room = await roomService.getRoomById(param(req.params.id), req.userId!);
@@ -31,7 +37,7 @@ router.get('/rooms/:id', asyncHandler(async (req: AuthRequest, res: Response): P
 }));
 
 // PATCH /api/rooms/:id
-router.patch('/rooms/:id', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/rooms/:id', validateRequest(UpdateRoomSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const room = await roomService.updateRoom(param(req.params.id), req.userId!, req.body);
   res.json({ success: true, data: room });
 }));

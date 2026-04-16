@@ -4,7 +4,7 @@ import { MessageType } from '@prisma/client';
 import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
 import { AuthRequest } from '../../types';
-import { SendMessageSchema } from './message.model';
+import { MarkRoomAsReadSchema, SendMessageSchema } from './message.model';
 import * as messageService from './message.service';
 import { uploadChatFile } from '../../utils/supabase-storage';
 import { getIO } from '../chat/chat.gateway';
@@ -26,6 +26,12 @@ router.get('/rooms/:roomId/messages', asyncHandler(async (req: AuthRequest, res:
   res.json({ success: true, ...result });
 }));
 
+// PATCH /api/rooms/:roomId/read
+router.patch('/rooms/:roomId/read', validateRequest(MarkRoomAsReadSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  await messageService.markAsRead(param(req.params.roomId), req.userId!);
+  res.json({ success: true, message: 'Room marked as read' });
+}));
+
 // POST /api/rooms/:roomId/messages
 router.post('/rooms/:roomId/messages', validateRequest(SendMessageSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const roomId = param(req.params.roomId);
@@ -33,7 +39,7 @@ router.post('/rooms/:roomId/messages', validateRequest(SendMessageSchema), async
 
   // Broadcast ผ่าน Socket.IO (ครอบคลุมกรณี client ใช้ REST fallback)
   const io = getIO();
-  if (io) io.to(roomId).emit('message_received', msg);
+  if (io) io.to(roomId).emit('message_received', { ...msg, roomId });
 
   res.status(201).json({ success: true, data: msg });
 }));
@@ -71,7 +77,7 @@ router.post('/rooms/:roomId/upload', chatFileUpload.single('file'), asyncHandler
 
   const io = getIO();
   if (io) {
-    io.to(roomId).emit('message_received', message);
+    io.to(roomId).emit('message_received', { ...message, roomId });
   }
 
   res.status(201).json({ success: true, data: message });

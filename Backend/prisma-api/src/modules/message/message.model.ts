@@ -48,6 +48,12 @@ export const ListMessagesSchema = z.object({
   }),
 });
 
+export const MarkRoomAsReadSchema = z.object({
+  params: z.object({
+    roomId: zodUuid,
+  }),
+});
+
 /* ======================= DELETE MESSAGE ======================= */
 
 export const DeleteMessageSchema = z.object({

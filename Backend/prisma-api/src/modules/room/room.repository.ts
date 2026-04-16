@@ -1,4 +1,4 @@
-import { WorkspaceRole } from '@prisma/client';
+import { Prisma, WorkspaceRole } from '@prisma/client';
 import { prisma } from '../../index';
 import { TypePayloadCreateRoom, TypePayloadUpdateRoom } from './room.model';
 
@@ -79,6 +79,47 @@ export const findMany = async (workspaceId: string, userId: string, userRole: Wo
     select: roomSummarySelect,
     orderBy: { createdAt: 'asc' },
   });
+};
+
+export const findManyForManagement = async (workspaceId: string) => {
+  return prisma.room.findMany({
+    where: {
+      workspaceId,
+      isActive: true,
+    },
+    select: roomSummarySelect,
+    orderBy: { createdAt: 'asc' },
+  });
+};
+
+export const countUnreadByRoomIds = async (userId: string, roomIds: string[]) => {
+  if (roomIds.length === 0) {
+    return new Map<string, number>();
+  }
+
+  const roomIdList = Prisma.join(
+    roomIds.map((roomId) => Prisma.sql`${roomId}::uuid`),
+  );
+
+  const rows = await prisma.$queryRaw<
+    Array<{ roomId: string; unreadCount: bigint | number }>
+  >(Prisma.sql`
+    SELECT
+      rm."roomId",
+      COUNT(m."id")::bigint AS "unreadCount"
+    FROM "RoomMember" rm
+    LEFT JOIN "Message" m
+      ON m."roomId" = rm."roomId"
+     AND m."senderId" <> rm."userId"
+     AND m."createdAt" > rm."lastReadAt"
+    WHERE rm."userId" = ${Prisma.sql`${userId}::uuid`}
+      AND rm."roomId" IN (${roomIdList})
+    GROUP BY rm."roomId"
+  `);
+
+  return new Map(
+    rows.map((row) => [row.roomId, Number(row.unreadCount)]),
+  );
 };
 
 export const findById = async (roomId: string, workspaceId?: string) => {

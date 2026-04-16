@@ -25,6 +25,11 @@ export const getMessages = async (
     before: options.before,
   });
 
+  if (offset === 0) {
+    const latestReadAt = messages[messages.length - 1]?.createdAt ?? new Date();
+    await messageRepository.updateRoomReadState(roomId, userId, latestReadAt);
+  }
+
   return { data: messages, total, limit, offset };
 };
 
@@ -57,4 +62,18 @@ export const deleteMessage = async (messageId: string, userId: string) => {
   }
 
   await messageRepository.remove(messageId);
+};
+
+export const markAsRead = async (
+  roomId: string,
+  userId: string,
+  readAt: Date = new Date(),
+) => {
+  const room = await messageRepository.findRoom(roomId);
+  if (!room) throw new AppError(404, 'Room not found');
+
+  const roomMember = await messageRepository.findRoomMember(roomId, userId);
+  if (!roomMember) throw new AppError(403, 'You are not a member of this room');
+
+  await messageRepository.updateRoomReadState(roomId, userId, readAt);
 };

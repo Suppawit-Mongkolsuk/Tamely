@@ -10,6 +10,7 @@ export interface RoomResponse {
   createdById: string;
   isActive: boolean;
   memberCount: number;
+  unreadCount?: number;
   createdAt: string;
   updatedAt: string;
   createdBy?: { id: string; Name: string; avatarUrl?: string | null };
@@ -18,8 +19,13 @@ export interface RoomResponse {
   }[];
 }
 
+export interface RoomMemberResponse {
+  user: { id: string; Name: string; avatarUrl?: string | null; workspaceRole?: string };
+}
+
 export interface MessageResponse {
   id: string;
+  roomId?: string; // เพิ่มโดย socket gateway เพื่อ client notification routing
   content: string;
   type: string;
   createdAt: string;
@@ -41,6 +47,13 @@ export const chatService = {
   async getRooms(workspaceId: string): Promise<RoomResponse[]> {
     const res = await apiClient.get<ApiSuccessResponse<RoomResponse[]>>(
       `/workspaces/${workspaceId}/rooms`,
+    );
+    return res.data;
+  },
+
+  async getManagementRooms(workspaceId: string): Promise<RoomResponse[]> {
+    const res = await apiClient.get<ApiSuccessResponse<RoomResponse[]>>(
+      `/workspaces/${workspaceId}/management/rooms`,
     );
     return res.data;
   },
@@ -77,6 +90,10 @@ export const chatService = {
     return res.data;
   },
 
+  async markRoomAsRead(roomId: string): Promise<void> {
+    await apiClient.patch(`/rooms/${roomId}/read`);
+  },
+
   async deleteMessage(messageId: string): Promise<void> {
     await apiClient.delete(`/messages/${messageId}`);
   },
@@ -105,8 +122,27 @@ export const chatService = {
     await apiClient.post(`/rooms/${roomId}/members`, { userId });
   },
 
+  async removeRoomMember(roomId: string, userId: string): Promise<void> {
+    await apiClient.delete(`/rooms/${roomId}/members/${userId}`);
+  },
+
   async leaveRoom(roomId: string, userId: string): Promise<void> {
     await apiClient.delete(`/rooms/${roomId}/members/${userId}`);
+  },
+
+  async deleteRoom(roomId: string): Promise<void> {
+    await apiClient.delete(`/rooms/${roomId}`);
+  },
+
+  async updateRoom(
+    roomId: string,
+    data: { name?: string; description?: string | null; isPrivate?: boolean },
+  ): Promise<RoomResponse> {
+    const res = await apiClient.patch<ApiSuccessResponse<RoomResponse>>(
+      `/rooms/${roomId}`,
+      data,
+    );
+    return res.data;
   },
 
   async sendRoomFile(roomId: string, file: File): Promise<MessageResponse> {

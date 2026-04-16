@@ -4,9 +4,6 @@ import { ProfileTab } from './ProfileTab';
 
 const SETTINGS_TABS: PageTab[] = [
   { key: 'profile', label: 'Profile' },
-  // เพิ่ม tab อื่นได้ในอนาคต เช่น:
-  // { key: 'notifications', label: 'Notifications' },
-  // { key: 'security', label: 'Security' },
 ];
 
 interface SettingsPageProps {

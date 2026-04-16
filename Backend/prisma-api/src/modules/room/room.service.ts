@@ -11,6 +11,14 @@ const assertWorkspaceMember = async (workspaceId: string, userId: string) => {
   return member;
 };
 
+const assertWorkspaceAdmin = async (workspaceId: string, userId: string) => {
+  const member = await assertWorkspaceMember(workspaceId, userId);
+  if (member.role !== WorkspaceRole.OWNER && member.role !== WorkspaceRole.ADMIN) {
+    throw new AppError(403, 'Only workspace owner/admin can manage rooms');
+  }
+  return member;
+};
+
 /* ======================= CREATE ======================= */
 
 export const createRoom = async (
@@ -18,13 +26,10 @@ export const createRoom = async (
   userId: string,
   data: TypePayloadCreateRoom,
 ) => {
-  const member = await assertWorkspaceMember(workspaceId, userId);
-  if (member.role !== WorkspaceRole.OWNER && member.role !== WorkspaceRole.ADMIN) {
-    throw new AppError(403, 'Only workspace owner/admin can create rooms');
-  }
+  await assertWorkspaceAdmin(workspaceId, userId);
 
   const room = await roomRepository.create(workspaceId, userId, data);
-  return { ...room, memberCount: room._count.members };
+  return { ...room, memberCount: room._count.members, unreadCount: 0 };
 };
 
 /* ======================= READ ======================= */
@@ -34,9 +39,25 @@ export const getRooms = async (workspaceId: string, userId: string) => {
 
   // filter เฉพาะห้องที่ user เป็น RoomMember และมีสิทธิ์เข้าถึงตาม role
   const rooms = await roomRepository.findMany(workspaceId, userId, member.role);
+  const unreadMap = await roomRepository.countUnreadByRoomIds(
+    userId,
+    rooms.map((room) => room.id),
+  );
+
   return rooms.map((r) => ({
     ...r,
     memberCount: r._count.members,
+    unreadCount: unreadMap.get(r.id) ?? 0,
+  }));
+};
+
+export const getManagementRooms = async (workspaceId: string, userId: string) => {
+  await assertWorkspaceAdmin(workspaceId, userId);
+
+  const rooms = await roomRepository.findManyForManagement(workspaceId);
+  return rooms.map((room) => ({
+    ...room,
+    memberCount: room._count.members,
   }));
 };
 
@@ -82,7 +103,8 @@ export const updateRoom = async (
     throw new AppError(403, 'Only workspace owner/admin or room creator can update');
   }
 
-  return roomRepository.update(roomId, data);
+  const updatedRoom = await roomRepository.update(roomId, data);
+  return { ...updatedRoom, memberCount: updatedRoom._count.members };
 };
 
 /* ======================= DELETE ======================= */
@@ -108,12 +130,13 @@ export const deleteRoom = async (roomId: string, userId: string) => {
 
 export const addRoomMember = async (
   roomId: string,
-  _requesterId: string,
+  requesterId: string,
   targetUserId: string,
 ) => {
   const room = await roomRepository.findByIdSimple(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
+  await assertWorkspaceAdmin(room.workspaceId, requesterId);
   await assertWorkspaceMember(room.workspaceId, targetUserId);
 
   const existing = await roomRepository.findRoomMember(roomId, targetUserId);

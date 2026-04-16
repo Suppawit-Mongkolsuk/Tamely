@@ -7,15 +7,22 @@ import { Card } from '@/components/ui/card';
 import { MembersTab } from '@/components/management/MembersTab';
 import { RoomsTab } from '@/components/management/RoomsTab';
 import { WorkspaceSettingsTab } from '@/components/management/WorkspaceSettingsTab';
-import { CreateRoomDialog, CreateRoleDialog } from '@/components/management/Dialogs';
+import {
+  CreateRoomDialog,
+  CreateRoleDialog,
+  EditRoomDialog,
+  ManageRoomMembersDialog,
+} from '@/components/management/Dialogs';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { workspaceService } from '@/services';
-import { mockRooms, mockRoles } from '@/mocks/management';
+import { chatService } from '@/services/chat.service';
+import { mockRoles } from '@/mocks/management';
 import { toast } from 'sonner';
 import type { Workspace, WorkspaceMember, WorkspaceMemberRole } from '@/types';
 import type { TeamMember } from '@/types/management-ui';
+import type { RoomMemberResponse, RoomResponse } from '@/services/chat.service';
 
 type ManagementSection = 'users' | 'rooms' | 'workspace';
 
@@ -48,6 +55,19 @@ export function ManagementPage() {
   const { user } = useAuthContext();
   const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
   const [showCreateRoleDialog, setShowCreateRoleDialog] = useState(false);
+  const [rooms, setRooms] = useState<RoomResponse[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [creatingRoom, setCreatingRoom] = useState(false);
+  const [roomToManageMembers, setRoomToManageMembers] = useState<RoomResponse | null>(null);
+  const [roomMembersDetail, setRoomMembersDetail] = useState<RoomResponse | null>(null);
+  const [roomMembersSearchQuery, setRoomMembersSearchQuery] = useState('');
+  const [workspaceMembersForRoomDialog, setWorkspaceMembersForRoomDialog] = useState<WorkspaceMember[]>([]);
+  const [roomMembersLoading, setRoomMembersLoading] = useState(false);
+  const [processingRoomMemberUserId, setProcessingRoomMemberUserId] = useState<string | null>(null);
+  const [roomToEdit, setRoomToEdit] = useState<RoomResponse | null>(null);
+  const [isUpdatingRoom, setIsUpdatingRoom] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<RoomResponse | null>(null);
+  const [isDeletingRoom, setIsDeletingRoom] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
@@ -134,6 +154,138 @@ export function ManagementPage() {
     }
   };
 
+  const loadRooms = async () => {
+    if (!currentWorkspace) return;
+    setRoomsLoading(true);
+    try {
+      const data = await chatService.getManagementRooms(currentWorkspace.id);
+      setRooms(data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'โหลดห้องไม่สำเร็จ');
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
+  const loadRoomMembersDialogData = async (room: RoomResponse) => {
+    if (!currentWorkspace) return;
+
+    setRoomMembersLoading(true);
+    try {
+      const [roomDetail, workspaceMembersData] = await Promise.all([
+        chatService.getRoomById(room.id),
+        workspaceService.getMembers(currentWorkspace.id),
+      ]);
+      setRoomMembersDetail(roomDetail);
+      setWorkspaceMembersForRoomDialog(workspaceMembersData);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'โหลดสมาชิกในห้องไม่สำเร็จ');
+      setRoomToManageMembers(null);
+      setRoomMembersDetail(null);
+    } finally {
+      setRoomMembersLoading(false);
+    }
+  };
+
+  const handleCreateRoom = async (
+    data: { name: string; description?: string | null },
+  ) => {
+    if (!currentWorkspace) return;
+    setCreatingRoom(true);
+    try {
+      const newRoom = await chatService.createRoom(currentWorkspace.id, {
+        name: data.name,
+        description: data.description ?? undefined,
+        isPrivate: false,
+      });
+      setRooms((prev) => [newRoom, ...prev]);
+      setShowCreateRoomDialog(false);
+      toast.success(`สร้างห้อง #${newRoom.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'สร้างห้องไม่สำเร็จ');
+    } finally {
+      setCreatingRoom(false);
+    }
+  };
+
+  const handleUpdateRoom = async (
+    data: { name: string; description?: string | null },
+  ) => {
+    if (!roomToEdit) return;
+
+    setIsUpdatingRoom(true);
+    try {
+      const updatedRoom = await chatService.updateRoom(roomToEdit.id, {
+        name: data.name,
+        description: data.description ?? undefined,
+      });
+      setRooms((prev) =>
+        prev.map((room) => (room.id === updatedRoom.id ? updatedRoom : room)),
+      );
+      setRoomToEdit(null);
+      toast.success(`อัปเดตห้อง #${updatedRoom.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'อัปเดตห้องไม่สำเร็จ');
+    } finally {
+      setIsUpdatingRoom(false);
+    }
+  };
+
+  const refreshRoomMembersDetail = async (roomId: string) => {
+    const roomDetail = await chatService.getRoomById(roomId);
+    setRoomMembersDetail(roomDetail);
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomDetail.id ? { ...room, memberCount: roomDetail.memberCount } : room,
+      ),
+    );
+  };
+
+  const handleAddRoomMember = async (userId: string) => {
+    if (!roomToManageMembers) return;
+
+    setProcessingRoomMemberUserId(userId);
+    try {
+      await chatService.addRoomMember(roomToManageMembers.id, userId);
+      await refreshRoomMembersDetail(roomToManageMembers.id);
+      toast.success('เพิ่มสมาชิกเข้าห้องสำเร็จ');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'เพิ่มสมาชิกเข้าห้องไม่สำเร็จ');
+    } finally {
+      setProcessingRoomMemberUserId(null);
+    }
+  };
+
+  const handleRemoveRoomMember = async (userId: string) => {
+    if (!roomToManageMembers) return;
+
+    setProcessingRoomMemberUserId(userId);
+    try {
+      await chatService.removeRoomMember(roomToManageMembers.id, userId);
+      await refreshRoomMembersDetail(roomToManageMembers.id);
+      toast.success('นำสมาชิกออกจากห้องสำเร็จ');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'นำสมาชิกออกจากห้องไม่สำเร็จ');
+    } finally {
+      setProcessingRoomMemberUserId(null);
+    }
+  };
+
+  const handleConfirmDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setIsDeletingRoom(true);
+    try {
+      await chatService.deleteRoom(roomToDelete.id);
+      setRooms((prev) => prev.filter((r) => r.id !== roomToDelete.id));
+      toast.success(`ลบห้อง #${roomToDelete.name} แล้ว`);
+      setRoomToDelete(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'ลบห้องไม่สำเร็จ');
+    } finally {
+      setIsDeletingRoom(false);
+    }
+  };
+
   useEffect(() => {
     if (activeSection !== 'users') {
       return;
@@ -141,6 +293,11 @@ export function ManagementPage() {
 
     void loadMembers();
   }, [activeSection, currentWorkspace?.id, user?.id]);
+
+  useEffect(() => {
+    if (activeSection !== 'rooms') return;
+    void loadRooms();
+  }, [activeSection, currentWorkspace?.id]);
 
   // ติดตาม online status ผ่าน socket (เฉพาะแท็บ users)
   useEffect(() => {
@@ -264,8 +421,25 @@ export function ManagementPage() {
 
         {activeSection === 'rooms' && (
           <RoomsTab
-            rooms={mockRooms}
+            rooms={rooms}
+            isLoading={roomsLoading}
             onCreateRoom={() => setShowCreateRoomDialog(true)}
+            onManageMembers={(roomId) => {
+              const room = rooms.find((r) => r.id === roomId);
+              if (!room) return;
+              setRoomToManageMembers(room);
+              setRoomMembersDetail(null);
+              setRoomMembersSearchQuery('');
+              void loadRoomMembersDialogData(room);
+            }}
+            onEditRoom={(roomId) => {
+              const room = rooms.find((r) => r.id === roomId);
+              if (room) setRoomToEdit(room);
+            }}
+            onDeleteRoom={(roomId) => {
+              const room = rooms.find((r) => r.id === roomId);
+              if (room) setRoomToDelete(room);
+            }}
           />
         )}
 
@@ -283,6 +457,65 @@ export function ManagementPage() {
       <CreateRoomDialog
         open={showCreateRoomDialog}
         onOpenChange={setShowCreateRoomDialog}
+        onSubmit={handleCreateRoom}
+        submitting={creatingRoom}
+      />
+      <ManageRoomMembersDialog
+        open={roomToManageMembers !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRoomToManageMembers(null);
+            setRoomMembersDetail(null);
+            setWorkspaceMembersForRoomDialog([]);
+            setRoomMembersSearchQuery('');
+            setProcessingRoomMemberUserId(null);
+          }
+        }}
+        room={roomToManageMembers}
+        roomMembers={(roomMembersDetail?.members ?? []) as RoomMemberResponse[]}
+        workspaceMembers={workspaceMembersForRoomDialog}
+        searchQuery={roomMembersSearchQuery}
+        onSearchChange={setRoomMembersSearchQuery}
+        loading={roomMembersLoading}
+        processingUserId={processingRoomMemberUserId}
+        onAddMember={handleAddRoomMember}
+        onRemoveMember={handleRemoveRoomMember}
+      />
+      <EditRoomDialog
+        open={roomToEdit !== null}
+        onOpenChange={(open) => {
+          if (!open && !isUpdatingRoom) {
+            setRoomToEdit(null);
+          }
+        }}
+        initialValues={
+          roomToEdit
+            ? {
+              name: roomToEdit.name,
+              description: roomToEdit.description,
+            }
+            : undefined
+        }
+        onSubmit={handleUpdateRoom}
+        submitting={isUpdatingRoom}
+      />
+      <ConfirmDialog
+        open={roomToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingRoom) setRoomToDelete(null);
+        }}
+        title="ลบห้องแชท"
+        description={
+          roomToDelete
+            ? `คุณต้องการลบห้อง #${roomToDelete.name} ใช่หรือไม่?`
+            : undefined
+        }
+        warningMessage="ข้อความทั้งหมดในห้องนี้จะถูกลบอย่างถาวร"
+        confirmLabel="ลบห้อง"
+        confirmVariant="destructive"
+        confirmIcon={<Hash className="size-4" />}
+        onConfirm={() => void handleConfirmDeleteRoom()}
+        loading={isDeletingRoom}
       />
       <CreateRoleDialog
         open={showCreateRoleDialog}

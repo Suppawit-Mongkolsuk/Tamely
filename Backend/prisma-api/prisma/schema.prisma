@@ -74,6 +74,7 @@ model User {
   Name         String // ชื่อ
   avatarUrl    String? // URL รูปโปรไฟล์ (nullable)
   bio          String? // คำอธิบายตัวเอง (nullable)
+  pushToken    String? // push token สำหรับ mobile/web push notification
   status       String    @default("active") // สถานะ: active, inactive, banned
   lastSeenAt   DateTime? // เวลาที่ออนไลน์ล่าสุด
 
@@ -199,10 +200,11 @@ model Room {
 //    ใช้ใน: ChatDetailPanel, InviteMemberDialog, RemoveMemberDialog
 // ======================================================
 model RoomMember {
-  id       String   @id @default(uuid()) @db.Uuid
-  roomId   String   @db.Uuid // FK → Room
-  userId   String   @db.Uuid // FK → User
-  joinedAt DateTime @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  roomId     String   @db.Uuid // FK → Room
+  userId     String   @db.Uuid // FK → User
+  joinedAt   DateTime @default(now())
+  lastReadAt DateTime @default(now()) // อ่านข้อความล่าสุดในห้องถึงเวลาไหนแล้ว
 
   // === Relations ===
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)

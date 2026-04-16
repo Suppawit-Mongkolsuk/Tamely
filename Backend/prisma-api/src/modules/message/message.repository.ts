@@ -94,6 +94,21 @@ export const findWorkspaceMember = async (workspaceId: string, userId: string) =
 export const findRoomMember = async (roomId: string, userId: string) => {
   return prisma.roomMember.findUnique({
     where: { roomId_userId: { roomId, userId } },
-    select: { roomId: true, userId: true },
+    select: { roomId: true, userId: true, lastReadAt: true },
+  });
+};
+
+export const updateRoomReadState = async (
+  roomId: string,
+  userId: string,
+  readAt: Date,
+) => {
+  return prisma.roomMember.updateMany({
+    where: {
+      roomId,
+      userId,
+      lastReadAt: { lt: readAt },
+    },
+    data: { lastReadAt: readAt },
   });
 };
