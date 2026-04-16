@@ -2,6 +2,7 @@ import { apiClient } from './api';
 import type {
   Workspace,
   WorkspaceMember,
+  CustomRole,
   CreateWorkspaceRequest,
   JoinWorkspaceRequest,
   InviteMemberRequest,
@@ -77,6 +78,55 @@ export const workspaceService = {
     const res = await apiClient.post<
       ApiSuccessResponse<{ id: string; inviteCode: string }>
     >(`/workspaces/${workspaceId}/regenerate-invite`);
+    return res.data;
+  },
+
+  async getCustomRoles(workspaceId: string): Promise<CustomRole[]> {
+    const res = await apiClient.get<ApiSuccessResponse<CustomRole[]>>(
+      `/workspaces/${workspaceId}/roles`,
+    );
+    return res.data;
+  },
+
+  async createCustomRole(
+    workspaceId: string,
+    data: { name: string; color?: string; permissions: string[] },
+  ): Promise<CustomRole> {
+    const res = await apiClient.post<ApiSuccessResponse<CustomRole>>(
+      `/workspaces/${workspaceId}/roles`,
+      data,
+    );
+    return res.data;
+  },
+
+  async updateCustomRole(
+    workspaceId: string,
+    roleId: string,
+    data: { name?: string; color?: string; permissions?: string[] },
+  ): Promise<CustomRole> {
+    const res = await apiClient.patch<ApiSuccessResponse<CustomRole>>(
+      `/workspaces/${workspaceId}/roles/${roleId}`,
+      data,
+    );
+    return res.data;
+  },
+
+  async deleteCustomRole(workspaceId: string, roleId: string): Promise<void> {
+    await apiClient.delete(`/workspaces/${workspaceId}/roles/${roleId}`);
+  },
+
+  async assignCustomRole(workspaceId: string, userId: string, roleId: string): Promise<void> {
+    await apiClient.post(`/workspaces/${workspaceId}/members/${userId}/roles`, { roleId });
+  },
+
+  async revokeCustomRole(workspaceId: string, userId: string, roleId: string): Promise<void> {
+    await apiClient.delete(`/workspaces/${workspaceId}/members/${userId}/roles/${roleId}`);
+  },
+
+  async getMemberCustomRoles(workspaceId: string, userId: string): Promise<CustomRole[]> {
+    const res = await apiClient.get<ApiSuccessResponse<CustomRole[]>>(
+      `/workspaces/${workspaceId}/members/${userId}/roles`,
+    );
     return res.data;
   },
 };

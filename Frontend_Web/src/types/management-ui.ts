@@ -1,11 +1,12 @@
 // ===== Management Page Types =====
-import type { WorkspaceMemberRole } from '@/types';
+import type { CustomRole, WorkspaceMemberRole } from '@/types';
 
 export interface TeamMember {
   id: string;
   name: string;
   email?: string;
   role: WorkspaceMemberRole;
+  customRoles?: CustomRole[];
   status?: 'active' | 'inactive';
   joinDate: string;
   avatar?: string;
@@ -24,9 +25,4 @@ export interface Room {
   created: string;
 }
 
-export interface Role {
-  id: string;
-  name: string;
-  color: string;
-  permissions: string[];
-}
+export type Role = CustomRole;

@@ -6,27 +6,25 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Check,
+  X,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { RoleBadge } from '@/components/common/RoleBadge';
-import type { TeamMember } from '@/types/management-ui';
+import type { Role, TeamMember } from '@/types/management-ui';
 import type { WorkspaceMemberRole } from '@/types';
 
 interface MembersTabProps {
@@ -37,6 +35,10 @@ interface MembersTabProps {
   onChangeRole?: (userId: string, role: WorkspaceMemberRole) => void;
   onRemoveMember?: (member: TeamMember) => void;
   canManageRoles?: boolean;
+  availableCustomRoles?: Role[];
+  onAssignCustomRole?: (userId: string, roleId: string) => void;
+  onRevokeCustomRole?: (userId: string, roleId: string) => void;
+  processingCustomRoleKey?: string | null;
   updatingRoleUserId?: string | null;
   removingUserId?: string | null;
   onlineStatus?: Record<string, boolean>;
@@ -64,6 +66,10 @@ export function MembersTab({
   onChangeRole,
   onRemoveMember,
   canManageRoles = false,
+  availableCustomRoles = [],
+  onAssignCustomRole,
+  onRevokeCustomRole,
+  processingCustomRoleKey = null,
   updatingRoleUserId = null,
   removingUserId = null,
   onlineStatus = {},
@@ -146,8 +152,18 @@ export function MembersTab({
                     Boolean(onRemoveMember) &&
                     member.role !== 'OWNER' &&
                     !member.isCurrentUser;
+                  const canManageCustomRolesForMember =
+                    canManageRoles &&
+                    member.role !== 'OWNER' &&
+                    !member.isCurrentUser;
 
                   const isOnline = onlineStatus[member.id] ?? false;
+                  const assignedCustomRoleIds = new Set(
+                    (member.customRoles ?? []).map((role) => role.id),
+                  );
+                  const assignableCustomRoles = availableCustomRoles.filter(
+                    (role) => !assignedCustomRoleIds.has(role.id),
+                  );
 
                   return (
                     <tr
@@ -182,7 +198,37 @@ export function MembersTab({
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <RoleBadge role={member.role} />
+                        <div className="space-y-2">
+                          <RoleBadge role={member.role} />
+                          <div className="flex flex-wrap gap-1.5">
+                            {/* assigned custom roles — กดที่ X เพื่อเอาออก */}
+                            {(member.customRoles ?? []).map((role) => {
+                              const revokeKey = `${member.id}:${role.id}:revoke`;
+                              return (
+                                <span
+                                  key={role.id}
+                                  className="inline-flex items-center gap-1 rounded-full border border-border bg-white px-2 py-1 text-xs text-muted-foreground"
+                                >
+                                  <span
+                                    className="size-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: role.color }}
+                                  />
+                                  {role.name}
+                                  {canManageCustomRolesForMember && (
+                                    <button
+                                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5 disabled:opacity-40"
+                                      disabled={processingCustomRoleKey === revokeKey}
+                                      onClick={() => onRevokeCustomRole?.(member.id, role.id)}
+                                      title={`เอา ${role.name} ออก`}
+                                    >
+                                      <X className="size-2.5" />
+                                    </button>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
@@ -213,32 +259,77 @@ export function MembersTab({
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
                           {member.role === 'OWNER' ? (
-                            <Button variant="outline" className="w-32 h-9" disabled>
+                            <Button variant="outline" className="w-36 h-9" disabled>
                               Owner
                             </Button>
                           ) : (
-                            <Select
-                              value={member.role}
-                              onValueChange={(role) =>
-                                onChangeRole?.(member.id, role as WorkspaceMemberRole)
-                              }
-                              disabled={!canEditRole || updatingRoleUserId === member.id}
-                            >
-                              <SelectTrigger className="w-32 h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-36 h-9 justify-between font-normal"
+                                  disabled={!canEditRole || updatingRoleUserId === member.id}
+                                >
+                                  {member.role === 'ADMIN'
+                                    ? 'Admin'
+                                    : member.role === 'MODERATOR'
+                                      ? 'Moderator'
+                                      : 'Member'}
+                                  <ChevronDown className="size-4 opacity-50" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                {/* Built-in roles */}
                                 {editableRoles.map((role) => (
-                                  <SelectItem key={role} value={role}>
+                                  <DropdownMenuItem
+                                    key={role}
+                                    onClick={() => onChangeRole?.(member.id, role)}
+                                    className="justify-between"
+                                  >
                                     {role === 'ADMIN'
                                       ? 'Admin'
                                       : role === 'MODERATOR'
                                         ? 'Moderator'
                                         : 'Member'}
-                                  </SelectItem>
+                                    {member.role === role && <Check className="size-4" />}
+                                  </DropdownMenuItem>
                                 ))}
-                              </SelectContent>
-                            </Select>
+                                {/* Custom roles */}
+                                {availableCustomRoles.length > 0 && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                                      Custom Roles
+                                    </DropdownMenuLabel>
+                                    {availableCustomRoles.map((role) => {
+                                      const isAssigned = assignedCustomRoleIds.has(role.id);
+                                      const actionKey = `${member.id}:${role.id}:${isAssigned ? 'revoke' : 'assign'}`;
+                                      return (
+                                        <DropdownMenuItem
+                                          key={role.id}
+                                          disabled={processingCustomRoleKey === actionKey}
+                                          onClick={() =>
+                                            isAssigned
+                                              ? onRevokeCustomRole?.(member.id, role.id)
+                                              : onAssignCustomRole?.(member.id, role.id)
+                                          }
+                                          className="justify-between"
+                                        >
+                                          <span className="flex items-center gap-2">
+                                            <span
+                                              className="size-2 rounded-full shrink-0"
+                                              style={{ backgroundColor: role.color }}
+                                            />
+                                            {role.name}
+                                          </span>
+                                          {isAssigned && <Check className="size-4" />}
+                                        </DropdownMenuItem>
+                                      );
+                                    })}
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                           {canRemoveMember ? (
                             <DropdownMenu>
@@ -246,7 +337,10 @@ export function MembersTab({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  disabled={removingUserId === member.id}
+                                  disabled={
+                                    removingUserId === member.id ||
+                                    updatingRoleUserId === member.id
+                                  }
                                 >
                                   <MoreVertical className="size-4" />
                                 </Button>

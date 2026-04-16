@@ -253,7 +253,7 @@ export const initSocketIO = (httpServer: HttpServer, allowedOrigins: string[]) =
             userId,
             data.content,
           );
-          io.to(data.roomId).emit('message_received', message);
+          io.to(data.roomId).emit('message_received', { ...message, roomId: data.roomId });
           callback?.({ success: true, data: message });
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Send failed';

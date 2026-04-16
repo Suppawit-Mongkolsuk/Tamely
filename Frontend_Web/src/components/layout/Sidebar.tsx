@@ -15,6 +15,7 @@ import {
 import { useAuthContext } from '@/contexts';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useUnreadDMs } from '@/hooks';
+import { canAny, canDo, PERMISSIONS } from '@/lib/permissions';
 
 const navigation = [
   { id: 'home', path: '/home', name: 'Home / Feed', icon: Home },
@@ -56,8 +57,24 @@ export function Sidebar({ isOpen, isMobile = false, onNavigate }: SidebarProps) 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     management: location.pathname.startsWith('/management'),
   });
-  const canAccessManagement =
-    currentWorkspace?.role === 'OWNER' || currentWorkspace?.role === 'ADMIN';
+  const canAccessManagement = canAny(currentWorkspace, [
+    PERMISSIONS.MANAGE_MEMBERS,
+    PERMISSIONS.MANAGE_CHANNELS,
+    PERMISSIONS.MANAGE_WORKSPACE,
+    PERMISSIONS.MANAGE_ROLES,
+    PERMISSIONS.REGENERATE_INVITE,
+  ]);
+
+  // filter sub-items ตาม permission ของแต่ละคน
+  const visibleManagementChildren = [
+    canDo(currentWorkspace, PERMISSIONS.MANAGE_MEMBERS) && 'management-members',
+    canDo(currentWorkspace, PERMISSIONS.MANAGE_CHANNELS) && 'management-rooms',
+    canAny(currentWorkspace, [
+      PERMISSIONS.MANAGE_WORKSPACE,
+      PERMISSIONS.MANAGE_ROLES,
+      PERMISSIONS.REGENERATE_INVITE,
+    ]) && 'management-workspace',
+  ].filter(Boolean) as string[];
 
   const displayName = user?.displayName ?? 'User';
   const initials = displayName
@@ -136,7 +153,9 @@ export function Sidebar({ isOpen, isMobile = false, onNavigate }: SidebarProps) 
 
                 {isExpanded && (
                   <div className="ml-6 pl-3 border-l border-white/10 space-y-1">
-                    {item.children!.map((child) => {
+                    {item.children!.filter((child) =>
+                      item.id !== 'management' || visibleManagementChildren.includes(child.id)
+                    ).map((child) => {
                       const ChildIcon = child.icon;
                       const isChildActive = location.pathname === child.path;
 

@@ -14,6 +14,7 @@ import { PrismaClient } from '@prisma/client';
 import authRoutes from './modules/auth/auth.routes';
 import oauthRoutes from './modules/oauth/oauth.routes';
 import workspaceRoutes from './modules/workspace/workspace.routes';
+import customRoleRoutes from './modules/custom-role/custom-role.routes';
 import roomRoutes from './modules/room/room.routes';
 import messageRoutes from './modules/message/message.routes';
 import postRoutes from './modules/post/post.routes';
@@ -109,6 +110,7 @@ app.get('/api/turn-credentials', async (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/workspaces', workspaceRoutes);
+app.use('/api', customRoleRoutes);
 app.use('/api', roomRoutes);
 app.use('/api', messageRoutes);
 app.use('/api', postRoutes);

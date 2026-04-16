@@ -66,7 +66,15 @@ export const create = async (
 export const findById = async (messageId: string) => {
   return prisma.message.findUnique({
     where: { id: messageId },
-    select: { id: true, senderId: true },
+    select: {
+      id: true,
+      senderId: true,
+      room: {
+        select: {
+          workspaceId: true,
+        },
+      },
+    },
   });
 };
 
@@ -81,7 +89,7 @@ export const remove = async (messageId: string) => {
 export const findRoom = async (roomId: string) => {
   return prisma.room.findUnique({
     where: { id: roomId },
-    select: { id: true },
+    select: { id: true, workspaceId: true },
   });
 };
 
@@ -94,6 +102,21 @@ export const findWorkspaceMember = async (workspaceId: string, userId: string) =
 export const findRoomMember = async (roomId: string, userId: string) => {
   return prisma.roomMember.findUnique({
     where: { roomId_userId: { roomId, userId } },
-    select: { roomId: true, userId: true },
+    select: { roomId: true, userId: true, lastReadAt: true },
+  });
+};
+
+export const updateRoomReadState = async (
+  roomId: string,
+  userId: string,
+  readAt: Date,
+) => {
+  return prisma.roomMember.updateMany({
+    where: {
+      roomId,
+      userId,
+      lastReadAt: { lt: readAt },
+    },
+    data: { lastReadAt: readAt },
   });
 };

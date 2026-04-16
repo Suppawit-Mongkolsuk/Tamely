@@ -2,20 +2,28 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { connectSocket } from '@/lib/socket';
-import { Users, Hash, Settings, UserMinus } from 'lucide-react';
+import { Users, Hash, Settings, UserMinus, ShieldOff } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { MembersTab } from '@/components/management/MembersTab';
 import { RoomsTab } from '@/components/management/RoomsTab';
 import { WorkspaceSettingsTab } from '@/components/management/WorkspaceSettingsTab';
-import { CreateRoomDialog, CreateRoleDialog } from '@/components/management/Dialogs';
+import {
+  CreateRoomDialog,
+  CreateRoleDialog,
+  EditRoleDialog,
+  EditRoomDialog,
+  ManageRoomMembersDialog,
+} from '@/components/management/Dialogs';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { workspaceService } from '@/services';
-import { mockRooms, mockRoles } from '@/mocks/management';
+import { chatService } from '@/services/chat.service';
+import { canDo, PERMISSIONS } from '@/lib/permissions';
 import { toast } from 'sonner';
 import type { Workspace, WorkspaceMember, WorkspaceMemberRole } from '@/types';
-import type { TeamMember } from '@/types/management-ui';
+import type { Role, TeamMember } from '@/types/management-ui';
+import type { RoomMemberResponse, RoomResponse } from '@/services/chat.service';
 
 type ManagementSection = 'users' | 'rooms' | 'workspace';
 
@@ -34,6 +42,8 @@ function mapWorkspaceMember(
     id: member.userId,
     name: member.user.Name,
     role: member.role,
+    email: member.user.email,
+    customRoles: member.customRoles,
     status: 'active',
     joinDate: formatMemberJoinDate(member.joinedAt),
     avatarUrl: member.user.avatarUrl,
@@ -48,6 +58,19 @@ export function ManagementPage() {
   const { user } = useAuthContext();
   const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
   const [showCreateRoleDialog, setShowCreateRoleDialog] = useState(false);
+  const [rooms, setRooms] = useState<RoomResponse[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [creatingRoom, setCreatingRoom] = useState(false);
+  const [roomToManageMembers, setRoomToManageMembers] = useState<RoomResponse | null>(null);
+  const [roomMembersDetail, setRoomMembersDetail] = useState<RoomResponse | null>(null);
+  const [roomMembersSearchQuery, setRoomMembersSearchQuery] = useState('');
+  const [workspaceMembersForRoomDialog, setWorkspaceMembersForRoomDialog] = useState<WorkspaceMember[]>([]);
+  const [roomMembersLoading, setRoomMembersLoading] = useState(false);
+  const [processingRoomMemberUserId, setProcessingRoomMemberUserId] = useState<string | null>(null);
+  const [roomToEdit, setRoomToEdit] = useState<RoomResponse | null>(null);
+  const [isUpdatingRoom, setIsUpdatingRoom] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<RoomResponse | null>(null);
+  const [isDeletingRoom, setIsDeletingRoom] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
@@ -55,6 +78,14 @@ export function ManagementPage() {
   const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [onlineStatus, setOnlineStatus] = useState<Record<string, boolean>>({});
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [creatingRole, setCreatingRole] = useState(false);
+  const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [isDeletingRole, setIsDeletingRole] = useState(false);
+  const [processingCustomRoleKey, setProcessingCustomRoleKey] = useState<string | null>(null);
 
   const sections: Array<{
     id: ManagementSection;
@@ -93,9 +124,10 @@ export function ManagementPage() {
       : 'users';
   const activeItem = sections.find((section) => section.id === activeSection) ?? sections[0];
   const ActiveIcon = activeItem.icon;
-  const canManageMembers =
-    currentWorkspace?.role === 'OWNER' || currentWorkspace?.role === 'ADMIN';
-  const canManageRoles = currentWorkspace?.role === 'OWNER';
+  const canManageMembers = canDo(currentWorkspace, PERMISSIONS.MANAGE_MEMBERS);
+  const canManageRoles = canDo(currentWorkspace, PERMISSIONS.MANAGE_ROLES);
+  const canManageWorkspace = canDo(currentWorkspace, PERMISSIONS.MANAGE_WORKSPACE);
+  const canRegenerateInvite = canDo(currentWorkspace, PERMISSIONS.REGENERATE_INVITE);
 
   const handleWorkspaceUpdated = (updated: Workspace) => {
     updateCurrentWorkspace(updated);
@@ -134,6 +166,155 @@ export function ManagementPage() {
     }
   };
 
+  const loadRoles = async () => {
+    if (!currentWorkspace) {
+      setRoles([]);
+      return;
+    }
+
+    setRolesLoading(true);
+    try {
+      const data = await workspaceService.getCustomRoles(currentWorkspace.id);
+      setRoles(data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'โหลด custom roles ไม่สำเร็จ');
+    } finally {
+      setRolesLoading(false);
+    }
+  };
+
+  const loadRooms = async () => {
+    if (!currentWorkspace) return;
+    setRoomsLoading(true);
+    try {
+      const data = await chatService.getManagementRooms(currentWorkspace.id);
+      setRooms(data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'โหลดห้องไม่สำเร็จ');
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
+  const loadRoomMembersDialogData = async (room: RoomResponse) => {
+    if (!currentWorkspace) return;
+
+    setRoomMembersLoading(true);
+    try {
+      const [roomDetail, workspaceMembersData] = await Promise.all([
+        chatService.getRoomById(room.id),
+        workspaceService.getMembers(currentWorkspace.id),
+      ]);
+      setRoomMembersDetail(roomDetail);
+      setWorkspaceMembersForRoomDialog(workspaceMembersData);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'โหลดสมาชิกในห้องไม่สำเร็จ');
+      setRoomToManageMembers(null);
+      setRoomMembersDetail(null);
+    } finally {
+      setRoomMembersLoading(false);
+    }
+  };
+
+  const handleCreateRoom = async (
+    data: { name: string; description?: string | null },
+  ) => {
+    if (!currentWorkspace) return;
+    setCreatingRoom(true);
+    try {
+      const newRoom = await chatService.createRoom(currentWorkspace.id, {
+        name: data.name,
+        description: data.description ?? undefined,
+        isPrivate: false,
+      });
+      setRooms((prev) => [newRoom, ...prev]);
+      setShowCreateRoomDialog(false);
+      toast.success(`สร้างห้อง #${newRoom.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'สร้างห้องไม่สำเร็จ');
+    } finally {
+      setCreatingRoom(false);
+    }
+  };
+
+  const handleUpdateRoom = async (
+    data: { name: string; description?: string | null },
+  ) => {
+    if (!roomToEdit) return;
+
+    setIsUpdatingRoom(true);
+    try {
+      const updatedRoom = await chatService.updateRoom(roomToEdit.id, {
+        name: data.name,
+        description: data.description ?? undefined,
+      });
+      setRooms((prev) =>
+        prev.map((room) => (room.id === updatedRoom.id ? updatedRoom : room)),
+      );
+      setRoomToEdit(null);
+      toast.success(`อัปเดตห้อง #${updatedRoom.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'อัปเดตห้องไม่สำเร็จ');
+    } finally {
+      setIsUpdatingRoom(false);
+    }
+  };
+
+  const refreshRoomMembersDetail = async (roomId: string) => {
+    const roomDetail = await chatService.getRoomById(roomId);
+    setRoomMembersDetail(roomDetail);
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomDetail.id ? { ...room, memberCount: roomDetail.memberCount } : room,
+      ),
+    );
+  };
+
+  const handleAddRoomMember = async (userId: string) => {
+    if (!roomToManageMembers) return;
+
+    setProcessingRoomMemberUserId(userId);
+    try {
+      await chatService.addRoomMember(roomToManageMembers.id, userId);
+      await refreshRoomMembersDetail(roomToManageMembers.id);
+      toast.success('เพิ่มสมาชิกเข้าห้องสำเร็จ');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'เพิ่มสมาชิกเข้าห้องไม่สำเร็จ');
+    } finally {
+      setProcessingRoomMemberUserId(null);
+    }
+  };
+
+  const handleRemoveRoomMember = async (userId: string) => {
+    if (!roomToManageMembers) return;
+
+    setProcessingRoomMemberUserId(userId);
+    try {
+      await chatService.removeRoomMember(roomToManageMembers.id, userId);
+      await refreshRoomMembersDetail(roomToManageMembers.id);
+      toast.success('นำสมาชิกออกจากห้องสำเร็จ');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'นำสมาชิกออกจากห้องไม่สำเร็จ');
+    } finally {
+      setProcessingRoomMemberUserId(null);
+    }
+  };
+
+  const handleConfirmDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setIsDeletingRoom(true);
+    try {
+      await chatService.deleteRoom(roomToDelete.id);
+      setRooms((prev) => prev.filter((r) => r.id !== roomToDelete.id));
+      toast.success(`ลบห้อง #${roomToDelete.name} แล้ว`);
+      setRoomToDelete(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'ลบห้องไม่สำเร็จ');
+    } finally {
+      setIsDeletingRoom(false);
+    }
+  };
+
   useEffect(() => {
     if (activeSection !== 'users') {
       return;
@@ -141,6 +322,16 @@ export function ManagementPage() {
 
     void loadMembers();
   }, [activeSection, currentWorkspace?.id, user?.id]);
+
+  useEffect(() => {
+    if (activeSection !== 'rooms') return;
+    void loadRooms();
+  }, [activeSection, currentWorkspace?.id]);
+
+  useEffect(() => {
+    if (activeSection !== 'workspace' && activeSection !== 'users') return;
+    void loadRoles();
+  }, [activeSection, currentWorkspace?.id]);
 
   // ติดตาม online status ผ่าน socket (เฉพาะแท็บ users)
   useEffect(() => {
@@ -222,6 +413,119 @@ export function ManagementPage() {
     }
   };
 
+  const handleAssignCustomRole = async (userId: string, roleId: string) => {
+    if (!currentWorkspace) return;
+
+    const role = roles.find((item) => item.id === roleId);
+    if (!role) return;
+
+    const actionKey = `${userId}:${roleId}:assign`;
+    setProcessingCustomRoleKey(actionKey);
+    try {
+      await workspaceService.assignCustomRole(currentWorkspace.id, userId, roleId);
+      setMembers((prev) =>
+        prev.map((member) =>
+          member.id === userId
+            ? {
+                ...member,
+                customRoles: [...(member.customRoles ?? []), role].sort(
+                  (a, b) => b.position - a.position,
+                ),
+              }
+            : member,
+        ),
+      );
+      toast.success(`เพิ่มยศ ${role.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'เพิ่ม custom role ไม่สำเร็จ');
+    } finally {
+      setProcessingCustomRoleKey(null);
+    }
+  };
+
+  const handleRevokeCustomRole = async (userId: string, roleId: string) => {
+    if (!currentWorkspace) return;
+
+    const role = roles.find((item) => item.id === roleId);
+    if (!role) return;
+
+    const actionKey = `${userId}:${roleId}:revoke`;
+    setProcessingCustomRoleKey(actionKey);
+    try {
+      await workspaceService.revokeCustomRole(currentWorkspace.id, userId, roleId);
+      setMembers((prev) =>
+        prev.map((member) =>
+          member.id === userId
+            ? {
+                ...member,
+                customRoles: (member.customRoles ?? []).filter((item) => item.id !== roleId),
+              }
+            : member,
+        ),
+      );
+      toast.success(`นำยศ ${role.name} ออกแล้ว`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'เอา custom role ออกไม่สำเร็จ');
+    } finally {
+      setProcessingCustomRoleKey(null);
+    }
+  };
+
+  const handleConfirmDeleteRole = async () => {
+    if (!currentWorkspace || !roleToDelete) return;
+    setIsDeletingRole(true);
+    try {
+      await workspaceService.deleteCustomRole(currentWorkspace.id, roleToDelete.id);
+      setRoles((prev) => prev.filter((r) => r.id !== roleToDelete.id));
+      toast.success(`ลบยศ ${roleToDelete.name} แล้ว`);
+      setRoleToDelete(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'ลบยศไม่สำเร็จ');
+    } finally {
+      setIsDeletingRole(false);
+    }
+  };
+
+  const handleCreateRole = async (data: {
+    name: string;
+    color: string;
+    permissions: string[];
+  }) => {
+    if (!currentWorkspace) return;
+
+    setCreatingRole(true);
+    try {
+      const role = await workspaceService.createCustomRole(currentWorkspace.id, data);
+      setRoles((prev) => [role, ...prev]);
+      setShowCreateRoleDialog(false);
+      toast.success(`สร้างยศ ${role.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'สร้างยศไม่สำเร็จ');
+    } finally {
+      setCreatingRole(false);
+    }
+  };
+
+  const handleUpdateRole = async (data: {
+    name: string;
+    color: string;
+    permissions: string[];
+  }) => {
+    if (!currentWorkspace || !roleToEdit) return;
+
+    setIsUpdatingRole(true);
+    try {
+      const updated = await workspaceService.updateCustomRole(currentWorkspace.id, roleToEdit.id, data);
+      setRoles((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setRoleToEdit(null);
+      toast.success(`อัปเดตยศ ${updated.name} สำเร็จ`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'อัปเดตยศไม่สำเร็จ');
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
+
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -256,6 +560,10 @@ export function ManagementPage() {
             onChangeRole={(userId, role) => void handleChangeMemberRole(userId, role)}
             onRemoveMember={canManageMembers ? setMemberToRemove : undefined}
             canManageRoles={canManageRoles}
+            availableCustomRoles={roles}
+            onAssignCustomRole={canManageRoles ? handleAssignCustomRole : undefined}
+            onRevokeCustomRole={canManageRoles ? handleRevokeCustomRole : undefined}
+            processingCustomRoleKey={processingCustomRoleKey}
             updatingRoleUserId={updatingRoleUserId}
             removingUserId={isRemovingMember ? memberToRemove?.id ?? null : null}
             onlineStatus={onlineStatus}
@@ -264,17 +572,39 @@ export function ManagementPage() {
 
         {activeSection === 'rooms' && (
           <RoomsTab
-            rooms={mockRooms}
+            rooms={rooms}
+            isLoading={roomsLoading}
             onCreateRoom={() => setShowCreateRoomDialog(true)}
+            onManageMembers={(roomId) => {
+              const room = rooms.find((r) => r.id === roomId);
+              if (!room) return;
+              setRoomToManageMembers(room);
+              setRoomMembersDetail(null);
+              setRoomMembersSearchQuery('');
+              void loadRoomMembersDialogData(room);
+            }}
+            onEditRoom={(roomId) => {
+              const room = rooms.find((r) => r.id === roomId);
+              if (room) setRoomToEdit(room);
+            }}
+            onDeleteRoom={(roomId) => {
+              const room = rooms.find((r) => r.id === roomId);
+              if (room) setRoomToDelete(room);
+            }}
           />
         )}
 
         {activeSection === 'workspace' && (
           <WorkspaceSettingsTab
-            roles={mockRoles}
+            roles={roles}
             workspace={currentWorkspace}
             onCreateRole={() => setShowCreateRoleDialog(true)}
+            onEditRole={(role) => setRoleToEdit(role)}
+            onDeleteRole={(role) => setRoleToDelete(role)}
             onWorkspaceUpdated={handleWorkspaceUpdated}
+            canManageWorkspace={canManageWorkspace}
+            canManageRoles={canManageRoles}
+            canRegenerateInvite={canRegenerateInvite}
           />
         )}
       </div>
@@ -283,10 +613,104 @@ export function ManagementPage() {
       <CreateRoomDialog
         open={showCreateRoomDialog}
         onOpenChange={setShowCreateRoomDialog}
+        onSubmit={handleCreateRoom}
+        submitting={creatingRoom}
+      />
+      <ManageRoomMembersDialog
+        open={roomToManageMembers !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRoomToManageMembers(null);
+            setRoomMembersDetail(null);
+            setWorkspaceMembersForRoomDialog([]);
+            setRoomMembersSearchQuery('');
+            setProcessingRoomMemberUserId(null);
+          }
+        }}
+        room={roomToManageMembers}
+        roomMembers={(roomMembersDetail?.members ?? []) as RoomMemberResponse[]}
+        workspaceMembers={workspaceMembersForRoomDialog}
+        searchQuery={roomMembersSearchQuery}
+        onSearchChange={setRoomMembersSearchQuery}
+        loading={roomMembersLoading}
+        processingUserId={processingRoomMemberUserId}
+        onAddMember={handleAddRoomMember}
+        onRemoveMember={handleRemoveRoomMember}
+      />
+      <EditRoomDialog
+        open={roomToEdit !== null}
+        onOpenChange={(open) => {
+          if (!open && !isUpdatingRoom) {
+            setRoomToEdit(null);
+          }
+        }}
+        initialValues={
+          roomToEdit
+            ? {
+              name: roomToEdit.name,
+              description: roomToEdit.description,
+            }
+            : undefined
+        }
+        onSubmit={handleUpdateRoom}
+        submitting={isUpdatingRoom}
+      />
+      <ConfirmDialog
+        open={roomToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingRoom) setRoomToDelete(null);
+        }}
+        title="ลบห้องแชท"
+        description={
+          roomToDelete
+            ? `คุณต้องการลบห้อง #${roomToDelete.name} ใช่หรือไม่?`
+            : undefined
+        }
+        warningMessage="ข้อความทั้งหมดในห้องนี้จะถูกลบอย่างถาวร"
+        confirmLabel="ลบห้อง"
+        confirmVariant="destructive"
+        confirmIcon={<Hash className="size-4" />}
+        onConfirm={() => void handleConfirmDeleteRoom()}
+        loading={isDeletingRoom}
       />
       <CreateRoleDialog
         open={showCreateRoleDialog}
         onOpenChange={setShowCreateRoleDialog}
+        onSubmit={handleCreateRole}
+        submitting={creatingRole || rolesLoading}
+      />
+      <EditRoleDialog
+        open={roleToEdit !== null}
+        onOpenChange={(open) => {
+          if (!open && !isUpdatingRole) setRoleToEdit(null);
+        }}
+        initialValues={
+          roleToEdit
+            ? {
+                name: roleToEdit.name,
+                color: roleToEdit.color,
+                permissions: roleToEdit.permissions,
+              }
+            : undefined
+        }
+        onSubmit={handleUpdateRole}
+        submitting={isUpdatingRole}
+      />
+      <ConfirmDialog
+        open={roleToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingRole) setRoleToDelete(null);
+        }}
+        title="ลบยศ"
+        description={
+          roleToDelete ? `คุณต้องการลบยศ "${roleToDelete.name}" ใช่หรือไม่?` : undefined
+        }
+        warningMessage="สมาชิกที่มียศนี้จะสูญเสียสิทธิ์ที่ได้รับจากยศนี้ทันที"
+        confirmLabel="ลบยศ"
+        confirmVariant="destructive"
+        confirmIcon={<ShieldOff className="size-4" />}
+        onConfirm={() => void handleConfirmDeleteRole()}
+        loading={isDeletingRole}
       />
       <ConfirmDialog
         open={memberToRemove !== null}

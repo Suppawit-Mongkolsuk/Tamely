@@ -18,6 +18,7 @@ const client_1 = require("@prisma/client");
 const auth_routes_1 = __importDefault(require("./modules/auth/auth.routes"));
 const oauth_routes_1 = __importDefault(require("./modules/oauth/oauth.routes"));
 const workspace_routes_1 = __importDefault(require("./modules/workspace/workspace.routes"));
+const custom_role_routes_1 = __importDefault(require("./modules/custom-role/custom-role.routes"));
 const room_routes_1 = __importDefault(require("./modules/room/room.routes"));
 const message_routes_1 = __importDefault(require("./modules/message/message.routes"));
 const post_routes_1 = __importDefault(require("./modules/post/post.routes"));
@@ -103,6 +104,7 @@ app.get('/api/turn-credentials', async (_req, res) => {
 app.use('/api/auth', auth_routes_1.default);
 app.use('/api/oauth', oauth_routes_1.default);
 app.use('/api/workspaces', workspace_routes_1.default);
+app.use('/api', custom_role_routes_1.default);
 app.use('/api', room_routes_1.default);
 app.use('/api', message_routes_1.default);
 app.use('/api', post_routes_1.default);

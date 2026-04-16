@@ -1,5 +1,7 @@
 import { WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
+import { PERMISSIONS } from '../../types/permissions';
+import { getUserPermissionsArray, hasPermission } from '../../utils/permissions';
 import {
   TypePayloadCreateWorkspace,
   TypePayloadUpdateWorkspace,
@@ -13,7 +15,12 @@ export const createWorkspace = async (
   ownerId: string,
   data: TypePayloadCreateWorkspace,
 ) => {
-  return workspaceRepository.create(ownerId, data);
+  const workspace = await workspaceRepository.create(ownerId, data);
+  return {
+    ...workspace,
+    role: WorkspaceRole.OWNER,
+    myPermissions: await getUserPermissionsArray(workspace.id, ownerId),
+  };
 };
 
 /* ======================= READ ======================= */
@@ -21,26 +28,34 @@ export const createWorkspace = async (
 export const getUserWorkspaces = async (userId: string) => {
   const memberships = await workspaceRepository.findMembershipsByUser(userId);
 
-  return memberships.map((m) => ({
-    ...m.workspace,
-    role: m.role,
-    joinedAt: m.joinedAt,
-    memberCount: m.workspace._count.members,
-    roomCount: m.workspace._count.rooms,
-  }));
+  return Promise.all(
+    memberships.map(async (m) => ({
+      ...m.workspace,
+      role: m.role,
+      joinedAt: m.joinedAt,
+      memberCount: m.workspace._count.members,
+      roomCount: m.workspace._count.rooms,
+      myPermissions: await getUserPermissionsArray(m.workspace.id, userId),
+    })),
+  );
 };
 
 export const getWorkspaceById = async (
   workspaceId: string,
   userId: string,
 ) => {
-  const member = await workspaceRepository.findWorkspaceMember(workspaceId, userId);
+  const member = await workspaceRepository.findWorkspaceMemberDetailed(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
   const workspace = await workspaceRepository.findById(workspaceId);
   if (!workspace) throw new AppError(404, 'Workspace not found');
 
-  return { ...workspace, role: member.role };
+  return {
+    ...workspace,
+    role: member.role,
+    myPermissions: await getUserPermissionsArray(workspaceId, userId),
+    myCustomRoles: member.user.customRoles.map((item) => item.customRole),
+  };
 };
 
 /* ======================= UPDATE ======================= */
@@ -50,15 +65,23 @@ export const updateWorkspace = async (
   userId: string,
   data: TypePayloadUpdateWorkspace,
 ) => {
-  const member = await workspaceRepository.findWorkspaceMember(workspaceId, userId);
-  if (
-    !member ||
-    (member.role !== WorkspaceRole.OWNER && member.role !== WorkspaceRole.ADMIN)
-  ) {
-    throw new AppError(403, 'Only owner or admin can update workspace');
+  const member = await workspaceRepository.findWorkspaceMemberDetailed(workspaceId, userId);
+  if (!member) {
+    throw new AppError(403, 'You are not a member of this workspace');
   }
 
-  return workspaceRepository.update(workspaceId, data);
+  const allowed = await hasPermission(workspaceId, userId, PERMISSIONS.MANAGE_WORKSPACE);
+  if (!allowed) {
+    throw new AppError(403, 'Insufficient permissions');
+  }
+
+  const updatedWorkspace = await workspaceRepository.update(workspaceId, data);
+  return {
+    ...updatedWorkspace,
+    role: member.role,
+    myPermissions: await getUserPermissionsArray(workspaceId, userId),
+    myCustomRoles: member.user.customRoles.map((item) => item.customRole),
+  };
 };
 
 /* ======================= DELETE ======================= */
@@ -82,7 +105,11 @@ export const getMembers = async (workspaceId: string, userId: string) => {
   const member = await workspaceRepository.findWorkspaceMember(workspaceId, userId);
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
 
-  return workspaceRepository.findAllMembers(workspaceId);
+  const members = await workspaceRepository.findAllMembers(workspaceId);
+  return members.map((workspaceMember) => ({
+    ...workspaceMember,
+    customRoles: workspaceMember.user.customRoles.map((item) => item.customRole),
+  }));
 };
 
 export const addMemberByEmail = async (
@@ -92,12 +119,13 @@ export const addMemberByEmail = async (
   role: WorkspaceRole = WorkspaceRole.MEMBER,
 ) => {
   const requester = await workspaceRepository.findWorkspaceMember(workspaceId, requesterId);
-  if (
-    !requester ||
-    (requester.role !== WorkspaceRole.OWNER &&
-      requester.role !== WorkspaceRole.ADMIN)
-  ) {
-    throw new AppError(403, 'Only owner or admin can add members');
+  if (!requester) {
+    throw new AppError(403, 'You are not a member of this workspace');
+  }
+
+  const allowed = await hasPermission(workspaceId, requesterId, PERMISSIONS.MANAGE_MEMBERS);
+  if (!allowed) {
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   const user = await workspaceRepository.findUserByEmail(email);
@@ -121,7 +149,11 @@ export const joinByInviteCode = async (
 
   await workspaceRepository.createMember(workspace.id, userId, WorkspaceRole.MEMBER);
 
-  return workspace;
+  return {
+    ...workspace,
+    role: WorkspaceRole.MEMBER,
+    myPermissions: await getUserPermissionsArray(workspace.id, userId),
+  };
 };
 
 export const removeMember = async (
@@ -138,12 +170,13 @@ export const removeMember = async (
 
   if (requesterId !== targetUserId) {
     const requester = await workspaceRepository.findWorkspaceMember(workspaceId, requesterId);
-    if (
-      !requester ||
-      (requester.role !== WorkspaceRole.OWNER &&
-        requester.role !== WorkspaceRole.ADMIN)
-    ) {
-      throw new AppError(403, 'Only owner or admin can remove members');
+    if (!requester) {
+      throw new AppError(403, 'You are not a member of this workspace');
+    }
+
+    const allowed = await hasPermission(workspaceId, requesterId, PERMISSIONS.MANAGE_MEMBERS);
+    if (!allowed) {
+      throw new AppError(403, 'Insufficient permissions');
     }
   }
 
@@ -159,8 +192,14 @@ export const updateMemberRole = async (
   const workspace = await workspaceRepository.findByIdSimple(workspaceId);
   if (!workspace) throw new AppError(404, 'Workspace not found');
 
-  if (workspace.ownerId !== requesterId) {
-    throw new AppError(403, 'Only the owner can change member roles');
+  const requester = await workspaceRepository.findWorkspaceMember(workspaceId, requesterId);
+  if (!requester) {
+    throw new AppError(403, 'You are not a member of this workspace');
+  }
+
+  const allowed = await hasPermission(workspaceId, requesterId, PERMISSIONS.MANAGE_MEMBERS);
+  if (!allowed) {
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   if (targetUserId === workspace.ownerId) {
@@ -176,8 +215,15 @@ export const regenerateInviteCode = async (
 ) => {
   const workspace = await workspaceRepository.findByIdSimple(workspaceId);
   if (!workspace) throw new AppError(404, 'Workspace not found');
-  if (workspace.ownerId !== userId) {
-    throw new AppError(403, 'Only the owner can regenerate the invite code');
+
+  const member = await workspaceRepository.findWorkspaceMember(workspaceId, userId);
+  if (!member) {
+    throw new AppError(403, 'You are not a member of this workspace');
+  }
+
+  const allowed = await hasPermission(workspaceId, userId, PERMISSIONS.REGENERATE_INVITE);
+  if (!allowed) {
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   const crypto = await import('crypto');

@@ -11,6 +11,8 @@ import {
   Info,
   Phone,
   Trash2,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -115,6 +117,8 @@ interface ChatWindowProps {
   onClearChat?: () => Promise<void>;
   disableCallActions?: boolean;
   workspaceId?: string;
+  isMuted?: boolean;
+  onToggleMute?: () => void;
 }
 
 export function ChatWindow({
@@ -137,6 +141,8 @@ export function ChatWindow({
   onClearChat,
   disableCallActions = false,
   workspaceId,
+  isMuted = false,
+  onToggleMute,
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -326,7 +332,22 @@ export function ChatWindow({
                 <MoreVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuContent align="end" className="w-48">
+              {onToggleMute && (
+                <DropdownMenuItem onClick={onToggleMute}>
+                  {isMuted ? (
+                    <>
+                      <Bell className="size-3.5 mr-2" />
+                      เปิดการแจ้งเตือน
+                    </>
+                  ) : (
+                    <>
+                      <BellOff className="size-3.5 mr-2" />
+                      ปิดการแจ้งเตือน
+                    </>
+                  )}
+                </DropdownMenuItem>
+              )}
               {activeTab === 'dms' && onClearChat && (
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"

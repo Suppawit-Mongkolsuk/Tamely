@@ -6,6 +6,7 @@ import { Suspense, lazy } from 'react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useAuthContext } from '@/contexts';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
+import { canAny, PERMISSIONS } from '@/lib/permissions';
 
 const LandingPage = lazy(() =>
   import('@/Pages/LandingPage').then((m) => ({ default: m.LandingPage })),
@@ -66,7 +67,14 @@ export function RequireManagementAccess({ children }: { children: React.ReactNod
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!currentWorkspace) return <Navigate to="/workspace" replace />;
-  if (currentWorkspace.role !== 'OWNER' && currentWorkspace.role !== 'ADMIN') {
+  if (
+    !canAny(currentWorkspace, [
+      PERMISSIONS.MANAGE_MEMBERS,
+      PERMISSIONS.MANAGE_CHANNELS,
+      PERMISSIONS.MANAGE_WORKSPACE,
+      PERMISSIONS.MANAGE_ROLES,
+    ])
+  ) {
     return <Navigate to="/home" replace />;
   }
   return <>{children}</>;

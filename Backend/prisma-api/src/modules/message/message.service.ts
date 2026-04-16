@@ -1,5 +1,7 @@
 import { MessageType } from '@prisma/client';
 import { AppError } from '../../types';
+import { PERMISSIONS } from '../../types/permissions';
+import { hasPermission } from '../../utils/permissions';
 import * as messageRepository from './message.repository';
 
 /* ======================= READ ======================= */
@@ -25,6 +27,11 @@ export const getMessages = async (
     before: options.before,
   });
 
+  if (offset === 0) {
+    const latestReadAt = messages[messages.length - 1]?.createdAt ?? new Date();
+    await messageRepository.updateRoomReadState(roomId, userId, latestReadAt);
+  }
+
   return { data: messages, total, limit, offset };
 };
 
@@ -44,6 +51,9 @@ export const sendMessage = async (
   const roomMember = await messageRepository.findRoomMember(roomId, senderId);
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
+  const allowed = await hasPermission(room.workspaceId, senderId, PERMISSIONS.SEND_MESSAGES);
+  if (!allowed) throw new AppError(403, 'Insufficient permissions');
+
   return messageRepository.create(roomId, senderId, content, type, fileData);
 };
 
@@ -52,9 +62,26 @@ export const sendMessage = async (
 export const deleteMessage = async (messageId: string, userId: string) => {
   const message = await messageRepository.findById(messageId);
   if (!message) throw new AppError(404, 'Message not found');
-  if (message.senderId !== userId) {
-    throw new AppError(403, 'You can only delete your own messages');
+  if (
+    message.senderId !== userId &&
+    !(await hasPermission(message.room.workspaceId, userId, PERMISSIONS.DELETE_ANY_MESSAGE))
+  ) {
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   await messageRepository.remove(messageId);
+};
+
+export const markAsRead = async (
+  roomId: string,
+  userId: string,
+  readAt: Date = new Date(),
+) => {
+  const room = await messageRepository.findRoom(roomId);
+  if (!room) throw new AppError(404, 'Room not found');
+
+  const roomMember = await messageRepository.findRoomMember(roomId, userId);
+  if (!roomMember) throw new AppError(403, 'You are not a member of this room');
+
+  await messageRepository.updateRoomReadState(roomId, userId, readAt);
 };

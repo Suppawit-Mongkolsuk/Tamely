@@ -1,5 +1,5 @@
 // ===== Chat Sidebar — Room/DM list =====
-import { Search, Hash } from 'lucide-react';
+import { Search, Hash, BellOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ interface ChatSidebarProps {
   onCreateRoom: (name: string, allowedRoles: string[]) => Promise<void>;
   canCreateRoom: boolean;
   onOpenDMWithUser: (userId: string) => void;
+  mutedIds?: Set<string>;
 }
 
 export function ChatSidebar({
@@ -49,6 +50,7 @@ export function ChatSidebar({
   onCreateRoom,
   canCreateRoom,
   onOpenDMWithUser,
+  mutedIds = new Set(),
 }: ChatSidebarProps) {
   const filteredRooms = rooms.filter((room) =>
     room.name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -137,6 +139,9 @@ export function ChatSidebar({
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <Hash className="size-4 text-muted-foreground shrink-0" />
                         <span className="truncate font-medium text-sm">{room.name}</span>
+                        {mutedIds.has(room.id) && (
+                          <BellOff className="size-3 text-muted-foreground shrink-0" />
+                        )}
                       </div>
                       {room.unread > 0 && (
                         <Badge className="bg-[#5EBCAD] text-white shrink-0 text-xs px-1.5">
@@ -185,7 +190,12 @@ export function ChatSidebar({
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <span className="text-sm font-medium truncate">{member.user.Name}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm font-medium truncate">{member.user.Name}</span>
+                            {conv && mutedIds.has(conv.id) && (
+                              <BellOff className="size-3 text-muted-foreground shrink-0" />
+                            )}
+                          </div>
                           {(conv?.unread ?? 0) > 0 && (
                             <span className="bg-[#5EBCAD] text-white text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1 shrink-0">
                               {conv!.unread}

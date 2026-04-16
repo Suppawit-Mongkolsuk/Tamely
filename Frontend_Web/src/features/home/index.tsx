@@ -163,6 +163,7 @@ export function HomePage() {
                       workspaceId={currentWorkspace?.id ?? ''}
                       currentUserId={user?.id}
                       currentUserRole={currentWorkspace?.role}
+                      currentUserPermissions={currentWorkspace?.myPermissions}
                       onDelete={handleDeletePost}
                       onTogglePin={handleTogglePin}
                       highlighted={highlightPostId === post.id}
@@ -188,6 +189,7 @@ export function HomePage() {
                     workspaceId={currentWorkspace?.id ?? ''}
                     currentUserId={user?.id}
                     currentUserRole={currentWorkspace?.role}
+                    currentUserPermissions={currentWorkspace?.myPermissions}
                     onDelete={handleDeletePost}
                     onTogglePin={handleTogglePin}
                     highlighted={highlightPostId === post.id}

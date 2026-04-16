@@ -9,6 +9,7 @@ import { getTasksForDate } from '@/types/calendar-ui';
 import type { Task } from '@/types/calendar-ui';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { canDo, PERMISSIONS } from '@/lib/permissions';
 import { calendarService } from '@/services/calendar.service';
 import { workspaceService } from '@/services/workspace.service';
 import type { TaskResponse } from '@/services/calendar.service';
@@ -53,9 +54,7 @@ export function CalendarPage() {
   const [members, setMembers] = useState<AssignableMember[]>([]);
 
   const selectedDateTasks = getTasksForDate(tasks, selectedDate);
-  // role มาจาก currentWorkspace โดยตรง (backend ส่ง role กลับมาพร้อม workspace เสมอ)
-  const myRole = currentWorkspace?.role ?? 'MEMBER';
-  const canAssign = myRole === 'OWNER' || myRole === 'ADMIN';
+  const canAssign = canDo(currentWorkspace, PERMISSIONS.ASSIGN_TASK);
 
   // โหลด members list เมื่อ workspace เปลี่ยน (ใช้สำหรับ dropdown มอบหมายงาน)
   useEffect(() => {

@@ -6,13 +6,15 @@ import { InviteMemberDialog } from '@/components/chat-rooms/InviteMemberDialog';
 import { RemoveMemberDialog } from '@/components/chat-rooms/RemoveMemberDialog';
 import { LeaveRoomDialog } from '@/components/chat-rooms/LeaveRoomDialog';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
-import { useAuthContext } from '@/contexts';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { chatService } from '@/services/chat.service';
 import { dmService } from '@/services/dm.service';
 import { workspaceService } from '@/services/workspace.service';
 import type { RoomResponse, MessageResponse } from '@/services/chat.service';
 import type { DMConversationResponse, DMMessageResponse } from '@/services/dm.service';
 import { connectSocket } from '@/lib/socket';
+import { isConversationMuted, toggleConversationMute } from '@/lib/notification-prefs';
+import { canDo, PERMISSIONS } from '@/lib/permissions';
 import type { ChatRoom, Message, Member, ChatTab, DirectMessage } from '@/types/chat-ui';
 import type { WorkspaceMember } from '@/types/workspace';
 import { toast } from 'sonner';
@@ -23,10 +25,39 @@ function mapRoom(r: RoomResponse): ChatRoom {
     id: r.id,
     name: r.name,
     workspace: '',
-    unread: 0,
+    unread: r.unreadCount ?? 0,
     lastMessage: r.description ?? '',
     lastMessageTime: new Date(r.createdAt).toLocaleDateString(),
   };
+}
+
+function formatRoomPreviewTime(createdAt: string): string {
+  return new Date(createdAt).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function updateRoomPreview(
+  list: ChatRoom[],
+  roomId: string,
+  message: Pick<MessageResponse, 'content' | 'createdAt' | 'sender'>,
+  myId: string,
+  openedRoomId?: string,
+): ChatRoom[] {
+  return list.map((room) => {
+    if (room.id !== roomId) return room;
+
+    const isOpened = openedRoomId === roomId;
+    const shouldIncrementUnread = message.sender.id !== myId && !isOpened;
+
+    return {
+      ...room,
+      lastMessage: message.content,
+      lastMessageTime: formatRoomPreviewTime(message.createdAt),
+      unread: isOpened ? 0 : room.unread + (shouldIncrementUnread ? 1 : 0),
+    };
+  });
 }
 
 function mapMessage(m: MessageResponse, myId: string): Message {
@@ -159,9 +190,20 @@ export function ChatRoomsPage() {
   const [mobileView, setMobileView] = useState<MobileView>('list');
 
   const socketRef = useRef<ReturnType<typeof connectSocket> | null>(null);
+  const roomReadSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // mute state — re-render เมื่อ toggle
+  const [mutedIds, setMutedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`tamely_muted_${myId}`);
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      return new Set();
+    }
+  });
 
   const isFirstRoomLoad = useRef(true);
-  const canCreateRoom = myWorkspaceRole === 'OWNER' || myWorkspaceRole === 'ADMIN';
+  const canCreateRoom = canDo(currentWorkspace, PERMISSIONS.MANAGE_CHANNELS);
 
   const fetchRooms = useCallback(async () => {
     if (!wsId) return;
@@ -177,6 +219,16 @@ export function ChatRoomsPage() {
       toast.error('โหลดห้องแชทไม่สำเร็จ');
     }
   }, [wsId]);
+
+  const scheduleMarkRoomAsRead = useCallback((roomId: string) => {
+    if (roomReadSyncTimeoutRef.current) {
+      clearTimeout(roomReadSyncTimeoutRef.current);
+    }
+
+    roomReadSyncTimeoutRef.current = setTimeout(() => {
+      chatService.markRoomAsRead(roomId).catch(() => {});
+    }, 300);
+  }, []);
 
   const fetchMessages = useCallback(
     async (roomId: string, offset = 0) => {
@@ -331,9 +383,16 @@ export function ChatRoomsPage() {
     socketRef.current = socket;
     socket.emit('join_room', selectedRoom);
 
-    // ใช้ named handler เพื่อไม่ให้ off ลบ listener ของ hook อื่น
     const handleMessageReceived = (msg: MessageResponse) => {
+      if (!msg.roomId) return;
+
+      setRooms((prev) => updateRoomPreview(prev, msg.roomId!, msg, myId, selectedRoom));
+
+      if (msg.roomId !== selectedRoom) return;
       setMessages((prev) => [...prev, mapMessage(msg, myId)]);
+      if (msg.sender.id !== myId) {
+        scheduleMarkRoomAsRead(selectedRoom);
+      }
     };
     // re-join room หลัง socket reconnect (socket.io auto-reconnect จะ wipe server-side rooms)
     const handleReconnect = () => {
@@ -344,11 +403,20 @@ export function ChatRoomsPage() {
     socket.on('connect', handleReconnect);
 
     return () => {
-      socket.emit('leave_room', selectedRoom);
+      // ไม่ emit leave_room เพื่อไม่ขัดกับ global join ของ useUnreadDMs
+      // server จะ cleanup เองเมื่อ socket disconnect
       socket.off('message_received', handleMessageReceived);
       socket.off('connect', handleReconnect);
     };
-  }, [selectedRoom, fetchMessages, fetchRoomDetail, myId]);
+  }, [selectedRoom, fetchMessages, fetchRoomDetail, myId, scheduleMarkRoomAsRead]);
+
+  useEffect(() => {
+    return () => {
+      if (roomReadSyncTimeoutRef.current) {
+        clearTimeout(roomReadSyncTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Socket สำหรับ DM
   useEffect(() => {
@@ -415,6 +483,7 @@ export function ChatRoomsPage() {
         socket.emit('send_message', { roomId: selectedRoom, content: messageInput });
       } else {
         chatService.sendMessage(selectedRoom, messageInput).then((msg) => {
+          setRooms((prev) => updateRoomPreview(prev, selectedRoom, msg, myId, selectedRoom));
           setMessages((prev) => [...prev, mapMessage(msg, myId)]);
         });
       }
@@ -430,7 +499,6 @@ export function ChatRoomsPage() {
 
   const handleTabChange = (tab: ChatTab) => {
     setActiveTab(tab);
-    // clear selection ของ tab อีกฝั่งเพื่อไม่ให้ข้อความ/chat window ค้างอยู่
     if (tab === 'rooms') {
       setSelectedDM('');
       resetMessages();
@@ -445,6 +513,11 @@ export function ChatRoomsPage() {
       setMobileView('chat'); // กดซ้ำห้องเดิม → ไปหน้าแชท (สำหรับ mobile)
       return;
     }
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === id ? { ...room, unread: 0 } : room,
+      ),
+    );
     setSelectedRoom(id);
     setSelectedDM('');
     resetMessages();
@@ -537,6 +610,19 @@ export function ChatRoomsPage() {
     }
   };
 
+  const handleToggleMute = () => {
+    const conversationId = selectedDM || selectedRoom;
+    if (!conversationId) return;
+    toggleConversationMute(myId, conversationId);
+    // sync state เพื่อ re-render
+    setMutedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(conversationId)) next.delete(conversationId);
+      else next.add(conversationId);
+      return next;
+    });
+  };
+
   const handleClearChat = async () => {
     if (!selectedDM) return;
     await dmService.clearMessages(selectedDM);
@@ -600,6 +686,7 @@ export function ChatRoomsPage() {
           onCreateRoom={handleCreateRoom}
           canCreateRoom={canCreateRoom}
           onOpenDMWithUser={handleOpenNewDM}
+          mutedIds={mutedIds}
         />
       </div>
 
@@ -630,6 +717,8 @@ export function ChatRoomsPage() {
                   : undefined
               }
               onClearChat={currentDM ? handleClearChat : undefined}
+              isMuted={mutedIds.has(selectedDM || selectedRoom)}
+              onToggleMute={handleToggleMute}
               disableCallActions={
                 !currentDM || isCallBusy
               }

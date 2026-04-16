@@ -1,5 +1,7 @@
 import { WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
+import { PERMISSIONS } from '../../types/permissions';
+import { hasPermission } from '../../utils/permissions';
 import { TypePayloadCreatePost, TypePayloadUpdatePost } from './post.model';
 import * as postRepository from './post.repository';
 import { processAndCreateMentionNotifications } from '../notification/notification.service';
@@ -19,12 +21,10 @@ export const createPost = async (
   userId: string,
   data: TypePayloadCreatePost,
 ) => {
-  const member = await assertWorkspaceMember(workspaceId, userId);
-  if (
-    member.role !== WorkspaceRole.OWNER &&
-    member.role !== WorkspaceRole.ADMIN
-  ) {
-    throw new AppError(403, 'Only owner or admin can create posts');
+  await assertWorkspaceMember(workspaceId, userId);
+  const allowed = await hasPermission(workspaceId, userId, PERMISSIONS.CREATE_POST);
+  if (!allowed) {
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   const post = await postRepository.create(workspaceId, userId, data);
@@ -84,10 +84,9 @@ export const updatePost = async (
 
   if (
     post.authorId !== userId &&
-    member.role !== WorkspaceRole.OWNER &&
-    member.role !== WorkspaceRole.ADMIN
+    !(await hasPermission(post.workspaceId, userId, PERMISSIONS.DELETE_ANY_POST))
   ) {
-    throw new AppError(403, 'Only the author or admin can edit this post');
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   return postRepository.update(postId, data);
@@ -104,10 +103,9 @@ export const deletePost = async (postId: string, userId: string) => {
 
   if (
     post.authorId !== userId &&
-    member.role !== WorkspaceRole.OWNER &&
-    member.role !== WorkspaceRole.ADMIN
+    !(await hasPermission(post.workspaceId, userId, PERMISSIONS.DELETE_ANY_POST))
   ) {
-    throw new AppError(403, 'Only the author or admin can delete this post');
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   await postRepository.remove(postId);
@@ -120,11 +118,13 @@ export const togglePin = async (postId: string, userId: string, isPinned: boolea
   if (!post) throw new AppError(404, 'Post not found');
 
   const member = await postRepository.findWorkspaceMember(post.workspaceId, userId);
-  if (
-    !member ||
-    (member.role !== WorkspaceRole.OWNER && member.role !== WorkspaceRole.ADMIN)
-  ) {
-    throw new AppError(403, 'Only owner or admin can pin/unpin posts');
+  if (!member) {
+    throw new AppError(403, 'You are not a member of this workspace');
+  }
+
+  const allowed = await hasPermission(post.workspaceId, userId, PERMISSIONS.PIN_POST);
+  if (!allowed) {
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   return postRepository.updatePin(postId, isPinned);
@@ -189,10 +189,9 @@ export const deleteComment = async (commentId: string, userId: string) => {
   if (
     comment.userId !== userId &&
     (!member ||
-      (member.role !== WorkspaceRole.OWNER &&
-        member.role !== WorkspaceRole.ADMIN))
+      !(await hasPermission(comment.post.workspaceId, userId, PERMISSIONS.DELETE_ANY_COMMENT)))
   ) {
-    throw new AppError(403, 'Only the author or admin can delete this comment');
+    throw new AppError(403, 'Insufficient permissions');
   }
 
   await postRepository.removeComment(commentId);

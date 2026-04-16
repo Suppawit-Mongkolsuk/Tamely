@@ -1,5 +1,7 @@
 import { prisma } from '../../index';
 import { TaskCreator, TaskPriority, TaskStatus } from '@prisma/client';
+import { PERMISSIONS } from '../../types/permissions';
+import { hasPermission } from '../../utils/permissions';
 
 export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
   return prisma.workspaceMember.findUnique({
@@ -30,7 +32,7 @@ export const canUserAccessRoom = async (
     where: { workspaceId_userId: { workspaceId, userId } },
   });
   if (!member) return false;
-  if (member.role === 'OWNER' || member.role === 'ADMIN') return true;
+  if (await hasPermission(workspaceId, userId, PERMISSIONS.VIEW_PRIVATE_CHANNELS)) return true;
 
   const roomMember = await prisma.roomMember.findUnique({
     where: { roomId_userId: { roomId, userId } },
@@ -45,13 +47,17 @@ export const getAccessibleRooms = async (workspaceId: string, userId: string) =>
   });
   if (!member) return [];
 
-  const isAdminOrOwner = member.role === 'OWNER' || member.role === 'ADMIN';
+  const canViewPrivateChannels = await hasPermission(
+    workspaceId,
+    userId,
+    PERMISSIONS.VIEW_PRIVATE_CHANNELS,
+  );
 
   return prisma.room.findMany({
     where: {
       workspaceId,
       isActive: true,
-      ...(isAdminOrOwner ? {} : { members: { some: { userId } } }),
+      ...(canViewPrivateChannels ? {} : { members: { some: { userId } } }),
     },
     select: { id: true, name: true },
     orderBy: { name: 'asc' },

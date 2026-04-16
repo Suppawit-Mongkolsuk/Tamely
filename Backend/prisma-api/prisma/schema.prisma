@@ -74,6 +74,7 @@ model User {
   Name         String // ชื่อ
   avatarUrl    String? // URL รูปโปรไฟล์ (nullable)
   bio          String? // คำอธิบายตัวเอง (nullable)
+  pushToken    String? // push token สำหรับ mobile/web push notification
   status       String    @default("active") // สถานะ: active, inactive, banned
   lastSeenAt   DateTime? // เวลาที่ออนไลน์ล่าสุด
 
@@ -87,6 +88,7 @@ model User {
   // === Relations ===
   ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner") // Workspace ที่เป็นเจ้าของ
   workspaceMembers WorkspaceMember[] // Workspace ที่เป็นสมาชิก
+  customRoles      CustomRoleMember[]
   createdRooms     Room[]            @relation("RoomCreator") // Room ที่สร้าง
   roomMembers      RoomMember[] // Room ที่เข้าร่วม
   sentMessages     Message[] // ข้อความที่ส่ง
@@ -130,6 +132,8 @@ model Workspace {
   // === Relations ===
   owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members     WorkspaceMember[] // สมาชิกทั้งหมดใน Workspace
+  customRoles CustomRole[]
+  customRoleMembers CustomRoleMember[]
   rooms       Room[] // ห้องแชททั้งหมด
   posts       Post[] // โพสต์/ประกาศทั้งหมด
   tasks       Task[] // Task ทั้งหมดใน Workspace (Calendar)
@@ -162,6 +166,39 @@ model WorkspaceMember {
   @@unique([workspaceId, userId]) // 1 User = 1 สิทธิ์ต่อ Workspace
   @@index([userId])
   @@index([workspaceId])
+}
+
+model CustomRole {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @db.Uuid
+  name        String
+  color       String   @default("#6B7280")
+  position    Int      @default(0)
+  permissions String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members     CustomRoleMember[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@index([workspaceId, position])
+}
+
+model CustomRoleMember {
+  id           String     @id @default(uuid()) @db.Uuid
+  workspaceId  String     @db.Uuid
+  customRoleId String     @db.Uuid
+  userId       String     @db.Uuid
+  assignedAt   DateTime   @default(now())
+
+  workspace    Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customRole   CustomRole @relation(fields: [customRoleId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([customRoleId, userId])
+  @@index([workspaceId, userId])
 }
 
 // ======================================================
@@ -199,10 +236,11 @@ model Room {
 //    ใช้ใน: ChatDetailPanel, InviteMemberDialog, RemoveMemberDialog
 // ======================================================
 model RoomMember {
-  id       String   @id @default(uuid()) @db.Uuid
-  roomId   String   @db.Uuid // FK → Room
-  userId   String   @db.Uuid // FK → User
-  joinedAt DateTime @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  roomId     String   @db.Uuid // FK → Room
+  userId     String   @db.Uuid // FK → User
+  joinedAt   DateTime @default(now())
+  lastReadAt DateTime @default(now()) // อ่านข้อความล่าสุดในห้องถึงเวลาไหนแล้ว
 
   // === Relations ===
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)

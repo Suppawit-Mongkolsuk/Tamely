@@ -1,6 +1,6 @@
 // ===== Workspace Settings Tab =====
-import { useState } from 'react';
-import { Plus, Edit, Upload, Save, Copy, Check, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Edit, Trash2, Upload, Save, Copy, Check, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,16 +25,23 @@ interface WorkspaceSettingsTabProps {
   roles: Role[];
   workspace: Workspace | null;
   onCreateRole: () => void;
+  onEditRole?: (role: Role) => void;
+  onDeleteRole?: (role: Role) => void;
   onWorkspaceUpdated?: (updated: Workspace) => void;
+  canManageWorkspace?: boolean;
+  canManageRoles?: boolean;
+  canRegenerateInvite?: boolean;
 }
 
 /* ---------- Invite Code Section ---------- */
 function InviteCodeSection({
   workspace,
   onWorkspaceUpdated,
+  canRegenerateInvite = false,
 }: {
   workspace: Workspace;
   onWorkspaceUpdated?: (updated: Workspace) => void;
+  canRegenerateInvite?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -92,7 +99,7 @@ function InviteCodeSection({
             variant="outline"
             size="icon"
             onClick={() => setShowConfirm(true)}
-            disabled={regenerating}
+            disabled={regenerating || !canRegenerateInvite}
             title="สร้างรหัสใหม่"
           >
             <RefreshCw className={`size-4 ${regenerating ? 'animate-spin' : ''}`} />
@@ -132,11 +139,21 @@ export function WorkspaceSettingsTab({
   roles,
   workspace,
   onCreateRole,
+  onEditRole,
+  onDeleteRole,
   onWorkspaceUpdated,
+  canManageWorkspace = false,
+  canManageRoles = false,
+  canRegenerateInvite = false,
 }: WorkspaceSettingsTabProps) {
   const [name, setName] = useState(workspace?.name ?? '');
   const [description, setDescription] = useState(workspace?.description ?? '');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setName(workspace?.name ?? '');
+    setDescription(workspace?.description ?? '');
+  }, [workspace?.id, workspace?.name, workspace?.description]);
 
   const handleSave = async () => {
     if (!workspace) return;
@@ -214,6 +231,7 @@ export function WorkspaceSettingsTab({
                 <InviteCodeSection
                   workspace={workspace}
                   onWorkspaceUpdated={onWorkspaceUpdated}
+                  canRegenerateInvite={canRegenerateInvite}
                 />
               </>
             )}
@@ -221,7 +239,7 @@ export function WorkspaceSettingsTab({
             <Button
               className="w-full bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
               onClick={handleSave}
-              disabled={saving || !workspace}
+              disabled={saving || !workspace || !canManageWorkspace}
             >
               <Save className="size-4 mr-2" />
               {saving ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
@@ -233,14 +251,14 @@ export function WorkspaceSettingsTab({
         <Card className="p-6 bg-white">
           <div className="flex items-center justify-between mb-4">
             <h3>ยศและสิทธิ์</h3>
-            <Button size="sm" variant="outline" onClick={onCreateRole}>
+            <Button size="sm" variant="outline" onClick={onCreateRole} disabled={!canManageRoles}>
               <Plus className="size-4 mr-2" />
               สร้างยศ
             </Button>
           </div>
 
           <div className="space-y-3">
-            {roles.map((role) => (
+            {roles.length > 0 ? roles.map((role) => (
               <div
                 key={role.id}
                 className="p-4 rounded-lg border border-border hover:shadow-sm transition-shadow"
@@ -258,9 +276,25 @@ export function WorkspaceSettingsTab({
                       </p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    <Edit className="size-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEditRole?.(role)}
+                      disabled={!canManageRoles}
+                    >
+                      <Edit className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onDeleteRole?.(role)}
+                      disabled={!canManageRoles}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
@@ -271,63 +305,15 @@ export function WorkspaceSettingsTab({
                   ))}
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                ยังไม่มี custom role ใน workspace นี้
+              </div>
+            )}
           </div>
         </Card>
       </div>
 
-      {/* Additional Settings */}
-      <Card className="p-6 bg-white">
-        <h3 className="mb-4">การตั้งค่าเพิ่มเติม</h3>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">อนุญาตให้สมาชิกเชิญคนอื่น</p>
-              <p className="text-sm text-muted-foreground">
-                สมาชิกสามารถสร้างลิงก์เชิญและเชิญคนอื่นเข้า workspace
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">อนุญาตให้สมาชิกสร้างห้องได้</p>
-              <p className="text-sm text-muted-foreground">
-                สมาชิกสามารถสร้างห้องแชทใหม่ได้เอง
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">แสดงสถานะออนไลน์</p>
-              <p className="text-sm text-muted-foreground">
-                แสดงว่าสมาชิกกำลังออนไลน์หรือไม่
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">เปิดใช้งาน AI Assistant</p>
-              <p className="text-sm text-muted-foreground">
-                ให้ AI ช่วยสรุปการสนทนาและสร้าง tasks อัตโนมัติ
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }
