@@ -63,6 +63,10 @@ export const workspaceService = {
     return res.data;
   },
 
+  async leaveWorkspace(workspaceId: string, userId: string): Promise<void> {
+    await apiClient.delete(`/workspaces/${workspaceId}/members/${userId}`);
+  },
+
   async deleteWorkspace(workspaceId: string): Promise<void> {
     await apiClient.delete(`/workspaces/${workspaceId}`);
   },

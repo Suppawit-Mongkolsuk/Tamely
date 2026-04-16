@@ -169,6 +169,16 @@ router.post(
   }),
 );
 
+// DELETE /api/dm/:conversationId/messages
+// ลบข้อความทั้งหมดใน DM conversation (clear chat)
+router.delete(
+  '/dm/:conversationId/messages',
+  asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    await dmService.clearMessages(param(req.params.conversationId), req.userId!);
+    res.json({ success: true, message: 'Chat cleared' });
+  }),
+);
+
 // DELETE /api/dm/messages/:messageId
 // ลบข้อความ DM
 router.delete(

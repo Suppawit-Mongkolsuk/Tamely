@@ -3,12 +3,14 @@ import {
   Plus,
   LogIn,
   Users,
-  Sparkles,
   MessageSquare,
-  Brain,
   Hash,
   Loader2,
   LogOut,
+  MoreVertical,
+  Pin,
+  PinOff,
+  DoorOpen,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +23,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { workspaceService } from '@/services/workspace.service';
 import { WORKSPACE_COLORS } from '@/lib/constants';
 import { toast } from 'sonner';
 
@@ -32,6 +43,22 @@ interface LandingPageProps {
 
 const COLORS = WORKSPACE_COLORS;
 
+function pinnedKey(userId: string) {
+  return `tamely_pinned_workspaces_${userId}`;
+}
+
+function getPinnedIds(userId: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(pinnedKey(userId)) ?? '[]');
+  } catch {
+    return [];
+  }
+}
+
+function savePinnedIds(userId: string, ids: string[]) {
+  localStorage.setItem(pinnedKey(userId), JSON.stringify(ids));
+}
+
 export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
   const {
     workspaces,
@@ -41,13 +68,19 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
     joinWorkspace,
     selectWorkspace,
   } = useWorkspaceContext();
+  const { user } = useAuthContext();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [leaveTarget, setLeaveTarget] = useState<{ id: string; name: string } | null>(null);
   const [createName, setCreateName] = useState('');
   const [createDescription, setCreateDescription] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() =>
+    getPinnedIds(user?.id ?? ''),
+  );
 
   useEffect(() => {
     fetchWorkspaces();
@@ -95,6 +128,48 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
     }
   };
 
+  const togglePin = (wsId: string) => {
+    setPinnedIds((prev) => {
+      const next = prev.includes(wsId)
+        ? prev.filter((id) => id !== wsId)
+        : [...prev, wsId];
+      savePinnedIds(user?.id ?? '', next);
+      return next;
+    });
+  };
+
+  const handleLeaveConfirm = async () => {
+    if (!leaveTarget || !user) return;
+    setSubmitting(true);
+    try {
+      await workspaceService.leaveWorkspace(leaveTarget.id, user.id);
+      // ลบออกจาก pinned ถ้ามี
+      setPinnedIds((prev) => {
+        const next = prev.filter((id) => id !== leaveTarget.id);
+        savePinnedIds(user?.id ?? '', next);
+        return next;
+      });
+      setShowLeaveDialog(false);
+      setLeaveTarget(null);
+      fetchWorkspaces();
+      toast.success(`ออกจาก "${leaveTarget.name}" แล้ว`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'ออกจาก workspace ไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // เรียงหมุดขึ้นก่อน
+  const sortedWorkspaces = [...workspaces].sort((a, b) => {
+    const aPinned = pinnedIds.includes(a.id) ? 0 : 1;
+    const bPinned = pinnedIds.includes(b.id) ? 0 : 1;
+    return aPinned - bPinned;
+  });
+
+  // map originalIdx สำหรับสี (ใช้ index จาก workspaces ต้นฉบับ)
+  const colorMap = Object.fromEntries(workspaces.map((ws, i) => [ws.id, i]));
+
   return (
     <div className="min-h-screen bg-linear-to-br from-[#003366] via-[#174978] to-[#2F5F8A] flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-6xl">
@@ -119,7 +194,7 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
         </div>
 
         <div className="space-y-6">
-          {/* Actions — สร้าง / เข้าร่วม (แสดงก่อนเสมอ) */}
+          {/* Actions — สร้าง / เข้าร่วม */}
           <div className="grid md:grid-cols-2 gap-4">
             <Card className="p-6 bg-white/95 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
               <div className="flex flex-col items-center text-center h-full">
@@ -184,41 +259,98 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {workspaces.map((ws, idx) => (
-                  <button
-                    key={ws.id}
-                    onClick={() => handleSelectWorkspace(ws.id)}
-                    className="group relative bg-white/95 backdrop-blur-sm rounded-lg p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 text-left overflow-hidden"
-                  >
-                    <div className="flex justify-center mb-3">
-                      <div
-                        className="size-14 rounded-lg flex items-center justify-center text-white text-xl"
-                        style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                {sortedWorkspaces.map((ws) => {
+                  const isPinned = pinnedIds.includes(ws.id);
+                  const colorIdx = colorMap[ws.id] ?? 0;
+                  return (
+                    <div
+                      key={ws.id}
+                      className="group relative bg-white/95 backdrop-blur-sm rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                    >
+                      {/* Pin indicator */}
+                      {isPinned && (
+                        <div className="absolute top-2 left-2 z-10">
+                          <Pin className="size-3.5 text-[#75A2BF] fill-[#75A2BF]" />
+                        </div>
+                      )}
+
+                      {/* 3-dot menu */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1 rounded hover:bg-black/10 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <MoreVertical className="size-4 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => togglePin(ws.id)}>
+                              {isPinned ? (
+                                <>
+                                  <PinOff className="size-3.5 mr-2" />
+                                  เลิกปักหมุด
+                                </>
+                              ) : (
+                                <>
+                                  <Pin className="size-3.5 mr-2" />
+                                  ปักหมุด
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => {
+                                setLeaveTarget({ id: ws.id, name: ws.name });
+                                setShowLeaveDialog(true);
+                              }}
+                            >
+                              <DoorOpen className="size-3.5 mr-2" />
+                              ออกจาก workspace
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      {/* Clickable area */}
+                      <button
+                        onClick={() => handleSelectWorkspace(ws.id)}
+                        className="w-full p-4 text-left"
                       >
-                        {ws.name.charAt(0)}
-                      </div>
+                        <div className="flex justify-center mb-3">
+                          <div
+                            className="size-14 rounded-lg flex items-center justify-center text-white text-xl"
+                            style={{ backgroundColor: COLORS[colorIdx % COLORS.length] }}
+                          >
+                            {ws.name.charAt(0)}
+                          </div>
+                        </div>
+                        <div className="text-center mb-3">
+                          <h3 className="text-base mb-1 group-hover:text-[#003366] transition-colors font-medium">
+                            {ws.name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {ws.description || 'No description'}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground border-t pt-3">
+                          <div className="flex items-center gap-1">
+                            <Users className="size-3" />
+                            <span>{ws.memberCount ?? 0}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Hash className="size-3" />
+                            <span>{ws.roomCount ?? 0}</span>
+                          </div>
+                        </div>
+                      </button>
+
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-[#5EBCAD] to-[#75A2BF] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
                     </div>
-                    <div className="text-center mb-3">
-                      <h3 className="text-base mb-1 group-hover:text-[#003366] transition-colors font-medium">
-                        {ws.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {ws.description || 'No description'}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground border-t pt-3">
-                      <div className="flex items-center gap-1">
-                        <Users className="size-3" />
-                        <span>{ws.memberCount ?? 0}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Hash className="size-3" />
-                        <span>{ws.roomCount ?? 0}</span>
-                      </div>
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-[#5EBCAD] to-[#75A2BF] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : null}
@@ -301,6 +433,32 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
                 เข้าร่วม Workspace
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Confirm Dialog */}
+      <Dialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ออกจาก Workspace</DialogTitle>
+            <DialogDescription>
+              คุณต้องการออกจาก <span className="font-medium text-foreground">"{leaveTarget?.name}"</span> ใช่ไหม?
+              คุณจะไม่สามารถเข้าถึง workspace นี้ได้จนกว่าจะได้รับเชิญใหม่
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowLeaveDialog(false)} disabled={submitting}>
+              ยกเลิก
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleLeaveConfirm}
+              disabled={submitting}
+            >
+              {submitting && <Loader2 className="size-4 mr-2 animate-spin" />}
+              ออกจาก Workspace
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

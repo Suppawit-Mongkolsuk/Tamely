@@ -118,6 +118,22 @@ export const deleteMessage = async (messageId: string, userId: string) => {
   await dmRepository.deleteMessage(messageId);
 };
 
+export const clearMessages = async (conversationId: string, userId: string) => {
+  const conv = await dmRepository.findConversationById(conversationId);
+  if (!conv) throw new AppError(404, 'Conversation not found');
+  assertConversationParticipant(conv, userId);
+
+  // ลบไฟล์ใน Supabase Storage ก่อน
+  const msgs = await dmRepository.findAllMessagesWithFiles(conversationId);
+  await Promise.all(
+    msgs
+      .filter((m) => m.fileUrl)
+      .map((m) => deleteFromStorage(CHAT_FILES_BUCKET, m.fileUrl!)),
+  );
+
+  await dmRepository.deleteAllMessages(conversationId);
+};
+
 export const markAsRead = async (conversationId: string, userId: string) => {
   const conv = await dmRepository.findConversationById(conversationId);
   if (!conv) throw new AppError(404, 'Conversation not found');

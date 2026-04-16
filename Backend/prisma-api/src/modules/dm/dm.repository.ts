@@ -160,6 +160,17 @@ export const deleteMessage = async (messageId: string) => {
   return prisma.directMessage.delete({ where: { id: messageId } });
 };
 
+export const findAllMessagesWithFiles = async (conversationId: string) => {
+  return prisma.directMessage.findMany({
+    where: { conversationId },
+    select: { id: true, fileUrl: true },
+  });
+};
+
+export const deleteAllMessages = async (conversationId: string) => {
+  return prisma.directMessage.deleteMany({ where: { conversationId } });
+};
+
 export const findMessageById = async (messageId: string) => {
   return prisma.directMessage.findUnique({
     where: { id: messageId },

@@ -1,4 +1,5 @@
 // ===== Management Dialogs =====
+import { useEffect, useState } from 'react';
 import { Mail, Plus, Hash, Lock, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,14 +21,50 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import type { WorkspaceMemberRole } from '@/types';
 
 /* ---------- Invite Member Dialog ---------- */
 interface InviteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSubmit: (data: {
+    email: string;
+    role: Extract<WorkspaceMemberRole, 'ADMIN' | 'MEMBER'>;
+  }) => Promise<void>;
+  submitting?: boolean;
 }
 
-export function InviteDialog({ open, onOpenChange }: InviteDialogProps) {
+export function InviteDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  submitting = false,
+}: InviteDialogProps) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<
+    Extract<WorkspaceMemberRole, 'ADMIN' | 'MEMBER'>
+  >('MEMBER');
+
+  useEffect(() => {
+    if (!open) {
+      setEmail('');
+      setRole('MEMBER');
+    }
+  }, [open]);
+
+  const handleSubmit = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      toast.error('กรุณากรอกอีเมล');
+      return;
+    }
+
+    await onSubmit({
+      email: trimmedEmail,
+      role,
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -46,47 +83,46 @@ export function InviteDialog({ open, onOpenChange }: InviteDialogProps) {
               type="email"
               placeholder="email@company.com"
               className="mt-1.5"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={submitting}
             />
           </div>
 
           <div>
             <Label htmlFor="invite-role">ยศ</Label>
-            <Select defaultValue="member">
+            <Select
+              value={role}
+              onValueChange={(value) =>
+                setRole(value as Extract<WorkspaceMemberRole, 'ADMIN' | 'MEMBER'>)
+              }
+              disabled={submitting}
+            >
               <SelectTrigger id="invite-role" className="mt-1.5">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="moderator">Moderator</SelectItem>
-                <SelectItem value="member">Member</SelectItem>
-                <SelectItem value="guest">Guest</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="MEMBER">Member</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div>
-            <Label htmlFor="invite-message">ข้อความ (ไม่บังคับ)</Label>
-            <Textarea
-              id="invite-message"
-              placeholder="เชิญคุณเข้าร่วม workspace..."
-              className="mt-1.5"
-              rows={3}
-            />
-          </div>
-
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
               ยกเลิก
             </Button>
             <Button
               className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
-              onClick={() => {
-                onOpenChange(false);
-                toast.success('ส่งคำเชิญสำเร็จ!');
-              }}
+              onClick={() => void handleSubmit()}
+              disabled={submitting}
             >
               <Mail className="size-4 mr-2" />
-              ส่งคำเชิญ
+              {submitting ? 'กำลังส่ง...' : 'ส่งคำเชิญ'}
             </Button>
           </div>
         </div>

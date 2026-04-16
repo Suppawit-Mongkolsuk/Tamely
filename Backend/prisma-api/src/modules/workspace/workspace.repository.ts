@@ -20,7 +20,7 @@ const workspaceWithOwnerSelect = {
   ...workspaceBaseSelect,
   owner: { select: ownerSelect },
 } as const;
-const memberUserSelect = { Name: true, avatarUrl: true } as const;
+const memberUserSelect = { Name: true, avatarUrl: true, lastSeenAt: true } as const;
 const workspaceMemberSelect = {
   userId: true,
   role: true,

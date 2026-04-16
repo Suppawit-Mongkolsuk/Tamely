@@ -523,6 +523,13 @@ export function ChatRoomsPage() {
     }
   };
 
+  const handleClearChat = async () => {
+    if (!selectedDM) return;
+    await dmService.clearMessages(selectedDM);
+    setMessages([]);
+    toast.success('ลบแชททั้งหมดแล้ว');
+  };
+
   const handleSendFile = async (file: File) => {
     try {
       const socket = socketRef.current;
@@ -608,6 +615,7 @@ export function ChatRoomsPage() {
                   ? () => void startCall(currentDM.userId, currentDM.id, 'audio', currentDM.userName, currentDM.avatarUrl)
                   : undefined
               }
+              onClearChat={currentDM ? handleClearChat : undefined}
               disableCallActions={
                 !currentDM || isCallBusy
               }
