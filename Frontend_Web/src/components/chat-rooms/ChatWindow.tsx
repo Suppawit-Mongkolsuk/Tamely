@@ -10,8 +10,22 @@ import {
   ArrowLeft,
   Info,
   Phone,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { MentionInput } from '@/components/feed/MentionInput';
 import { MessageBubble } from './MessageBubble';
 import type { ChatRoom, DirectMessage, Message, ChatTab } from '@/types/chat-ui';
@@ -98,6 +112,7 @@ interface ChatWindowProps {
   onBack?: () => void;
   onShowDetail?: () => void;
   onStartVoiceCall?: () => void;
+  onClearChat?: () => Promise<void>;
   disableCallActions?: boolean;
   workspaceId?: string;
 }
@@ -119,6 +134,7 @@ export function ChatWindow({
   onBack,
   onShowDetail,
   onStartVoiceCall,
+  onClearChat,
   disableCallActions = false,
   workspaceId,
 }: ChatWindowProps) {
@@ -126,6 +142,8 @@ export function ChatWindow({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearingChat, setClearingChat] = useState(false);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -302,9 +320,24 @@ export function ChatWindow({
               <Info className="size-4" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="size-9">
-            <MoreVertical className="size-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-9">
+                <MoreVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              {activeTab === 'dms' && onClearChat && (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setShowClearConfirm(true)}
+                >
+                  <Trash2 className="size-3.5 mr-2" />
+                  ลบแชททั้งหมด
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -447,6 +480,39 @@ export function ChatWindow({
         <input ref={imageInputRef} type="file" accept={IMAGE_ACCEPT} className="hidden" onChange={handleFileSelect} />
         <input ref={fileInputRef} type="file" accept={FILE_ACCEPT} className="hidden" onChange={handleFileSelect} />
       </div>
+
+      {/* Confirm clear chat dialog */}
+      <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ลบแชททั้งหมด</DialogTitle>
+            <DialogDescription>
+              ข้อความทั้งหมดในการสนทนานี้จะถูกลบถาวร ทั้งสองฝ่ายจะไม่สามารถดูได้อีก
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowClearConfirm(false)} disabled={clearingChat}>
+              ยกเลิก
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={clearingChat}
+              onClick={async () => {
+                setClearingChat(true);
+                try {
+                  await onClearChat?.();
+                  setShowClearConfirm(false);
+                } finally {
+                  setClearingChat(false);
+                }
+              }}
+            >
+              {clearingChat && <span className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2 inline-block" />}
+              ลบแชท
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

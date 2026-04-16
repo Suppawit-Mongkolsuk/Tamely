@@ -107,6 +107,13 @@ export const dmService = {
   },
 
   /**
+   * ลบข้อความทั้งหมดใน DM conversation (clear chat)
+   */
+  async clearMessages(conversationId: string): Promise<void> {
+    await apiClient.delete(`/dm/${conversationId}/messages`);
+  },
+
+  /**
    * อัปโหลดไฟล์/รูปภาพ ในแชท DM (multipart/form-data)
    * รองรับทั้ง Web (File object) — Mobile จะใช้ endpoint เดียวกันด้วย FormData
    */
