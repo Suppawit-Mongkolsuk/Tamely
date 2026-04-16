@@ -335,11 +335,18 @@ export function ChatRoomsPage() {
     const handleMessageReceived = (msg: MessageResponse) => {
       setMessages((prev) => [...prev, mapMessage(msg, myId)]);
     };
+    // re-join room หลัง socket reconnect (socket.io auto-reconnect จะ wipe server-side rooms)
+    const handleReconnect = () => {
+      socket.emit('join_room', selectedRoom);
+    };
+
     socket.on('message_received', handleMessageReceived);
+    socket.on('connect', handleReconnect);
 
     return () => {
       socket.emit('leave_room', selectedRoom);
       socket.off('message_received', handleMessageReceived);
+      socket.off('connect', handleReconnect);
     };
   }, [selectedRoom, fetchMessages, fetchRoomDetail, myId]);
 
@@ -372,13 +379,20 @@ export function ChatRoomsPage() {
       setMessages((prev) => prev.map((m) => (m.isOwn ? { ...m, isRead: true } : m)));
     };
 
+    // re-join DM หลัง socket reconnect
+    const handleReconnect = () => {
+      socket.emit('join_dm', selectedDM);
+    };
+
     socket.on('dm_received', handleDMReceived);
     socket.on('dm_read', handleDMRead);
+    socket.on('connect', handleReconnect);
 
     return () => {
       socket.emit('leave_dm', selectedDM);
       socket.off('dm_received', handleDMReceived);
       socket.off('dm_read', handleDMRead);
+      socket.off('connect', handleReconnect);
     };
   }, [selectedDM, fetchDMMessages, myId]);
 
