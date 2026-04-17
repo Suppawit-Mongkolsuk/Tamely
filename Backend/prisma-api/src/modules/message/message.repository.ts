@@ -94,12 +94,6 @@ export const findRoom = async (roomId: string) => {
   });
 };
 
-export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
-  return prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-  });
-};
-
 export const findRoomMember = async (roomId: string, userId: string) => {
   return prisma.roomMember.findUnique({
     where: { roomId_userId: { roomId, userId } },

@@ -4,16 +4,7 @@ import { prisma } from '../../index';
 import { MessageType } from '@prisma/client';
 import { deleteFromStorage, CHAT_FILES_BUCKET } from '../../utils/supabase-storage';
 import { pushToUsers } from '../push/push.service';
-
-/* ======================= HELPERS ======================= */
-
-const assertWorkspaceMember = async (workspaceId: string, userId: string) => {
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-  });
-  if (!member) throw new AppError(403, 'You are not a member of this workspace');
-  return member;
-};
+import { assertWorkspaceMember } from '../../utils/workspace.helpers';
 
 const assertConversationParticipant = (
   conversation: { userAId: string; userBId: string },
@@ -105,7 +96,9 @@ export const sendMessage = async (
         { conversationId, type: 'dm' },
       );
     })
-    .catch(() => {});
+    .catch((err) => {
+      console.error('[DM] Failed to send push notification:', err);
+    });
 
   return message;
 };

@@ -15,6 +15,7 @@ import type { DMConversationResponse, DMMessageResponse } from '@/services/dm.se
 import { connectSocket } from '@/lib/socket';
 import { isConversationMuted, toggleConversationMute } from '@/lib/notification-prefs';
 import { canDo, PERMISSIONS } from '@/lib/permissions';
+import { getInitials } from '@/lib/utils';
 import type { ChatRoom, Message, Member, ChatTab, DirectMessage } from '@/types/chat-ui';
 import type { WorkspaceMember } from '@/types/workspace';
 import { toast } from 'sonner';
@@ -60,12 +61,14 @@ function updateRoomPreview(
   });
 }
 
-function mapMessage(m: MessageResponse, myId: string): Message {
+type ChatMessageResponse = MessageResponse | DMMessageResponse;
+
+function mapChatMessage(m: ChatMessageResponse, myId: string): Message {
   const d = new Date(m.createdAt);
   return {
     id: m.id,
     sender: m.sender.Name,
-    avatar: m.sender.Name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2),
+    avatar: getInitials(m.sender.Name),
     avatarUrl: m.sender.avatarUrl,
     content: m.content,
     timestamp: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -75,17 +78,14 @@ function mapMessage(m: MessageResponse, myId: string): Message {
     fileUrl: m.fileUrl,
     fileName: m.fileName,
     fileSize: m.fileSize,
+    isRead: 'isRead' in m ? (m.isRead ?? false) : undefined,
   };
 }
 
 function mapDMConversation(conv: DMConversationResponse, myId: string): DirectMessage {
   // อีกฝ่ายคือ user ที่ไม่ใช่เรา
   const other = conv.userA.id === myId ? conv.userB : conv.userA;
-  const initials = other.Name.split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = getInitials(other.Name);
 
   const lastMsg = conv.lastMessage;
   return {
@@ -101,25 +101,6 @@ function mapDMConversation(conv: DMConversationResponse, myId: string): DirectMe
       hour: '2-digit',
       minute: '2-digit',
     }) : '',
-  };
-}
-
-function mapDMMessage(m: DMMessageResponse, myId: string): Message {
-  const d = new Date(m.createdAt);
-  return {
-    id: m.id,
-    sender: m.sender.Name,
-    avatar: m.sender.Name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2),
-    avatarUrl: m.sender.avatarUrl,
-    content: m.content,
-    timestamp: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    date: d.toISOString().slice(0, 10), // "YYYY-MM-DD"
-    isOwn: m.sender.id === myId,
-    type: (m.type as Message['type']) ?? 'TEXT',
-    fileUrl: m.fileUrl,
-    fileName: m.fileName,
-    fileSize: m.fileSize,
-    isRead: m.isRead ?? false,
   };
 }
 
@@ -228,7 +209,9 @@ export function ChatRoomsPage() {
     }
 
     roomReadSyncTimeoutRef.current = setTimeout(() => {
-      chatService.markRoomAsRead(roomId).catch(() => {});
+      chatService.markRoomAsRead(roomId).catch((err) => {
+        console.warn('[ChatRooms] Failed to mark room as read:', err);
+      });
     }, 300);
   }, []);
 
@@ -237,7 +220,7 @@ export function ChatRoomsPage() {
       if (offset === 0) setIsLoadingMessages(true);
       try {
         const res = await chatService.getMessages(roomId, { limit: LIMIT, offset });
-        const mapped = res.data.map((m) => mapMessage(m, myId));
+        const mapped = res.data.map((m) => mapChatMessage(m, myId));
         if (offset === 0) {
           setMessages(mapped);
         } else {
@@ -263,13 +246,13 @@ export function ChatRoomsPage() {
           name: m.user.Name,
           role: (m.user.workspaceRole ?? 'MEMBER') as Member['role'],
           status: 'online' as const,
-          avatar: m.user.Name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2),
+          avatar: getInitials(m.user.Name),
           avatarUrl: m.user.avatarUrl,
-          customRoles: (m.user as any).customRoles ?? [],
+          customRoles: m.user.customRoles ?? [],
         })),
       );
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.warn('[ChatRooms] Failed to fetch room detail:', err);
     }
   }, []);
 
@@ -291,7 +274,9 @@ export function ChatRoomsPage() {
       const me = data.find((m) => m.userId === myId);
       if (me) setMyWorkspaceRole(me.role as 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER');
       setWorkspaceMembers(data.filter((m) => m.userId !== myId));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.warn('[ChatRooms] Failed to fetch workspace members:', err);
+    }
   }, [wsId, myId]);
 
   const fetchDMMessages = useCallback(
@@ -299,7 +284,7 @@ export function ChatRoomsPage() {
       if (offset === 0) setIsLoadingMessages(true);
       try {
         const res = await dmService.getMessages(conversationId, { limit: LIMIT, offset });
-        const mapped = res.data.map((m) => mapDMMessage(m, myId));
+        const mapped = res.data.map((m) => mapChatMessage(m, myId));
         if (offset === 0) {
           setMessages(mapped);
           fetchDMs(); // refresh unread count หลัง fetch ครั้งแรก
@@ -393,7 +378,7 @@ export function ChatRoomsPage() {
       setRooms((prev) => updateRoomPreview(prev, msg.roomId!, msg, myId, selectedRoom));
 
       if (msg.roomId !== selectedRoom) return;
-      setMessages((prev) => [...prev, mapMessage(msg, myId)]);
+      setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
       if (msg.sender.id !== myId) {
         scheduleMarkRoomAsRead(selectedRoom);
       }
@@ -438,11 +423,13 @@ export function ChatRoomsPage() {
         return;
       }
 
-      setMessages((prev) => [...prev, mapDMMessage(msg, myId)]);
+      setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
       // ถ้าข้อความไม่ใช่ของตัวเอง → mark as read ทันที
       // เพราะ user กำลังเห็นข้อความนี้อยู่ → trigger dm_read ให้ผู้ส่งเห็น "Read"
       if (msg.sender.id !== myId) {
-        dmService.markAsRead(selectedDM).catch(() => {});
+        dmService.markAsRead(selectedDM).catch((err) => {
+          console.warn('[ChatRooms] Failed to mark DM as read:', err);
+        });
       }
     };
 
@@ -478,7 +465,7 @@ export function ChatRoomsPage() {
         socket.emit('send_dm', { conversationId: selectedDM, content: messageInput });
       } else {
         dmService.sendMessage(selectedDM, messageInput).then((msg) => {
-          setMessages((prev) => [...prev, mapDMMessage(msg, myId)]);
+          setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
         });
       }
     } else if (selectedRoom) {
@@ -488,7 +475,7 @@ export function ChatRoomsPage() {
       } else {
         chatService.sendMessage(selectedRoom, messageInput).then((msg) => {
           setRooms((prev) => updateRoomPreview(prev, selectedRoom, msg, myId, selectedRoom));
-          setMessages((prev) => [...prev, mapMessage(msg, myId)]);
+          setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
         });
       }
     }
@@ -642,13 +629,13 @@ export function ChatRoomsPage() {
         const msg = await dmService.sendFileMessage(selectedDM, file);
         // ถ้า socket ไม่ connected ให้เพิ่มเอง
         if (!socket?.connected) {
-          setMessages((prev) => [...prev, mapDMMessage(msg, myId)]);
+          setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
         }
       } else if (activeTab === 'rooms' && selectedRoom) {
         const msg = await chatService.sendRoomFile(selectedRoom, file);
         // socket broadcast จะทำที่ server แต่ถ้าไม่ connected ให้เพิ่มเอง
         if (!socket?.connected) {
-          setMessages((prev) => [...prev, mapMessage(msg, myId)]);
+          setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
         }
       }
     } catch (err) {

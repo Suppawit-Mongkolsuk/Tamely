@@ -15,13 +15,6 @@ const customRoleSelect = {
   updatedAt: true,
 } as const;
 
-export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
-  return prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-    select: { userId: true, role: true },
-  });
-};
-
 export const findMany = async (workspaceId: string) => {
   return prisma.customRole.findMany({
     where: { workspaceId },

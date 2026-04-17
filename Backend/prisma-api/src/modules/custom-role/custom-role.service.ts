@@ -1,6 +1,7 @@
 import { AppError } from '../../types';
 import { PERMISSIONS } from '../../types/permissions';
 import { hasPermission } from '../../utils/permissions';
+import { assertWorkspaceMember } from '../../utils/workspace.helpers';
 import {
   TypePayloadCreateCustomRole,
   TypePayloadUpdateCustomRole,
@@ -8,12 +9,6 @@ import {
 import * as customRoleRepository from './custom-role.repository';
 
 const BUILT_IN_ROLE_NAMES = new Set(['owner', 'admin', 'moderator', 'member']);
-
-const assertWorkspaceMember = async (workspaceId: string, userId: string) => {
-  const member = await customRoleRepository.findWorkspaceMember(workspaceId, userId);
-  if (!member) throw new AppError(403, 'You are not a member of this workspace');
-  return member;
-};
 
 const assertManageRolesPermission = async (workspaceId: string, userId: string) => {
   await assertWorkspaceMember(workspaceId, userId);
@@ -85,7 +80,12 @@ export const reorderCustomRoles = async (
   }
 
   await customRoleRepository.reorder(workspaceId, roleIds);
-  return customRoleRepository.findMany(workspaceId);
+
+  const roleMap = new Map(roles.map((role) => [role.id, role]));
+  return roleIds.map((roleId, index) => ({
+    ...roleMap.get(roleId)!,
+    position: roleIds.length - index,
+  }));
 };
 
 export const getMemberCustomRoles = async (

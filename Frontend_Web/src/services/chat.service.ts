@@ -1,5 +1,6 @@
 import { apiClient } from './api';
 import type { ApiSuccessResponse } from '@/types';
+import type { CustomRole } from '@/types/workspace';
 
 export interface RoomResponse {
   id: string;
@@ -15,7 +16,13 @@ export interface RoomResponse {
   updatedAt: string;
   createdBy?: { id: string; Name: string; avatarUrl?: string | null };
   members?: {
-    user: { id: string; Name: string; avatarUrl?: string | null; workspaceRole?: string };
+    user: {
+      id: string;
+      Name: string;
+      avatarUrl?: string | null;
+      workspaceRole?: string;
+      customRoles?: CustomRole[];
+    };
   }[];
 }
 

@@ -198,12 +198,3 @@ export const deleteRoomMember = async (roomId: string, userId: string) => {
     where: { roomId, userId },
   });
 };
-
-/* ======================= WORKSPACE MEMBER CHECK ======================= */
-
-export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
-  return prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-    select: { userId: true, role: true },
-  });
-};

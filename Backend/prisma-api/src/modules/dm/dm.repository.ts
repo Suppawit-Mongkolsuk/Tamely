@@ -146,16 +146,6 @@ export const markMessagesAsRead = async (conversationId: string, userId: string)
   });
 };
 
-export const countUnread = async (conversationId: string, userId: string) => {
-  return prisma.directMessage.count({
-    where: {
-      conversationId,
-      senderId: { not: userId },
-      isRead: false,
-    },
-  });
-};
-
 export const countUnreadByConversationIds = async (userId: string, conversationIds: string[]) => {
   if (conversationIds.length === 0) {
     return new Map<string, number>();
