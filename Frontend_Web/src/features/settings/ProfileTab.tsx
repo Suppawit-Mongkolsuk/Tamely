@@ -1,5 +1,5 @@
 // ===== Profile Tab — ข้อมูลโปรไฟล์ผู้ใช้ =====
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { LogOut, ArrowLeft, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -42,6 +42,14 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
     .toUpperCase()
     .slice(0, 2) || '??';
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -57,9 +65,23 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
       return;
     }
 
+    if (avatarPreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
   };
+
+  const handleCancel = useCallback(() => {
+    if (avatarPreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    setDisplayName(user?.displayName ?? '');
+    setBio(user?.bio ?? '');
+    setAvatarPreview(user?.avatarUrl ?? null);
+    setAvatarFile(null);
+  }, [avatarPreview, user?.avatarUrl, user?.bio, user?.displayName]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -195,12 +217,7 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
 
           {/* Save / Cancel */}
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" disabled={saving} onClick={() => {
-              setDisplayName(user?.displayName ?? '');
-              setBio(user?.bio ?? '');
-              setAvatarPreview(user?.avatarUrl ?? null);
-              setAvatarFile(null);
-            }}>
+            <Button variant="outline" disabled={saving} onClick={handleCancel}>
               Cancel
             </Button>
             <Button

@@ -68,6 +68,20 @@ export const findMembershipsByUser = async (userId: string) => {
   });
 };
 
+export const findAssignedCustomRolePermissionsByUser = async (userId: string) => {
+  return prisma.customRoleMember.findMany({
+    where: { userId },
+    select: {
+      workspaceId: true,
+      customRole: {
+        select: {
+          permissions: true,
+        },
+      },
+    },
+  });
+};
+
 export const findById = async (workspaceId: string) => {
   return prisma.workspace.findUnique({
     where: { id: workspaceId },

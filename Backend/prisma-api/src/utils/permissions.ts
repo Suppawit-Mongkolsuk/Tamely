@@ -1,3 +1,4 @@
+import { WorkspaceRole } from '@prisma/client';
 import { prisma } from '../index';
 import {
   BUILT_IN_ROLE_PERMISSIONS,
@@ -14,6 +15,38 @@ const ALWAYS_GRANTED: Permission[] = [
   PERMISSIONS.USE_AI,
   PERMISSIONS.VIEW_PRIVATE_CHANNELS,
 ];
+
+export function buildPermissionSet(
+  role: WorkspaceRole,
+  customRolePermissions: Iterable<readonly string[]>,
+): Set<Permission> {
+  if (role === WorkspaceRole.OWNER) {
+    return new Set<Permission>(PERMISSION_VALUES);
+  }
+
+  const permissions = new Set<Permission>(BUILT_IN_ROLE_PERMISSIONS[role]);
+
+  for (const permission of ALWAYS_GRANTED) {
+    permissions.add(permission);
+  }
+
+  for (const assignedRolePermissions of customRolePermissions) {
+    for (const permission of assignedRolePermissions) {
+      if (isPermission(permission)) {
+        permissions.add(permission);
+      }
+    }
+  }
+
+  return permissions;
+}
+
+export function buildPermissionArray(
+  role: WorkspaceRole,
+  customRolePermissions: Iterable<readonly string[]>,
+): Permission[] {
+  return Array.from(buildPermissionSet(role, customRolePermissions));
+}
 
 export async function resolveUserPermissions(
   workspaceId: string,
@@ -44,27 +77,10 @@ export async function resolveUserPermissions(
   if (!member) {
     return new Set<Permission>();
   }
-
-  if (member.role === 'OWNER') {
-    return new Set<Permission>(PERMISSION_VALUES);
-  }
-
-  const permissions = new Set<Permission>(BUILT_IN_ROLE_PERMISSIONS[member.role]);
-
-  // เพิ่ม always-granted permissions ให้ทุกสมาชิก
-  for (const p of ALWAYS_GRANTED) {
-    permissions.add(p);
-  }
-
-  for (const assignedRole of member.user.customRoles) {
-    for (const permission of assignedRole.customRole.permissions) {
-      if (isPermission(permission)) {
-        permissions.add(permission);
-      }
-    }
-  }
-
-  return permissions;
+  return buildPermissionSet(
+    member.role,
+    member.user.customRoles.map((assignedRole) => assignedRole.customRole.permissions),
+  );
 }
 
 export async function hasPermission(

@@ -1,7 +1,7 @@
 import { WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
 import { PERMISSIONS } from '../../types/permissions';
-import { getUserPermissionsArray, hasPermission } from '../../utils/permissions';
+import { buildPermissionArray, getUserPermissionsArray, hasPermission } from '../../utils/permissions';
 import {
   uploadWorkspaceIcon,
   deleteOldWorkspaceIcon,
@@ -30,18 +30,32 @@ export const createWorkspace = async (
 /* ======================= READ ======================= */
 
 export const getUserWorkspaces = async (userId: string) => {
-  const memberships = await workspaceRepository.findMembershipsByUser(userId);
+  const [memberships, assignedCustomRoles] = await Promise.all([
+    workspaceRepository.findMembershipsByUser(userId),
+    workspaceRepository.findAssignedCustomRolePermissionsByUser(userId),
+  ]);
 
-  return Promise.all(
-    memberships.map(async (m) => ({
-      ...m.workspace,
-      role: m.role,
-      joinedAt: m.joinedAt,
-      memberCount: m.workspace._count.members,
-      roomCount: m.workspace._count.rooms,
-      myPermissions: await getUserPermissionsArray(m.workspace.id, userId),
-    })),
+  const permissionsByWorkspace = assignedCustomRoles.reduce<Map<string, string[][]>>(
+    (map, assignment) => {
+      const permissions = map.get(assignment.workspaceId) ?? [];
+      permissions.push(assignment.customRole.permissions);
+      map.set(assignment.workspaceId, permissions);
+      return map;
+    },
+    new Map(),
   );
+
+  return memberships.map((m) => ({
+    ...m.workspace,
+    role: m.role,
+    joinedAt: m.joinedAt,
+    memberCount: m.workspace._count.members,
+    roomCount: m.workspace._count.rooms,
+    myPermissions: buildPermissionArray(
+      m.role,
+      permissionsByWorkspace.get(m.workspace.id) ?? [],
+    ),
+  }));
 };
 
 export const getWorkspaceById = async (

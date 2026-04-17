@@ -1,5 +1,5 @@
 import { prisma } from '../../index';
-import { MessageType } from '@prisma/client';
+import { MessageType, Prisma } from '@prisma/client';
 
 /* ======================= SELECTS ======================= */
 
@@ -154,6 +154,33 @@ export const countUnread = async (conversationId: string, userId: string) => {
       isRead: false,
     },
   });
+};
+
+export const countUnreadByConversationIds = async (userId: string, conversationIds: string[]) => {
+  if (conversationIds.length === 0) {
+    return new Map<string, number>();
+  }
+
+  const conversationIdList = Prisma.join(
+    conversationIds.map((conversationId) => Prisma.sql`${conversationId}::uuid`),
+  );
+
+  const rows = await prisma.$queryRaw<
+    Array<{ conversationId: string; unreadCount: bigint | number }>
+  >(Prisma.sql`
+    SELECT
+      dm."conversationId",
+      COUNT(dm."id")::bigint AS "unreadCount"
+    FROM "DirectMessage" dm
+    WHERE dm."senderId" <> ${Prisma.sql`${userId}::uuid`}
+      AND dm."isRead" = false
+      AND dm."conversationId" IN (${conversationIdList})
+    GROUP BY dm."conversationId"
+  `);
+
+  return new Map(
+    rows.map((row) => [row.conversationId, Number(row.unreadCount)]),
+  );
 };
 
 export const deleteMessage = async (messageId: string) => {

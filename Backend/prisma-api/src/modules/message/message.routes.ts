@@ -9,16 +9,14 @@ import * as messageService from './message.service';
 import { uploadChatFile } from '../../utils/supabase-storage';
 import { getIO } from '../chat/chat.gateway';
 import { chatFileUpload } from '../../middlewares/upload.middleware';
+import { readRouteParam } from '../../utils/route.utils';
 
 const router = Router();
 router.use(authenticate);
 
-const param = (value: string | string[] | undefined): string =>
-  Array.isArray(value) ? value[0] : (value ?? '');
-
 // GET /api/rooms/:roomId/messages
 router.get('/rooms/:roomId/messages', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const result = await messageService.getMessages(param(req.params.roomId), req.userId!, {
+  const result = await messageService.getMessages(readRouteParam(req.params.roomId), req.userId!, {
     limit: req.query.limit ? Number(req.query.limit) : undefined,
     offset: req.query.offset ? Number(req.query.offset) : undefined,
     before: req.query.before as string | undefined,
@@ -28,13 +26,13 @@ router.get('/rooms/:roomId/messages', asyncHandler(async (req: AuthRequest, res:
 
 // PATCH /api/rooms/:roomId/read
 router.patch('/rooms/:roomId/read', validateRequest(MarkRoomAsReadSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  await messageService.markAsRead(param(req.params.roomId), req.userId!);
+  await messageService.markAsRead(readRouteParam(req.params.roomId), req.userId!);
   res.json({ success: true, message: 'Room marked as read' });
 }));
 
 // POST /api/rooms/:roomId/messages
 router.post('/rooms/:roomId/messages', validateRequest(SendMessageSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const roomId = param(req.params.roomId);
+  const roomId = readRouteParam(req.params.roomId);
   const msg = await messageService.sendMessage(roomId, req.userId!, req.body.content, req.body.type);
 
   // Broadcast ผ่าน Socket.IO (ครอบคลุมกรณี client ใช้ REST fallback)
@@ -47,7 +45,7 @@ router.post('/rooms/:roomId/messages', validateRequest(SendMessageSchema), async
 // POST /api/rooms/:roomId/upload
 // อัปโหลดไฟล์/รูปภาพในห้องแชท (multipart/form-data)
 router.post('/rooms/:roomId/upload', chatFileUpload.single('file'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const roomId = param(req.params.roomId);
+  const roomId = readRouteParam(req.params.roomId);
   const file = req.file;
 
   if (!file) {
@@ -85,7 +83,7 @@ router.post('/rooms/:roomId/upload', chatFileUpload.single('file'), asyncHandler
 
 // DELETE /api/messages/:id
 router.delete('/messages/:id', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  await messageService.deleteMessage(param(req.params.id), req.userId!);
+  await messageService.deleteMessage(readRouteParam(req.params.id), req.userId!);
   res.json({ success: true, message: 'Message deleted' });
 }));
 

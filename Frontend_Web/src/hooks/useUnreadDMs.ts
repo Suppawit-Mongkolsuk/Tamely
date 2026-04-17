@@ -1,7 +1,7 @@
 // ===== useUnreadDMs — นับ unread รวมของ Room + DM =====
 // ใช้ใน Sidebar เพื่อแสดง badge บน Chat Rooms nav item และ toast notification
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { dmService } from '@/services/dm.service';
@@ -22,8 +22,7 @@ export function useUnreadDMs() {
   const isOnChatPage = location.pathname === '/chat-rooms';
 
   const [totalUnread, setTotalUnread] = useState(0);
-  // roomId → roomName map สำหรับ notification label
-  const [roomNameMap, setRoomNameMap] = useState<Record<string, string>>({});
+  const roomNameMapRef = useRef<Record<string, string>>({});
 
   // fetch unread รวม + join ทุก DM และ Room socket เพื่อรับ event แบบ real-time
   const fetchAndJoin = useCallback(async () => {
@@ -54,7 +53,7 @@ export function useUnreadDMs() {
       // สร้าง map roomId → roomName
       const map: Record<string, string> = {};
       rooms.forEach((r) => { map[r.id] = r.name; });
-      setRoomNameMap(map);
+      roomNameMapRef.current = map;
     } catch {
       /* silent */
     }
@@ -118,7 +117,9 @@ export function useUnreadDMs() {
 
       if (msg.roomId && isConversationMuted(myId, msg.roomId)) return;
 
-      const roomName = msg.roomId ? (roomNameMap[msg.roomId] ?? 'ห้องแชท') : 'ห้องแชท';
+      const roomName = msg.roomId
+        ? (roomNameMapRef.current[msg.roomId] ?? 'ห้องแชท')
+        : 'ห้องแชท';
       const preview = msg.content.length > 60 ? msg.content.slice(0, 60) + '…' : msg.content;
 
       toast(`# ${roomName}`, {
@@ -130,12 +131,12 @@ export function useUnreadDMs() {
     return () => {
       socket.off('message_received', handleMessageReceived);
     };
-  }, [fetchAndJoin, myId, roomNameMap, isOnChatPage]);
+  }, [fetchAndJoin, myId, isOnChatPage]);
 
   // Reset เมื่อ workspace เปลี่ยน
   useEffect(() => {
     setTotalUnread(0);
-    setRoomNameMap({});
+    roomNameMapRef.current = {};
   }, [wsId]);
 
   // refresh เมื่อเปลี่ยนหน้า เพื่อ sync badge หลังออกจากหน้า chat rooms
