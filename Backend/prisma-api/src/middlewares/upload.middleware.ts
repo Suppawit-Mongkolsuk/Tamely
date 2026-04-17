@@ -57,3 +57,6 @@ export const postImageUpload = createUploadMiddleware(5, ['image/*']);
 
 /** Chat file upload — รับทุก type, สูงสุด 10 MB */
 export const chatFileUpload = createUploadMiddleware(10);
+
+/** Workspace icon upload — รับเฉพาะรูป, สูงสุด 2 MB */
+export const workspaceIconUpload = createUploadMiddleware(2, ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);

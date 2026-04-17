@@ -320,12 +320,20 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
                         className="w-full p-4 text-left"
                       >
                         <div className="flex justify-center mb-3">
-                          <div
-                            className="size-14 rounded-lg flex items-center justify-center text-white text-xl"
-                            style={{ backgroundColor: COLORS[colorIdx % COLORS.length] }}
-                          >
-                            {ws.name.charAt(0)}
-                          </div>
+                          {ws.iconUrl ? (
+                            <img
+                              src={ws.iconUrl}
+                              alt={ws.name}
+                              className="size-14 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div
+                              className="size-14 rounded-lg flex items-center justify-center text-white text-xl"
+                              style={{ backgroundColor: COLORS[colorIdx % COLORS.length] }}
+                            >
+                              {ws.name.charAt(0)}
+                            </div>
+                          )}
                         </div>
                         <div className="text-center mb-3">
                           <h3 className="text-base mb-1 group-hover:text-[#003366] transition-colors font-medium">

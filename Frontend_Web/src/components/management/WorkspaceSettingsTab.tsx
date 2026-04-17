@@ -1,5 +1,5 @@
 // ===== Workspace Settings Tab =====
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Edit, Trash2, Upload, Save, Copy, Check, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -149,11 +149,45 @@ export function WorkspaceSettingsTab({
   const [name, setName] = useState(workspace?.name ?? '');
   const [description, setDescription] = useState(workspace?.description ?? '');
   const [saving, setSaving] = useState(false);
+  const [iconPreview, setIconPreview] = useState<string | null>(workspace?.iconUrl ?? null);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const iconInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setName(workspace?.name ?? '');
     setDescription(workspace?.description ?? '');
-  }, [workspace?.id, workspace?.name, workspace?.description]);
+    setIconPreview(workspace?.iconUrl ?? null);
+  }, [workspace?.id, workspace?.name, workspace?.description, workspace?.iconUrl]);
+
+  const handleIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!workspace) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      toast.error('รองรับเฉพาะ JPG, PNG, GIF หรือ WebP');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('ไฟล์ต้องมีขนาดไม่เกิน 2MB');
+      return;
+    }
+
+    setIconPreview(URL.createObjectURL(file));
+    setUploadingIcon(true);
+    try {
+      const result = await workspaceService.uploadWorkspaceIcon(workspace.id, file);
+      onWorkspaceUpdated?.({ ...workspace, iconUrl: result.iconUrl });
+      toast.success('อัปเดตไอคอน Workspace สำเร็จ');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'อัปโหลดไม่สำเร็จ');
+      setIconPreview(workspace.iconUrl ?? null);
+    } finally {
+      setUploadingIcon(false);
+      if (iconInputRef.current) iconInputRef.current.value = '';
+    }
+  };
 
   const handleSave = async () => {
     if (!workspace) return;
@@ -184,17 +218,38 @@ export function WorkspaceSettingsTab({
             <div>
               <Label>ไอคอน Workspace</Label>
               <div className="flex items-center gap-4 mt-2">
-                <div className="size-20 rounded-xl bg-[#003366] flex items-center justify-center text-white text-2xl">
-                  {workspace?.name?.[0]?.toUpperCase() ?? 'W'}
-                </div>
+                {iconPreview ? (
+                  <img
+                    src={iconPreview}
+                    alt={workspace?.name}
+                    className="size-20 rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="size-20 rounded-xl bg-[#003366] flex items-center justify-center text-white text-2xl shrink-0">
+                    {workspace?.name?.[0]?.toUpperCase() ?? 'W'}
+                  </div>
+                )}
                 <div>
-                  <Button variant="outline" size="sm" className="mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mb-2"
+                    onClick={() => iconInputRef.current?.click()}
+                    disabled={uploadingIcon || !canManageWorkspace}
+                  >
                     <Upload className="size-4 mr-2" />
-                    อัปโหลดรูป
+                    {uploadingIcon ? 'กำลังอัปโหลด...' : 'อัปโหลดรูป'}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    แนะนำขนาด 256x256px, PNG หรือ JPG
+                    แนะนำขนาด 256x256px, PNG หรือ JPG (สูงสุด 2MB)
                   </p>
+                  <input
+                    ref={iconInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={(e) => void handleIconChange(e)}
+                  />
                 </div>
               </div>
             </div>

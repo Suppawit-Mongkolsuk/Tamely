@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Response } from 'express';
 import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
+import { workspaceIconUpload } from '../../middlewares/upload.middleware';
 import { AuthRequest } from '../../types';
 import { CreateWorkspaceSchema, JoinWorkspaceSchema, AddMemberSchema } from './workspace.model';
 import * as workspaceService from './workspace.service';
@@ -75,6 +76,20 @@ router.patch('/:id/members/:userId', asyncHandler(async (req: AuthRequest, res: 
 // POST /api/workspaces/:id/regenerate-invite
 router.post('/:id/regenerate-invite', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const result = await workspaceService.regenerateInviteCode(param(req.params.id), req.userId!);
+  res.json({ success: true, data: result });
+}));
+
+// POST /api/workspaces/:id/icon
+router.post('/:id/icon', workspaceIconUpload.single('icon'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+  const file = req.file;
+  if (!file) { res.status(400).json({ success: false, error: 'No file uploaded' }); return; }
+  const result = await workspaceService.updateWorkspaceIcon(
+    param(req.params.id),
+    req.userId!,
+    file.buffer,
+    file.mimetype,
+    file.originalname,
+  );
   res.json({ success: true, data: result });
 }));
 

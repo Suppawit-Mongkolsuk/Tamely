@@ -24,7 +24,7 @@ import dmRoutes from './modules/dm/dm.routes';
 import aiRoutes from './modules/ai/ai.routes';
 import passport from './modules/oauth/oauth.config';
 import { initSocketIO } from './modules/chat/chat.gateway';
-import { ensureBucket, CHAT_FILES_BUCKET } from './utils/supabase-storage';
+import { ensureBucket, CHAT_FILES_BUCKET, WORKSPACE_ICONS_BUCKET } from './utils/supabase-storage';
 
 // Middlewares
 import { errorHandler } from './middlewares/error';
@@ -147,6 +147,7 @@ const startServer = (port: number) => {
       console.log(`Server running on http://localhost:${port}`);
       // Ensure Supabase buckets exist on startup
       ensureBucket(CHAT_FILES_BUCKET, true).catch(() => {});
+      ensureBucket(WORKSPACE_ICONS_BUCKET, true).catch(() => {});
     });
 };
 

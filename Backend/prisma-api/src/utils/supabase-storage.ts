@@ -22,6 +22,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 export const AVATAR_BUCKET = 'avatars';
 export const POST_IMAGES_BUCKET = 'post-images';
 export const CHAT_FILES_BUCKET = 'chat-files';
+export const WORKSPACE_ICONS_BUCKET = 'workspace-icons';
 
 // ===== Auth Headers =====
 /** รองรับทั้ง Legacy JWT (eyJ...) และ New format (sb_secret_...) */
@@ -167,6 +168,26 @@ export async function uploadPostImage(
   const ext = originalName.split('.').pop() || 'jpg';
   const filePath = `${postId}/${Date.now()}.${ext}`;
   return uploadToStorage(POST_IMAGES_BUCKET, filePath, fileBuffer, mimeType);
+}
+
+/**
+ * [Feature: Workspace] อัปโหลดไอคอน Workspace
+ * Path: workspace-icons/{workspaceId}/icon-{timestamp}.{ext}
+ */
+export async function uploadWorkspaceIcon(
+  workspaceId: string,
+  fileBuffer: Buffer,
+  mimeType: string,
+  originalName: string,
+): Promise<string> {
+  const ext = originalName.split('.').pop() || 'png';
+  const filePath = `${workspaceId}/icon-${Date.now()}.${ext}`;
+  return uploadToStorage(WORKSPACE_ICONS_BUCKET, filePath, fileBuffer, mimeType);
+}
+
+/** [Feature: Workspace] ลบไอคอน Workspace เก่า */
+export async function deleteOldWorkspaceIcon(iconUrl: string | null): Promise<void> {
+  return deleteFromStorage(WORKSPACE_ICONS_BUCKET, iconUrl);
 }
 
 /**

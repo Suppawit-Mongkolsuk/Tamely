@@ -3,6 +3,10 @@ import { AppError } from '../../types';
 import { PERMISSIONS } from '../../types/permissions';
 import { getUserPermissionsArray, hasPermission } from '../../utils/permissions';
 import {
+  uploadWorkspaceIcon,
+  deleteOldWorkspaceIcon,
+} from '../../utils/supabase-storage';
+import {
   TypePayloadCreateWorkspace,
   TypePayloadUpdateWorkspace,
   TypePayloadUpdateMemberRole,
@@ -82,6 +86,27 @@ export const updateWorkspace = async (
     myPermissions: await getUserPermissionsArray(workspaceId, userId),
     myCustomRoles: member.user.customRoles.map((item) => item.customRole),
   };
+};
+
+export const updateWorkspaceIcon = async (
+  workspaceId: string,
+  userId: string,
+  fileBuffer: Buffer,
+  mimeType: string,
+  originalName: string,
+) => {
+  const allowed = await hasPermission(workspaceId, userId, PERMISSIONS.MANAGE_WORKSPACE);
+  if (!allowed) throw new AppError(403, 'Insufficient permissions');
+
+  const workspace = await workspaceRepository.findById(workspaceId);
+  if (!workspace) throw new AppError(404, 'Workspace not found');
+
+  await deleteOldWorkspaceIcon(workspace.iconUrl ?? null);
+
+  const iconUrl = await uploadWorkspaceIcon(workspaceId, fileBuffer, mimeType, originalName);
+  const updated = await workspaceRepository.update(workspaceId, { iconUrl });
+
+  return { iconUrl: updated.iconUrl };
 };
 
 /* ======================= DELETE ======================= */

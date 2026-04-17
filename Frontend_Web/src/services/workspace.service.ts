@@ -129,4 +129,14 @@ export const workspaceService = {
     );
     return res.data;
   },
+
+  async uploadWorkspaceIcon(workspaceId: string, file: File): Promise<{ iconUrl: string }> {
+    const formData = new FormData();
+    formData.append('icon', file);
+    const res = await apiClient.upload<ApiSuccessResponse<{ iconUrl: string }>>(
+      `/workspaces/${workspaceId}/icon`,
+      formData,
+    );
+    return res.data;
+  },
 };
