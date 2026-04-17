@@ -9,6 +9,7 @@ import { ArrowLeft, Send, Phone } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import AIChatBanner from '../../components/chat/AIChatBanner';
 
 // ไม่ import useWebRTC และ CallOverlay ตรงๆ เพราะ react-native-webrtc ไม่รองรับ Expo Go
 // ใช้ require แบบ lazy แทนเพื่อให้ Expo Go โหลดไฟล์นี้ได้
@@ -80,21 +81,25 @@ export default function ChatDmScreen() {
 
   const [token, setToken] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
+  const [wsId, setWsId] = useState('');
   const [storageLoaded, setStorageLoaded] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       const t = await AsyncStorage.getItem('token') ?? '';
       const u = await AsyncStorage.getItem('user') ?? '';
+      const w = await AsyncStorage.getItem('wsId') ?? '';
       const userData = u ? JSON.parse(u) : null;
       setToken(t);
       setCurrentUserId(userData?.id ?? '');
+      setWsId(w);
       setStorageLoaded(true);
     };
     load();
   }, []);
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
+  const [unreadSnapshot, setUnreadSnapshot] = useState<DmMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -124,7 +129,12 @@ export default function ChatDmScreen() {
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const json = await res.json();
-      setMessages(json.data ?? []);
+      const data: DmMessage[] = json.data ?? [];
+      // เก็บ snapshot ข้อความที่ยังไม่อ่านก่อน mark read (เฉพาะโหลดครั้งแรก)
+      if (!silent) {
+        setUnreadSnapshot(data.filter((m) => !m.isRead));
+      }
+      setMessages(data);
     } catch {
       if (!silent) Alert.alert('เกิดข้อผิดพลาด', 'โหลดข้อความไม่สำเร็จ');
     } finally {
@@ -161,6 +171,13 @@ export default function ChatDmScreen() {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
+      // ถ้าข้อความจากอีกฝ่าย ให้เพิ่มเข้า snapshot เพื่อให้ Banner แสดง
+      if (msg.sender.id !== currentUserId) {
+        setUnreadSnapshot((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
 
@@ -292,21 +309,28 @@ export default function ChatDmScreen() {
             <ActivityIndicator color="#425C95" />
           </View>
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            contentContainerStyle={{ paddingVertical: 12 }}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-            ListEmptyComponent={
-              <View style={{ alignItems: 'center', paddingTop: 80 }}>
-                <Avatar name={otherName} size={60} />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151', marginTop: 12 }}>{otherName}</Text>
-                <Text style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>เริ่มต้นบทสนทนากัน</Text>
-              </View>
-            }
-          />
+          <View style={{ flex: 1 }}>
+            <AIChatBanner
+              unreadMessages={unreadSnapshot}
+              wsId={wsId}
+              token={token}
+            />
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              renderItem={renderMessage}
+              contentContainerStyle={{ paddingVertical: 12 }}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', paddingTop: 80 }}>
+                  <Avatar name={otherName} size={60} />
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151', marginTop: 12 }}>{otherName}</Text>
+                  <Text style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>เริ่มต้นบทสนทนากัน</Text>
+                </View>
+              }
+            />
+          </View>
         )}
 
         <View style={{ backgroundColor: '#fff', flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 10, gap: 10, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
