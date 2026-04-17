@@ -9,18 +9,19 @@ import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { chatService } from '@/services/chat.service';
 import { dmService } from '@/services/dm.service';
-import { workspaceService } from '@/services/workspace.service';
 import type { RoomResponse, MessageResponse } from '@/services/chat.service';
 import type { DMConversationResponse, DMMessageResponse } from '@/services/dm.service';
-import { connectSocket } from '@/lib/socket';
-import { isConversationMuted, toggleConversationMute } from '@/lib/notification-prefs';
 import { canDo, PERMISSIONS } from '@/lib/permissions';
-
 import { formatTime, getInitials } from '@/lib/utils';
-import type { ChatRoom, Message, Member, ChatTab, DirectMessage } from '@/types/chat-ui';
-import type { WorkspaceMember } from '@/types/workspace';
+import type { ChatRoom, Message, Member, DirectMessage } from '@/types/chat-ui';
 import { toast } from 'sonner';
 import { useWebRTCContext } from '@/contexts/WebRTCContext';
+import { useChatActions } from './useChatActions';
+import { useChatDialogs } from './useChatDialogs';
+import { useChatMessages } from './useChatMessages';
+import { useChatPresence } from './useChatPresence';
+import { useChatSelection } from './useChatSelection';
+import { useChatSockets } from './useChatSockets';
 
 function mapRoom(r: RoomResponse): ChatRoom {
   return {
@@ -128,44 +129,12 @@ export function ChatRoomsPage() {
   const { callState, startCall } = useWebRTCContext();
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
-  const [selectedRoom, setSelectedRoom] = useState('');
-  const [selectedDM, setSelectedDM] = useState('');
-  const [activeTab, setActiveTab] = useState<ChatTab>('rooms');
-  const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
 
-  // Loading & pagination state
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [messageOffset, setMessageOffset] = useState(0);
-  const LIMIT = 50;
-
   // DM state
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
-  // workspace members สำหรับแสดงในแท็บ DM (ทุกคนใน workspace)
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
-  // online status map: userId → boolean
-  const [onlineStatus, setOnlineStatus] = useState<Record<string, boolean>>({});
-  const [myWorkspaceRole, setMyWorkspaceRole] = useState<'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER'>('MEMBER');
-  const [isNewDMDialogOpen, setIsNewDMDialogOpen] = useState(false);
-
-  const [isCreateRoomDialogOpen, setIsCreateRoomDialogOpen] = useState(false);
-  const [isInviteMemberDialogOpen, setIsInviteMemberDialogOpen] = useState(false);
-  const [isRemoveMemberDialogOpen, setIsRemoveMemberDialogOpen] = useState(false);
-  const [isLeaveRoomDialogOpen, setIsLeaveRoomDialogOpen] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
-  const [selectedUsersToInvite, setSelectedUsersToInvite] = useState<string[]>([]);
-  const [inviteSearchQuery, setInviteSearchQuery] = useState('');
-
-  // Mobile navigation — แสดง 1 panel ต่อครั้งบนมือถือ
-  // 'list' = ChatSidebar, 'chat' = ChatWindow, 'detail' = ChatDetailPanel
-  type MobileView = 'list' | 'chat' | 'detail';
-  const [mobileView, setMobileView] = useState<MobileView>('list');
-
-  const socketRef = useRef<ReturnType<typeof connectSocket> | null>(null);
-  const roomReadSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // mute state — re-render เมื่อ toggle
   const [mutedIds, setMutedIds] = useState<Set<string>>(() => {
@@ -179,6 +148,56 @@ export function ChatRoomsPage() {
 
   const isFirstRoomLoad = useRef(true);
   const canCreateRoom = canDo(currentWorkspace, PERMISSIONS.MANAGE_CHANNELS);
+  const { workspaceMembers, onlineStatus, myWorkspaceRole } = useChatPresence(wsId, myId);
+  const {
+    isCreateRoomDialogOpen,
+    setIsCreateRoomDialogOpen,
+    isInviteMemberDialogOpen,
+    handleInviteDialogChange,
+    isRemoveMemberDialogOpen,
+    setIsRemoveMemberDialogOpen,
+    openRemoveMemberDialog,
+    closeRemoveMemberDialog,
+    isLeaveRoomDialogOpen,
+    setIsLeaveRoomDialogOpen,
+    memberToRemove,
+    selectedUsersToInvite,
+    toggleInviteUser,
+    clearInviteSelection,
+    inviteSearchQuery,
+    setInviteSearchQuery,
+  } = useChatDialogs();
+
+  const {
+    messages,
+    setMessages,
+    isLoadingMessages,
+    hasMore,
+    fetchRoomMessages,
+    fetchDMMessages,
+    resetMessages,
+    loadMoreMessages,
+  } = useChatMessages({
+    myId,
+    setDirectMessages,
+    mapChatMessage,
+  });
+
+  const {
+    activeTab,
+    mobileView,
+    selectedDM,
+    selectedRoom,
+    setMobileView,
+    setSelectedRoom,
+    handleTabChange,
+    handleSelectDM,
+    handleSelectRoom,
+  } = useChatSelection({
+    setRooms,
+    setDirectMessages,
+    onResetMessages: resetMessages,
+  });
 
   const fetchRooms = useCallback(async () => {
     if (!wsId) return;
@@ -194,40 +213,6 @@ export function ChatRoomsPage() {
       toast.error('โหลดห้องแชทไม่สำเร็จ');
     }
   }, [wsId]);
-
-  const scheduleMarkRoomAsRead = useCallback((roomId: string) => {
-    if (roomReadSyncTimeoutRef.current) {
-      clearTimeout(roomReadSyncTimeoutRef.current);
-    }
-
-    roomReadSyncTimeoutRef.current = setTimeout(() => {
-      chatService.markRoomAsRead(roomId).catch((err) => {
-        console.warn('[ChatRooms] Failed to mark room as read:', err);
-      });
-    }, 300);
-  }, []);
-
-  const fetchMessages = useCallback(
-    async (roomId: string, offset = 0) => {
-      if (offset === 0) setIsLoadingMessages(true);
-      try {
-        const res = await chatService.getMessages(roomId, { limit: LIMIT, offset });
-        const mapped = res.data.map((m) => mapChatMessage(m, myId));
-        if (offset === 0) {
-          setMessages(mapped);
-        } else {
-          setMessages((prev) => [...mapped, ...prev]); // prepend ข้อความเก่า
-        }
-        setHasMore(res.total > offset + res.data.length);
-        setMessageOffset(offset + res.data.length);
-      } catch {
-        toast.error('โหลดข้อความไม่สำเร็จ');
-      } finally {
-        if (offset === 0) setIsLoadingMessages(false);
-      }
-    },
-    [myId, LIMIT],
-  );
 
   const fetchRoomDetail = useCallback(async (roomId: string) => {
     try {
@@ -258,58 +243,29 @@ export function ChatRoomsPage() {
     }
   }, [wsId, myId]);
 
-  const fetchWorkspaceMembers = useCallback(async () => {
-    if (!wsId) return;
-    try {
-      const data = await workspaceService.getMembers(wsId);
-      // ดึง role ของตัวเองก่อน filter ออก
-      const me = data.find((m) => m.userId === myId);
-      if (me) setMyWorkspaceRole(me.role as 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER');
-      setWorkspaceMembers(data.filter((m) => m.userId !== myId));
-    } catch (err) {
-      console.warn('[ChatRooms] Failed to fetch workspace members:', err);
-    }
-  }, [wsId, myId]);
-
-  const fetchDMMessages = useCallback(
-    async (conversationId: string, offset = 0) => {
-      if (offset === 0) setIsLoadingMessages(true);
-      try {
-        const res = await dmService.getMessages(conversationId, { limit: LIMIT, offset });
-        const mapped = res.data.map((m) => mapChatMessage(m, myId));
-        if (offset === 0) {
-          setMessages(mapped);
-          setDirectMessages((prev) =>
-            prev.map((dm) => (dm.id === conversationId ? { ...dm, unread: 0 } : dm)),
-          );
-        } else {
-          setMessages((prev) => [...mapped, ...prev]); // prepend ข้อความเก่า
-        }
-        setHasMore(res.total > offset + res.data.length);
-        setMessageOffset(offset + res.data.length);
-      } catch {
-        toast.error('โหลดข้อความ DM ไม่สำเร็จ');
-      } finally {
-        if (offset === 0) setIsLoadingMessages(false);
-      }
-    },
-    [myId, LIMIT],
-  );
+  const { socketRef } = useChatSockets({
+    selectedRoom,
+    selectedDM,
+    myId,
+    fetchRoomMessages,
+    fetchRoomDetail,
+    fetchDMMessages,
+    setRooms,
+    setMessages,
+    setDirectMessages,
+    mapChatMessage,
+    updateRoomPreview,
+    updateDMPreview,
+  });
 
   // โหลดข้อความเพิ่มเติมเมื่อ scroll ขึ้นถึงด้านบน
   const handleLoadMore = useCallback(async () => {
-    if (activeTab === 'rooms' && selectedRoom) {
-      await fetchMessages(selectedRoom, messageOffset);
-    } else if (activeTab === 'dms' && selectedDM) {
-      await fetchDMMessages(selectedDM, messageOffset);
-    }
-  }, [activeTab, selectedRoom, selectedDM, messageOffset, fetchMessages, fetchDMMessages]);
+    await loadMoreMessages(activeTab, selectedRoom, selectedDM);
+  }, [activeTab, loadMoreMessages, selectedDM, selectedRoom]);
 
   useEffect(() => {
     fetchRooms();
-    // โหลด workspace members ทันทีเพื่อให้ presence tracking ทำงานได้ก่อน switch tab
-    fetchWorkspaceMembers();
-  }, [fetchRooms, fetchWorkspaceMembers]);
+  }, [fetchRooms]);
 
   // โหลด DM list เมื่อ switch ไป DM tab
   useEffect(() => {
@@ -318,327 +274,43 @@ export function ChatRoomsPage() {
     }
   }, [activeTab, fetchDMs]);
 
-  // Online presence — subscribe events ทันทีที่ socket connect
-  // และ query initial status เมื่อมี workspaceMembers
-  useEffect(() => {
-    const socket = connectSocket(); // ensure connected
-
-    const queryInitialStatus = () => {
-      if (workspaceMembers.length === 0) return;
-      const userIds = workspaceMembers.map((m) => m.userId);
-      socket.emit('get_online_status', userIds, (statusMap: Record<string, boolean>) => {
-        setOnlineStatus(statusMap);
-      });
-    };
-
-    // subscribe online/offline events (ทำตลอดเวลา ไม่ต้องรอ tab)
-    const handleOnline = ({ userId }: { userId: string }) => {
-      setOnlineStatus((prev) => ({ ...prev, [userId]: true }));
-    };
-    const handleOffline = ({ userId }: { userId: string }) => {
-      setOnlineStatus((prev) => ({ ...prev, [userId]: false }));
-    };
-
-    socket.on('user_online', handleOnline);
-    socket.on('user_offline', handleOffline);
-
-    // ถ้า socket connected แล้ว query ทันที ถ้าไม่ให้ query หลัง connect
-    if (socket.connected) {
-      queryInitialStatus();
-    } else {
-      socket.once('connect', queryInitialStatus);
-    }
-
-    return () => {
-      socket.off('user_online', handleOnline);
-      socket.off('user_offline', handleOffline);
-      socket.off('connect', queryInitialStatus);
-    };
-  }, [workspaceMembers]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Socket สำหรับ Room
-  useEffect(() => {
-    if (!selectedRoom) return;
-    fetchMessages(selectedRoom);
-    fetchRoomDetail(selectedRoom);
-
-    const socket = connectSocket();
-    socketRef.current = socket;
-    socket.emit('join_room', selectedRoom);
-
-    const handleMessageReceived = (msg: MessageResponse) => {
-      if (!msg.roomId) return;
-
-      setRooms((prev) => updateRoomPreview(prev, msg.roomId!, msg, myId, selectedRoom));
-
-      if (msg.roomId !== selectedRoom) return;
-      setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
-      if (msg.sender.id !== myId) {
-        scheduleMarkRoomAsRead(selectedRoom);
-      }
-    };
-    // re-join room หลัง socket reconnect (socket.io auto-reconnect จะ wipe server-side rooms)
-    const handleReconnect = () => {
-      socket.emit('join_room', selectedRoom);
-    };
-
-    socket.on('message_received', handleMessageReceived);
-    socket.on('connect', handleReconnect);
-
-    return () => {
-      // ไม่ emit leave_room เพื่อไม่ขัดกับ global join ของ useUnreadDMs
-      // server จะ cleanup เองเมื่อ socket disconnect
-      socket.off('message_received', handleMessageReceived);
-      socket.off('connect', handleReconnect);
-    };
-  }, [selectedRoom, fetchMessages, fetchRoomDetail, myId, scheduleMarkRoomAsRead]);
-
-  useEffect(() => {
-    return () => {
-      if (roomReadSyncTimeoutRef.current) {
-        clearTimeout(roomReadSyncTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Socket สำหรับ DM
-  useEffect(() => {
-    if (!selectedDM) return;
-    fetchDMMessages(selectedDM);
-
-    const socket = connectSocket();
-    socketRef.current = socket;
-    socket.emit('join_dm', selectedDM);
-
-    const handleDMReceived = (msg: DMMessageResponse) => {
-      setDirectMessages((prev) => updateDMPreview(prev, msg, myId, selectedDM));
-
-      if (msg.conversationId !== selectedDM) {
-        return;
-      }
-
-      setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
-      // ถ้าข้อความไม่ใช่ของตัวเอง → mark as read ทันที
-      // เพราะ user กำลังเห็นข้อความนี้อยู่ → trigger dm_read ให้ผู้ส่งเห็น "Read"
-      if (msg.sender.id !== myId) {
-        dmService.markAsRead(selectedDM).catch((err) => {
-          console.warn('[ChatRooms] Failed to mark DM as read:', err);
-        });
-      }
-    };
-
-    const handleDMRead = ({ conversationId }: { conversationId: string; readByUserId: string }) => {
-      if (conversationId !== selectedDM) return;
-      setMessages((prev) => prev.map((m) => (m.isOwn ? { ...m, isRead: true } : m)));
-    };
-
-    // re-join DM หลัง socket reconnect
-    const handleReconnect = () => {
-      socket.emit('join_dm', selectedDM);
-    };
-
-    socket.on('dm_received', handleDMReceived);
-    socket.on('dm_read', handleDMRead);
-    socket.on('connect', handleReconnect);
-
-    return () => {
-      socket.emit('leave_dm', selectedDM);
-      socket.off('dm_received', handleDMReceived);
-      socket.off('dm_read', handleDMRead);
-      socket.off('connect', handleReconnect);
-    };
-  }, [selectedDM, fetchDMMessages, myId]);
-
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
-    const socket = socketRef.current;
-
-    if (activeTab === 'dms' && selectedDM) {
-      // ส่ง DM
-      if (socket?.connected) {
-        socket.emit('send_dm', { conversationId: selectedDM, content: messageInput });
-      } else {
-        dmService.sendMessage(selectedDM, messageInput).then((msg) => {
-          setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
-        });
-      }
-    } else if (selectedRoom) {
-      // ส่ง Room message
-      if (socket?.connected) {
-        socket.emit('send_message', { roomId: selectedRoom, content: messageInput });
-      } else {
-        chatService.sendMessage(selectedRoom, messageInput).then((msg) => {
-          setRooms((prev) => updateRoomPreview(prev, selectedRoom, msg, myId, selectedRoom));
-          setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
-        });
-      }
-    }
-    setMessageInput('');
-  };
-
-  const resetMessages = () => {
-    setMessages([]);
-    setHasMore(false);
-    setMessageOffset(0);
-  };
-
-  const handleTabChange = (tab: ChatTab) => {
-    setActiveTab(tab);
-    if (tab === 'rooms') {
-      setSelectedDM('');
-      resetMessages();
-    } else {
-      setSelectedRoom('');
-      resetMessages();
-    }
-  };
-
-  const handleSelectRoom = (id: string) => {
-    if (id === selectedRoom) {
-      setMobileView('chat'); // กดซ้ำห้องเดิม → ไปหน้าแชท (สำหรับ mobile)
-      return;
-    }
-    setRooms((prev) =>
-      prev.map((room) =>
-        room.id === id ? { ...room, unread: 0 } : room,
-      ),
-    );
-    setSelectedRoom(id);
-    setSelectedDM('');
-    resetMessages();
-    setMobileView('chat');
-  };
-
-  const handleSelectDM = (id: string) => {
-    if (id === selectedDM) {
-      setMobileView('chat');
-      return;
-    }
-    setDirectMessages((prev) =>
-      prev.map((dm) => (dm.id === id ? { ...dm, unread: 0 } : dm)),
-    );
-    setSelectedDM(id);
-    setSelectedRoom('');
-    resetMessages();
-    setMobileView('chat');
-  };
-
-  const handleOpenNewDM = async (targetUserId: string) => {
-    if (!wsId) return;
-    try {
-      const conv = await dmService.openConversation(wsId, targetUserId);
-      const dm = mapDMConversation(conv, myId);
-      setDirectMessages((prev) => {
-        const exists = prev.find((d) => d.id === conv.id);
-        return exists ? prev : [dm, ...prev];
-      });
-      setActiveTab('dms');
-      handleSelectDM(conv.id);
-      setIsNewDMDialogOpen(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'เปิด DM ไม่สำเร็จ');
-    }
-  };
-
-  const handleCreateRoom = async (name: string, allowedRoles: string[]) => {
-    if (!wsId) return;
-    if (!canCreateRoom) {
-      toast.error('เฉพาะ Admin และ Owner เท่านั้นที่สร้างห้องได้');
-      setIsCreateRoomDialogOpen(false);
-      return;
-    }
-    const room = await chatService.createRoom(wsId, { name, allowedRoles });
-    setRooms((prev) => [...prev, mapRoom(room)]);
-    setIsCreateRoomDialogOpen(false);
-    handleSelectRoom(room.id);
-  };
-
-  const handleRemoveMember = async () => {
-    if (!selectedRoom || !memberToRemove) return;
-    try {
-      await chatService.leaveRoom(selectedRoom, memberToRemove.id);
-      // ลบ member ออกจาก local state ทันที
-      setMembers((prev) => prev.filter((m) => m.id !== memberToRemove.id));
-      setMemberToRemove(null);
-      setIsRemoveMemberDialogOpen(false);
-      toast.success(`นำ ${memberToRemove.name} ออกจากห้องแล้ว`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'นำสมาชิกออกไม่สำเร็จ');
-    }
-  };
-
-  const handleLeaveRoom = async () => {
-    if (!selectedRoom || !myId) return;
-    const roomIdToLeave = selectedRoom;
-    try {
-      await chatService.leaveRoom(roomIdToLeave, myId);
-    } catch {
-      // ignore — backend ใช้ deleteMany แล้ว ไม่ throw
-    }
-    // ลบห้องออกจาก state + clear selection
-    setRooms((prev) => prev.filter((r) => r.id !== roomIdToLeave));
-    setSelectedRoom('');
-    resetMessages();
-    setIsLeaveRoomDialogOpen(false);
-    toast.success('ออกจากห้องแล้ว');
-  };
-
-  const handleDeleteMessage = async (messageId: string) => {
-    try {
-      if (activeTab === 'dms' && selectedDM) {
-        await dmService.deleteMessage(messageId);
-      } else if (activeTab === 'rooms' && selectedRoom) {
-        await chatService.deleteMessage(messageId);
-      }
-      // ลบออกจาก UI
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-      toast.success('ลบข้อความแล้ว');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'ลบข้อความไม่สำเร็จ');
-    }
-  };
-
-  const handleToggleMute = () => {
-    const conversationId = selectedDM || selectedRoom;
-    if (!conversationId) return;
-    toggleConversationMute(myId, conversationId);
-    // sync state เพื่อ re-render
-    setMutedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(conversationId)) next.delete(conversationId);
-      else next.add(conversationId);
-      return next;
-    });
-  };
-
-  const handleClearChat = async () => {
-    if (!selectedDM) return;
-    await dmService.clearMessages(selectedDM);
-    setMessages([]);
-    toast.success('ลบแชททั้งหมดแล้ว');
-  };
-
-  const handleSendFile = async (file: File) => {
-    try {
-      const socket = socketRef.current;
-      if (activeTab === 'dms' && selectedDM) {
-        // REST upload — socket broadcast จะทำที่ server
-        const msg = await dmService.sendFileMessage(selectedDM, file);
-        // ถ้า socket ไม่ connected ให้เพิ่มเอง
-        if (!socket?.connected) {
-          setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
-        }
-      } else if (activeTab === 'rooms' && selectedRoom) {
-        const msg = await chatService.sendRoomFile(selectedRoom, file);
-        // socket broadcast จะทำที่ server แต่ถ้าไม่ connected ให้เพิ่มเอง
-        if (!socket?.connected) {
-          setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
-        }
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'ส่งไฟล์ไม่สำเร็จ');
-    }
-  };
+  const {
+    handleSendMessage,
+    handleOpenNewDM,
+    handleCreateRoom,
+    handleRemoveMember,
+    handleLeaveRoom,
+    handleDeleteMessage,
+    handleToggleMute,
+    handleClearChat,
+    handleSendFile,
+  } = useChatActions({
+    wsId,
+    myId,
+    activeTab,
+    selectedRoom,
+    selectedDM,
+    canCreateRoom,
+    socketRef,
+    mapRoom,
+    mapDMConversation,
+    mapChatMessage,
+    updateRoomPreview,
+    setRooms,
+    setDirectMessages,
+    setMessages,
+    setMutedIds,
+    setMembers,
+    resetMessages,
+    setSelectedRoom,
+    handleTabChange,
+    handleSelectDM,
+    handleSelectRoom,
+    closeCreateRoomDialog: () => setIsCreateRoomDialogOpen(false),
+    closeRemoveMemberDialog,
+    closeLeaveRoomDialog: () => setIsLeaveRoomDialogOpen(false),
+    memberToRemove,
+  });
 
   const currentRoom = rooms.find((r) => r.id === selectedRoom);
   const currentDM = directMessages.find((d) => d.id === selectedDM);
@@ -689,7 +361,7 @@ export function ChatRoomsPage() {
               messages={messages}
               messageInput={messageInput}
               onMessageInputChange={setMessageInput}
-              onSendMessage={handleSendMessage}
+              onSendMessage={() => handleSendMessage(messageInput, () => setMessageInput(''))}
               onlineStatus={onlineStatus}
               onDeleteMessage={handleDeleteMessage}
               onSendFile={handleSendFile}
@@ -721,11 +393,8 @@ export function ChatRoomsPage() {
               members={members}
               messages={messages}
               myWorkspaceRole={myWorkspaceRole}
-              onInviteMember={() => setIsInviteMemberDialogOpen(true)}
-              onRemoveMember={(member) => {
-                setMemberToRemove(member);
-                setIsRemoveMemberDialogOpen(true);
-              }}
+              onInviteMember={() => handleInviteDialogChange(true)}
+              onRemoveMember={openRemoveMemberDialog}
               onLeaveRoom={() => setIsLeaveRoomDialogOpen(true)}
               onlineStatus={onlineStatus}
               dmUserDetail={currentDM ? workspaceMembers.find((m) => m.userId === currentDM.userId) ?? null : null}
@@ -741,10 +410,7 @@ export function ChatRoomsPage() {
 
       <InviteMemberDialog
         open={isInviteMemberDialogOpen}
-        onOpenChange={(open) => {
-          setIsInviteMemberDialogOpen(open);
-          if (!open) { setSelectedUsersToInvite([]); setInviteSearchQuery(''); }
-        }}
+        onOpenChange={handleInviteDialogChange}
         currentRoom={currentRoom}
         // workspace members ที่ยังไม่ได้อยู่ในห้องนี้
         availableUsers={workspaceMembers
@@ -752,17 +418,13 @@ export function ChatRoomsPage() {
           .map((m) => ({
             id: m.userId,
             name: m.user.Name,
-            avatar: m.user.Name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2),
+            avatar: getInitials(m.user.Name),
             avatarUrl: m.user.avatarUrl,
             status: (onlineStatus[m.userId] ? 'online' : 'offline') as 'online' | 'offline',
           }))}
         selectedUsers={selectedUsersToInvite}
-        onToggleUser={(id) =>
-          setSelectedUsersToInvite((p) =>
-            p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
-          )
-        }
-        onClearSelection={() => setSelectedUsersToInvite([])}
+        onToggleUser={toggleInviteUser}
+        onClearSelection={clearInviteSelection}
         onInvite={async () => {
           if (!selectedRoom) return;
           await Promise.all(
@@ -772,8 +434,8 @@ export function ChatRoomsPage() {
           );
           // รีโหลด room detail เพื่ออัปเดต members list
           await fetchRoomDetail(selectedRoom);
-          setSelectedUsersToInvite([]);
-          setIsInviteMemberDialogOpen(false);
+          clearInviteSelection();
+          handleInviteDialogChange(false);
           toast.success(`เชิญสมาชิก ${selectedUsersToInvite.length} คน สำเร็จ`);
         }}
         searchQuery={inviteSearchQuery}
@@ -786,10 +448,7 @@ export function ChatRoomsPage() {
         currentRoom={currentRoom}
         member={memberToRemove}
         onConfirm={handleRemoveMember}
-        onCancel={() => {
-          setIsRemoveMemberDialogOpen(false);
-          setMemberToRemove(null);
-        }}
+        onCancel={closeRemoveMemberDialog}
       />
 
       <LeaveRoomDialog
