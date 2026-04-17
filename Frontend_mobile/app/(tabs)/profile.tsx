@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  ArrowLeft, User, Lock, Bell, BellRing, Moon, HelpCircle,
+  ArrowLeft, User, Lock, Bell, BellRing, HelpCircle,
   LogOut, ChevronRight, Sparkles, Wand2
 } from 'lucide-react-native';
 import { unregisterPushToken, NOTIF_KEYS, AI_KEYS } from '../../hooks/useNotifications';
@@ -27,10 +27,14 @@ export default function ProfileScreen() {
 
   const [pushEnabled, setPushEnabled] = useState(true);
   const [dmEnabled, setDmEnabled] = useState(true);
-  const [mentionsEnabled, setMentionsEnabled] = useState(true);
   const [autoSumEnabled, setAutoSumEnabled] = useState(true);
   const [smartSugEnabled, setSmartSugEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+  // refresh รูป/ชื่อ เมื่อกลับมาจากหน้า profile-edit
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.getItem('user').then((u) => {
+      if (u) setUserData(JSON.parse(u));
+    });
+  }, []));
 
   useEffect(() => {
     const loadData = async () => {
@@ -100,11 +104,12 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={{ margin: 20, padding: 16, backgroundColor: '#f5f7ff', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700' }}>
-              {getInitials(userData?.displayName || 'YO')}
-            </Text>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/profile-edit' as any)} style={{ margin: 20, padding: 16, backgroundColor: '#f5f7ff', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {userData?.avatarUrl
+              ? <Image source={{ uri: userData.avatarUrl }} style={{ width: 56, height: 56, borderRadius: 28 }} />
+              : <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700' }}>{getInitials(userData?.displayName || 'YO')}</Text>
+            }
           </View>
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>{userData?.displayName || 'Your Name'}</Text>
@@ -115,7 +120,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 10, marginBottom: 8 }}>ACCOUNT</Text>
-        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/profile-edit' as any)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={User} color="#3b82f6" bgColor="#eff6ff" />
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={{ fontWeight: '600', color: '#111827' }}>Profile</Text>
@@ -166,16 +171,6 @@ export default function ProfileScreen() {
             <Text style={{ fontSize: 12, color: '#9ca3af' }}>Get AI-powered recommendations</Text>
           </View>
           <Switch value={smartSugEnabled} onValueChange={handleSmartSugToggle} trackColor={{ true: '#111827' }} />
-        </View>
-
-        <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>APPEARANCE</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
-          <MenuIcon icon={Moon} color="#6366f1" bgColor="#eef2ff" />
-          <View style={{ flex: 1, marginLeft: 14 }}>
-            <Text style={{ fontWeight: '600' }}>Dark Mode</Text>
-            <Text style={{ fontSize: 12, color: '#9ca3af' }}>Use dark theme</Text>
-          </View>
-          <Switch value={darkMode} onValueChange={setDarkMode} />
         </View>
 
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>HELP & SUPPORT</Text>

@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Pin, MessageCircle, X, Send, MoreHorizontal, Camera } from 'lucide-react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../../components/ui/Header';
@@ -452,15 +452,10 @@ function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost, 
 export default function FeedScreen() {
   const params = useLocalSearchParams();
 
-  const rawToken = params.token;
-  const rawWsId = params.wsId;
-  const rawUser = params.user;
-  const rawRole = params.role;
-  const token = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
-  const wsId = Array.isArray(rawWsId) ? rawWsId[0] : (rawWsId ?? '');
-  const userStr = Array.isArray(rawUser) ? rawUser[0] : (rawUser ?? '');
-  const role = Array.isArray(rawRole) ? rawRole[0] : (rawRole ?? '');
-  const userData = userStr ? JSON.parse(userStr) : null;
+  const [token, setToken] = useState('');
+  const [wsId, setWsId] = useState('');
+  const [userData, setUserData] = useState<any>(null);
+  const [role, setRole] = useState('');
 
   const isAdminOrOwner = role === 'OWNER' || role === 'ADMIN';
 
@@ -473,15 +468,49 @@ export default function FeedScreen() {
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
 
-  // ✅ บันทึก token, wsId, user, role ลง AsyncStorage เพื่อให้ tab อื่นใช้ได้
+  // โหลดจาก params ก่อน ถ้าไม่มี fallback AsyncStorage
   useEffect(() => {
-    if (token && wsId) {
-      AsyncStorage.setItem('token', token);
-      AsyncStorage.setItem('wsId', wsId);
-      AsyncStorage.setItem('user', userStr);
-      AsyncStorage.setItem('role', role);
+    const rawToken = params.token;
+    const rawWsId = params.wsId;
+    const rawUser = params.user;
+    const rawRole = params.role;
+    const pToken = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
+    const pWsId = Array.isArray(rawWsId) ? rawWsId[0] : (rawWsId ?? '');
+    const pUserStr = Array.isArray(rawUser) ? rawUser[0] : (rawUser ?? '');
+    const pRole = Array.isArray(rawRole) ? rawRole[0] : (rawRole ?? '');
+
+    if (pToken && pWsId) {
+      setToken(pToken);
+      setWsId(pWsId);
+      setRole(pRole);
+      if (pUserStr) setUserData(JSON.parse(pUserStr));
+      // บันทึก ลง AsyncStorage เพื่อให้ tab อื่นและ reload ใช้ได้
+      AsyncStorage.setItem('token', pToken);
+      AsyncStorage.setItem('wsId', pWsId);
+      AsyncStorage.setItem('user', pUserStr);
+      AsyncStorage.setItem('role', pRole);
+    } else {
+      // fallback: อ่านจาก AsyncStorage เมื่อ params ว่าง (เช่น reload)
+      Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('wsId'),
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('role'),
+      ]).then(([t, w, u, r]) => {
+        if (t) setToken(t);
+        if (w) setWsId(w);
+        if (u) setUserData(JSON.parse(u));
+        if (r) setRole(r);
+      });
     }
-  }, [token, wsId, userStr, role]);
+  }, []);
+
+  // refresh userData เมื่อกลับมาที่หน้านี้ (เช่น หลังแก้ profile)
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.getItem('user').then((u) => {
+      if (u) setUserData(JSON.parse(u));
+    });
+  }, []));
 
   const loadPosts = useCallback(async (isRefresh = false) => {
     if (!token || !wsId) { setLoading(false); return; }
@@ -528,6 +557,7 @@ export default function FeedScreen() {
         userName={userData?.displayName ?? 'Your Name'}
         userEmail={userData?.email ?? ''}
         userInitials={(userData?.displayName ?? 'YO').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+        userAvatarUrl={userData?.avatarUrl ?? null}
         userRole={ROLE_LABELS[role] ?? 'Member'}
         workspaceId={wsId}
         role={role}

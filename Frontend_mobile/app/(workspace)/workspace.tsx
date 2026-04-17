@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Search, Plus, X, Shield } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import WorkspaceCard from '../../components/ui/WorkspaceCard';
 import DecorativeBubble from '../../components/ui/DecBubble';
 
@@ -48,7 +49,13 @@ export default function WorkspaceScreen() {
   const [isCreating, setIsCreating] = useState(false);
 
   const rawToken = params.token;
-  const token = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
+  const [token, setToken] = useState(Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? ''));
+
+  useEffect(() => {
+    if (!token) {
+      AsyncStorage.getItem('token').then((t: string | null) => { if (t) setToken(t); });
+    }
+  }, []);
 
   const handleTokenExpired = () => {
     Alert.alert(
@@ -206,7 +213,10 @@ export default function WorkspaceScreen() {
             paddingVertical: 8,
             borderRadius: 999,
           }}
-          onPress={() => router.replace('/(auth)/login')}
+          onPress={async () => {
+            await AsyncStorage.clear();
+            router.replace('/(auth)/login');
+          }}
         >
           <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
             Logout
