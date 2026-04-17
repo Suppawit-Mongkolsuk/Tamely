@@ -1,4 +1,5 @@
 import { Bot } from 'lucide-react';
+import { formatTime } from '@/lib/utils';
 
 export interface AIMessage {
   id: string;
@@ -37,10 +38,7 @@ export function AIMessageBubble({ message }: AIMessageBubbleProps) {
             isUser ? 'text-white/70' : 'text-muted-foreground'
           }`}
         >
-          {message.timestamp.toLocaleTimeString('th-TH', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatTime(message.timestamp)}
         </p>
       </div>
 

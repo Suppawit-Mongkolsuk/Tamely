@@ -32,9 +32,14 @@ export function NotificationBell() {
   const panelRef = useRef<HTMLDivElement>(null);
 
   /* ── Fetch notifications ── */
-  const fetchNotifications = useCallback(async () => {
-    if (!wsId) return;
-    setLoading(true);
+  const fetchNotifications = useCallback(async (showLoader = true) => {
+    if (!wsId) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
+    if (showLoader) setLoading(true);
     try {
       // API returns: { success, notifications, total, unreadCount }
       const res = await apiClient.get<{
@@ -46,19 +51,27 @@ export function NotificationBell() {
       const list = res.notifications ?? [];
       setNotifications(list);
       setUnreadCount(res.unreadCount ?? list.filter((n) => !n.isRead).length);
-    } catch {
-      /* silent — bell should never break the page */
+    } catch (err) {
+      console.warn('[NotificationBell] Failed to fetch notifications:', err);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   }, [wsId]);
 
   /* Poll every 30s + initial fetch */
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30_000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+    if (!wsId) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
+    void fetchNotifications(false);
+    const interval = window.setInterval(() => {
+      void fetchNotifications(false);
+    }, 30_000);
+    return () => window.clearInterval(interval);
+  }, [wsId, fetchNotifications]);
 
   /* Close panel on outside click */
   useEffect(() => {
@@ -80,8 +93,8 @@ export function NotificationBell() {
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
       );
       setUnreadCount((c) => Math.max(0, c - 1));
-    } catch {
-      /* silent */
+    } catch (err) {
+      console.warn('[NotificationBell] Failed to mark notification as read:', err);
     }
   };
 
@@ -92,8 +105,8 @@ export function NotificationBell() {
       await apiClient.patch(`/workspaces/${wsId}/notifications/read-all`);
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
-    } catch {
-      /* silent */
+    } catch (err) {
+      console.warn('[NotificationBell] Failed to mark all notifications as read:', err);
     }
   };
 
@@ -125,7 +138,12 @@ export function NotificationBell() {
     <div className="relative" ref={panelRef}>
       {/* ── Bell button ── */}
       <button
-        onClick={() => { setOpen((v) => !v); if (!open) fetchNotifications(); }}
+        onClick={() => {
+          setOpen((prevOpen) => {
+            if (!prevOpen) void fetchNotifications();
+            return !prevOpen;
+          });
+        }}
         className="relative p-2 hover:bg-muted rounded-lg transition-colors"
       >
         <Bell className="size-5 text-muted-foreground" />

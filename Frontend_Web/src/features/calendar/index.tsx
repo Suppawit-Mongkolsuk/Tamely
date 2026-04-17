@@ -61,7 +61,9 @@ export function CalendarPage() {
     if (!wsId) return;
     workspaceService.getMembers(wsId).then((list) => {
       setMembers(list.map((m) => ({ userId: m.userId, name: m.user.Name })));
-    }).catch(() => {});
+    }).catch((err) => {
+      console.warn('[Calendar] Failed to fetch workspace members:', err);
+    });
   }, [wsId]);
 
   const fetchTasks = useCallback(async () => {

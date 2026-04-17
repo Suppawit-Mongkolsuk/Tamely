@@ -1,7 +1,7 @@
 // ===== useUnreadDMs — นับ unread รวมของ Room + DM =====
 // ใช้ใน Sidebar เพื่อแสดง badge บน Chat Rooms nav item และ toast notification
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { dmService } from '@/services/dm.service';
@@ -22,8 +22,8 @@ export function useUnreadDMs() {
   const isOnChatPage = location.pathname === '/chat-rooms';
 
   const [totalUnread, setTotalUnread] = useState(0);
-  // roomId → roomName map สำหรับ notification label
-  const [roomNameMap, setRoomNameMap] = useState<Record<string, string>>({});
+  const roomNameMapRef = useRef<Record<string, string>>({});
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // fetch unread รวม + join ทุก DM และ Room socket เพื่อรับ event แบบ real-time
   const fetchAndJoin = useCallback(async () => {
@@ -54,11 +54,22 @@ export function useUnreadDMs() {
       // สร้าง map roomId → roomName
       const map: Record<string, string> = {};
       rooms.forEach((r) => { map[r.id] = r.name; });
-      setRoomNameMap(map);
-    } catch {
-      /* silent */
+      roomNameMapRef.current = map;
+    } catch (err) {
+      console.warn('[useUnreadDMs] Failed to refresh unread counts:', err);
     }
   }, [wsId]);
+
+  const scheduleRefresh = useCallback((delay = 250) => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    refreshTimeoutRef.current = setTimeout(() => {
+      refreshTimeoutRef.current = null;
+      void fetchAndJoin();
+    }, delay);
+  }, [fetchAndJoin]);
 
   // โหลดครั้งแรก + poll ทุก 60s (backup กรณี socket หลุด)
   useEffect(() => {
@@ -80,8 +91,8 @@ export function useUnreadDMs() {
     const socket = connectSocket();
 
     const handleDMReceived = (msg: DMMessageResponse) => {
-      // อัปเดต unread badge เสมอ
-      void fetchAndJoin();
+      // coalesce multiple socket events to avoid re-fetching the whole list every message
+      scheduleRefresh();
 
       // แสดง toast เฉพาะข้อความของคนอื่นและไม่ได้อยู่หน้า Chat Rooms
       if (msg.sender.id === myId || isOnChatPage) return;
@@ -95,7 +106,7 @@ export function useUnreadDMs() {
     };
 
     const handleDMRead = () => {
-      void fetchAndJoin();
+      scheduleRefresh();
     };
 
     socket.on('dm_received', handleDMReceived);
@@ -104,21 +115,23 @@ export function useUnreadDMs() {
       socket.off('dm_received', handleDMReceived);
       socket.off('dm_read', handleDMRead);
     };
-  }, [fetchAndJoin, myId, isOnChatPage]);
+  }, [scheduleRefresh, myId, isOnChatPage]);
 
   // Real-time: Room notifications + unread aggregate
   useEffect(() => {
     const socket = connectSocket();
 
     const handleMessageReceived = (msg: MessageResponse) => {
-      void fetchAndJoin();
+      scheduleRefresh();
 
       // ไม่แสดง toast ถ้าเป็นข้อความของตัวเอง หรืออยู่หน้า Chat Rooms อยู่แล้ว
       if (msg.sender.id === myId || isOnChatPage) return;
 
       if (msg.roomId && isConversationMuted(myId, msg.roomId)) return;
 
-      const roomName = msg.roomId ? (roomNameMap[msg.roomId] ?? 'ห้องแชท') : 'ห้องแชท';
+      const roomName = msg.roomId
+        ? (roomNameMapRef.current[msg.roomId] ?? 'ห้องแชท')
+        : 'ห้องแชท';
       const preview = msg.content.length > 60 ? msg.content.slice(0, 60) + '…' : msg.content;
 
       toast(`# ${roomName}`, {
@@ -130,18 +143,30 @@ export function useUnreadDMs() {
     return () => {
       socket.off('message_received', handleMessageReceived);
     };
-  }, [fetchAndJoin, myId, roomNameMap, isOnChatPage]);
+  }, [scheduleRefresh, myId, isOnChatPage]);
 
   // Reset เมื่อ workspace เปลี่ยน
   useEffect(() => {
     setTotalUnread(0);
-    setRoomNameMap({});
+    roomNameMapRef.current = {};
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
   }, [wsId]);
 
   // refresh เมื่อเปลี่ยนหน้า เพื่อ sync badge หลังออกจากหน้า chat rooms
   useEffect(() => {
     void fetchAndJoin();
   }, [fetchAndJoin, location.pathname]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return { totalUnread, refresh: fetchAndJoin };
 }

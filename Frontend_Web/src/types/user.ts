@@ -42,13 +42,6 @@ export interface AuthResponseData {
   user: User;
 }
 
-// เก็บไว้สำหรับ compatibility
-export interface AuthResponse {
-  user: User;
-  accessToken: string;
-  refreshToken: string;
-}
-
 export interface ForgotPasswordRequest {
   email: string;
 }

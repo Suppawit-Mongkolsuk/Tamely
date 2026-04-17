@@ -1,4 +1,5 @@
 import { prisma } from '../../index';
+import { AppError } from '../../types';
 import {
   TypePayloadCreateCustomRole,
   TypePayloadUpdateCustomRole,
@@ -65,21 +66,35 @@ export const create = async (
 };
 
 export const update = async (
-  _workspaceId: string,
+  workspaceId: string,
   roleId: string,
   data: TypePayloadUpdateCustomRole,
 ) => {
-  return prisma.customRole.update({
-    where: { id: roleId },
-    data,
-    select: customRoleSelect,
-  });
+  const [updatedCount, updatedRole] = await prisma.$transaction([
+    prisma.customRole.updateMany({
+      where: { id: roleId, workspaceId },
+      data,
+    }),
+    prisma.customRole.findFirst({
+      where: { id: roleId, workspaceId },
+      select: customRoleSelect,
+    }),
+  ]);
+
+  if (updatedCount.count === 0 || !updatedRole) {
+    throw new AppError(404, 'Custom role not found');
+  }
+
+  return updatedRole;
 };
 
-export const remove = async (_workspaceId: string, roleId: string) => {
-  return prisma.customRole.delete({
-    where: { id: roleId },
+export const remove = async (workspaceId: string, roleId: string) => {
+  const deleted = await prisma.customRole.deleteMany({
+    where: { id: roleId, workspaceId },
   });
+  if (deleted.count === 0) {
+    throw new AppError(404, 'Custom role not found');
+  }
 };
 
 export const reorder = async (workspaceId: string, roleIds: string[]) => {

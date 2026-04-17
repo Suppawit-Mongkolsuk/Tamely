@@ -45,16 +45,15 @@ export const getConversations = async (workspaceId: string, userId: string) => {
   await assertWorkspaceMember(workspaceId, userId);
 
   const conversations = await dmRepository.findConversationsByUser(workspaceId, userId);
-
-  const withUnread = await Promise.all(
-    conversations.map(async (conv) => {
-      const unread = await dmRepository.countUnread(conv.id, userId);
-      const lastMsg = conv.messages[0] ?? null;
-      return { ...conv, unreadCount: unread, lastMessage: lastMsg };
-    }),
+  const unreadMap = await dmRepository.countUnreadByConversationIds(
+    userId,
+    conversations.map((conversation) => conversation.id),
   );
 
-  return withUnread;
+  return conversations.map((conv) => {
+    const lastMsg = conv.messages[0] ?? null;
+    return { ...conv, unreadCount: unreadMap.get(conv.id) ?? 0, lastMessage: lastMsg };
+  });
 };
 
 /* ======================= MESSAGES ======================= */
@@ -106,7 +105,9 @@ export const sendMessage = async (
         { conversationId, type: 'dm' },
       );
     })
-    .catch(() => {});
+    .catch((err) => {
+      console.error('[DM] Failed to send push notification:', err);
+    });
 
   return message;
 };

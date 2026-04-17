@@ -1,4 +1,10 @@
 import OpenAI from 'openai';
+import type {
+  ChatCompletionAssistantMessageParam,
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+  ChatCompletionToolMessageParam,
+} from 'openai/resources/chat/completions';
 import { TaskPriority } from '@prisma/client';
 import { AppError } from '../../types';
 import { PERMISSIONS } from '../../types/permissions';
@@ -11,7 +17,7 @@ const CHUNK_SIZE = 50;
 const MAX_MESSAGES = 1000;
 const MAX_TOOL_LOOPS = 6;
 
-const TOOL_DEFINITIONS = [
+const TOOL_DEFINITIONS: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
@@ -109,7 +115,7 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
-] as const;
+];
 
 type UsageTracker = { totalTokens: number };
 
@@ -188,6 +194,19 @@ ${roomListText}
   * ถ้าข้อความระบุชื่อเล่น ชื่อย่อ หรือคำเรียกที่ไม่แน่ใจว่าเป็นใคร (เช่น "เติ้ล", "โฟล์ค", "บอส") ให้สร้าง task ได้ แต่ใส่ใน description ว่า "(อาจเกี่ยวข้องกับ '[ชื่อ/คำเรียกนั้น]' — กรุณาตรวจสอบ)"
   * ถ้าไม่พบข้อความที่เกี่ยวข้องกับ "${userName}" เลย ให้ตอบว่า "ไม่พบงานที่เกี่ยวข้องกับคุณในช่วงเวลานี้"
 - room_id และ id ต่างๆ ใช้สำหรับเรียก tool ภายในเท่านั้น ห้ามนำมาแสดงให้ user เห็น`;
+
+const sanitizeRoomName = (name: string) =>
+  name.replace(/[`\n\r]/g, ' ').trim().slice(0, 50);
+
+const toAssistantMessageParam = (
+  message: OpenAI.Chat.Completions.ChatCompletionMessage,
+): ChatCompletionAssistantMessageParam => ({
+  role: 'assistant',
+  content: message.content ?? null,
+  ...(message.tool_calls ? { tool_calls: message.tool_calls } : {}),
+  ...(message.function_call ? { function_call: message.function_call } : {}),
+  ...(message.refusal ? { refusal: message.refusal } : {}),
+});
 
 const executeGetTasks = async (
   workspaceId: string,
@@ -580,7 +599,9 @@ export const processAiChat = async (params: {
 
   const roomListText =
     accessibleRooms.length > 0
-      ? accessibleRooms.map((room) => `- ${room.name} (id: ${room.id})`).join('\n')
+      ? accessibleRooms
+          .map((room) => `- ${sanitizeRoomName(room.name)} (id: ${room.id})`)
+          .join('\n')
       : '- ไม่มีห้องที่เข้าถึงได้';
 
   const today = new Date().toLocaleDateString('th-TH', {
@@ -589,7 +610,7 @@ export const processAiChat = async (params: {
     day: 'numeric',
   });
 
-  const currentMessages: any[] = [
+  const currentMessages: ChatCompletionMessageParam[] = [
     {
       role: 'system',
       content: buildSystemPrompt(today, workspace.name, roomListText, currentUser?.Name ?? 'ไม่ทราบชื่อ'),
@@ -611,7 +632,7 @@ export const processAiChat = async (params: {
     const response = await openai.chat.completions.create({
       model: AI_MODEL,
       messages: currentMessages,
-      tools: TOOL_DEFINITIONS as any,
+      tools: TOOL_DEFINITIONS,
       tool_choice: 'auto',
       max_tokens: 1500,
     });
@@ -639,7 +660,7 @@ export const processAiChat = async (params: {
       break;
     }
 
-    const toolResults: Array<{ role: 'tool'; tool_call_id: string; content: string }> = [];
+    const toolResults: ChatCompletionToolMessageParam[] = [];
 
     for (const toolCall of toolCalls) {
       if (toolCall.type !== 'function') {
@@ -700,7 +721,7 @@ export const processAiChat = async (params: {
       });
     }
 
-    currentMessages.push(choice.message as any, ...toolResults);
+    currentMessages.push(toAssistantMessageParam(choice.message), ...toolResults);
   }
 
   if (!finalReply) {

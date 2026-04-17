@@ -85,7 +85,12 @@ export const reorderCustomRoles = async (
   }
 
   await customRoleRepository.reorder(workspaceId, roleIds);
-  return customRoleRepository.findMany(workspaceId);
+
+  const roleMap = new Map(roles.map((role) => [role.id, role]));
+  return roleIds.map((roleId, index) => ({
+    ...roleMap.get(roleId)!,
+    position: roleIds.length - index,
+  }));
 };
 
 export const getMemberCustomRoles = async (

@@ -72,7 +72,9 @@ export const sendMessage = async (
       `${sender?.Name ?? 'ใครบางคน'}: ${content}`,
       { roomId, type: 'room' },
     );
-  }).catch(() => {});
+  }).catch((err) => {
+    console.error('[RoomMessage] Failed to send push notifications:', err);
+  });
 
   return message;
 };
@@ -105,5 +107,4 @@ export const markAsRead = async (
 
   await messageRepository.updateRoomReadState(roomId, userId, readAt);
 };
-
 

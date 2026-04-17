@@ -36,7 +36,9 @@ export function NewDMDialog({ open, onOpenChange, onSelectUser }: NewDMDialogPro
     workspaceService
       .getMembers(currentWorkspace.id)
       .then((data) => setMembers(data))
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[NewDMDialog] Failed to fetch workspace members:', err);
+      })
       .finally(() => setLoading(false));
   }, [open, currentWorkspace?.id]);
 

@@ -113,6 +113,7 @@ export const processAndCreateMentionNotifications = async (params: {
         if (existingUserIds.has(member.userId)) continue;
 
         const roleName = resolvedRoles.find((r) => r === member.role);
+        if (!roleName) continue;
         notifications.push({
           workspaceId,
           userId: member.userId,
@@ -141,7 +142,9 @@ export const processAndCreateMentionNotifications = async (params: {
       'มีการแท็กถึงคุณ',
       `${senderName} แท็กคุณใน${contextLabel}`,
       { type: 'mention' },
-    ).catch(() => {});
+    ).catch((err) => {
+      console.error('[Notification] Failed to send mention push notification:', err);
+    });
 
     // in-app notification ผ่าน socket สำหรับ user ที่แอปเปิดอยู่
     const io = getIO();
