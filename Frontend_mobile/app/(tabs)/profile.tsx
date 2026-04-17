@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  ArrowLeft, User, Lock, Bell, BellRing, HelpCircle,
-  LogOut, ChevronRight, Sparkles, Wand2
+  ArrowLeft, User, Bell, BellRing, HelpCircle,
+  LogOut, ChevronRight, Sparkles, Wand2, Settings,
 } from 'lucide-react-native';
 import { unregisterPushToken, NOTIF_KEYS, AI_KEYS } from '../../hooks/useNotifications';
 
@@ -22,17 +22,32 @@ const MenuIcon = ({ icon: Icon, color, bgColor }: any) => (
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ wsId?: string; token?: string; role?: string; wsName?: string }>();
+
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
+  const [wsId, setWsId] = useState('');
+  const [token, setToken] = useState('');
+  const [wsRole, setWsRole] = useState('');
+  const [wsName, setWsName] = useState('');
+
+  const isAdminOrOwner = wsRole === 'OWNER' || wsRole === 'ADMIN';
 
   const [pushEnabled, setPushEnabled] = useState(true);
   const [dmEnabled, setDmEnabled] = useState(true);
   const [autoSumEnabled, setAutoSumEnabled] = useState(true);
   const [smartSugEnabled, setSmartSugEnabled] = useState(true);
-  // refresh รูป/ชื่อ เมื่อกลับมาจากหน้า profile-edit
+
+  // refresh รูป/ชื่อ และ ws context เมื่อกลับมาที่ tab นี้
   useFocusEffect(useCallback(() => {
-    AsyncStorage.getItem('user').then((u) => {
-      if (u) setUserData(JSON.parse(u));
+    // feed.tsx บันทึก key: 'token', 'wsId', 'role', 'user', 'wsName'
+    AsyncStorage.multiGet(['user', 'token', 'wsId', 'role', 'wsName']).then((pairs) => {
+      const map = Object.fromEntries(pairs.map(([k, v]) => [k, v ?? '']));
+      if (map['user']) setUserData(JSON.parse(map['user']));
+      setToken(map['token']);
+      setWsId(map['wsId']);
+      setWsRole(map['role']);
+      setWsName(map['wsName']);
     });
   }, []));
 
@@ -41,6 +56,16 @@ export default function ProfileScreen() {
       try {
         const u = await AsyncStorage.getItem('user');
         if (u) setUserData(JSON.parse(u));
+
+        // โหลด ws context — feed.tsx บันทึก key: 'token', 'wsId', 'role', 'wsName'
+        const wsIdVal = params.wsId || await AsyncStorage.getItem('wsId') || '';
+        const tokenVal = params.token || await AsyncStorage.getItem('token') || '';
+        const roleVal = params.role || await AsyncStorage.getItem('role') || '';
+        const nameVal = params.wsName || await AsyncStorage.getItem('wsName') || '';
+        setWsId(wsIdVal);
+        setToken(tokenVal);
+        setWsRole(roleVal);
+        setWsName(nameVal);
 
         const pushRaw = await AsyncStorage.getItem(NOTIF_KEYS.push);
         const dmRaw = await AsyncStorage.getItem(NOTIF_KEYS.dm);
@@ -128,14 +153,22 @@ export default function ProfileScreen() {
           </View>
           <ChevronRight size={18} color="#d1d5db" />
         </TouchableOpacity>
-        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
-          <MenuIcon icon={Lock} color="#ec4899" bgColor="#fdf2f8" />
-          <View style={{ flex: 1, marginLeft: 14 }}>
-            <Text style={{ fontWeight: '600', color: '#111827' }}>Privacy & Security</Text>
-            <Text style={{ fontSize: 12, color: '#9ca3af' }}>Manage your data and permissions</Text>
-          </View>
-          <ChevronRight size={18} color="#d1d5db" />
-        </TouchableOpacity>
+        {isAdminOrOwner && (
+          <TouchableOpacity
+            onPress={() => router.push({
+              pathname: '/(tabs)/workspace-management' as any,
+              params: { wsId, token, role: wsRole, wsName },
+            })}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}
+          >
+            <MenuIcon icon={Settings} color="#425C95" bgColor="#eff6ff" />
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={{ fontWeight: '600', color: '#111827' }}>Workspace Management</Text>
+              <Text style={{ fontSize: 12, color: '#9ca3af' }}>จัดการสมาชิก ห้อง และตั้งค่า workspace</Text>
+            </View>
+            <ChevronRight size={18} color="#d1d5db" />
+          </TouchableOpacity>
+        )}
 
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>NOTIFICATIONS</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>

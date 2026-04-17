@@ -72,6 +72,7 @@ export default function TabLayout() {
         <Tabs.Screen name="chat-room" options={{ href: null }} />
         <Tabs.Screen name="chat-dm" options={{ href: null }} />
         <Tabs.Screen name="profile-edit" options={{ href: null }} />
+        <Tabs.Screen name="workspace-management" options={{ href: null }} />
       </Tabs>
     </View>
   );

@@ -489,6 +489,12 @@ export default function FeedScreen() {
       AsyncStorage.setItem('wsId', pWsId);
       AsyncStorage.setItem('user', pUserStr);
       AsyncStorage.setItem('role', pRole);
+      // ดึงชื่อ workspace แล้ว save ให้ tab Profile ใช้ได้
+      fetch(`${API_BASE}/api/workspaces/${pWsId}`, {
+        headers: { Authorization: `Bearer ${pToken}`, 'ngrok-skip-browser-warning': 'true' },
+      }).then((r) => r.json()).then((json) => {
+        if (json?.data?.name) AsyncStorage.setItem('wsName', json.data.name);
+      }).catch(() => {});
     } else {
       // fallback: อ่านจาก AsyncStorage เมื่อ params ว่าง (เช่น reload)
       Promise.all([
