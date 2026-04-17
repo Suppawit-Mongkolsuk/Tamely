@@ -29,6 +29,14 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { MentionInput } from '@/components/feed/MentionInput';
+import { UserAvatar } from '@/components/ui/UserAvatar';
+import {
+  BRAND_CLASSNAMES,
+  CHAT_FILE_ACCEPT,
+  CHAT_IMAGE_ACCEPT,
+  GRADIENT,
+  MAX_FILE_SIZE,
+} from '@/lib/constants';
 import { MessageBubble } from './MessageBubble';
 import type { ChatRoom, DirectMessage, Message, ChatTab } from '@/types/chat-ui';
 
@@ -91,11 +99,6 @@ function MessageSkeleton() {
     </div>
   );
 }
-
-// Allowed file types
-const IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
-const FILE_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv';
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 interface ChatWindowProps {
   activeTab: ChatTab;
@@ -274,7 +277,7 @@ export function ChatWindow({
           )}
           {activeTab === 'rooms' ? (
             <>
-              <div className="size-10 rounded-lg bg-[#003366] flex items-center justify-center">
+              <div className={`size-10 rounded-lg flex items-center justify-center ${BRAND_CLASSNAMES.primaryBg}`}>
                 <Hash className="size-5 text-white" />
               </div>
               <div>
@@ -287,17 +290,12 @@ export function ChatWindow({
           ) : (
             <>
               <div className="relative">
-                {currentDM?.avatarUrl ? (
-                  <img
-                    src={currentDM.avatarUrl}
-                    alt={currentDM.userName}
-                    className="size-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="size-10 rounded-full bg-[#75A2BF] flex items-center justify-center text-white font-medium">
-                    {currentDM?.avatar}
-                  </div>
-                )}
+                <UserAvatar
+                  displayName={currentDM?.userName ?? ''}
+                  avatarUrl={currentDM?.avatarUrl}
+                  size="md"
+                  className={BRAND_CLASSNAMES.lightBlueBg}
+                />
                 <span
                   className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-white ${
                     isOnline ? 'bg-green-500' : 'bg-gray-300'
@@ -379,7 +377,7 @@ export function ChatWindow({
           {/* Spinner ตอนโหลดข้อความเก่า (scroll ขึ้น) */}
           {isLoadingMore && (
             <div className="flex justify-center py-3">
-              <div className="size-5 border-2 border-[#5EBCAD] border-t-transparent rounded-full animate-spin" />
+              <div className={`size-5 border-2 ${BRAND_CLASSNAMES.tealBorder} border-t-transparent rounded-full animate-spin`} />
             </div>
           )}
 
@@ -457,7 +455,7 @@ export function ChatWindow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-9 shrink-0 text-muted-foreground hover:text-[#5EBCAD]"
+                className={`size-9 shrink-0 text-muted-foreground ${BRAND_CLASSNAMES.tealHoverText}`}
                 onClick={() => imageInputRef.current?.click()}
                 title="ส่งรูปภาพ"
               >
@@ -466,7 +464,7 @@ export function ChatWindow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-9 shrink-0 text-muted-foreground hover:text-[#5EBCAD]"
+                className={`size-9 shrink-0 text-muted-foreground ${BRAND_CLASSNAMES.tealHoverText}`}
                 onClick={() => fileInputRef.current?.click()}
                 title="แนบไฟล์"
               >
@@ -494,7 +492,7 @@ export function ChatWindow({
           <Button
             onClick={pendingFile ? handleSendWithFile : onSendMessage}
             disabled={pendingFile ? isUploading : !messageInput.trim()}
-            className="bg-linear-to-r from-[#5EBCAD] to-[#46769B] hover:opacity-90 text-white shrink-0"
+            className={`${GRADIENT.tealToBlueLinear} hover:opacity-90 text-white shrink-0`}
             size="icon"
           >
             {isUploading ? (
@@ -506,8 +504,8 @@ export function ChatWindow({
         </div>
 
         {/* Hidden file inputs */}
-        <input ref={imageInputRef} type="file" accept={IMAGE_ACCEPT} className="hidden" onChange={handleFileSelect} />
-        <input ref={fileInputRef} type="file" accept={FILE_ACCEPT} className="hidden" onChange={handleFileSelect} />
+        <input ref={imageInputRef} type="file" accept={CHAT_IMAGE_ACCEPT} className="hidden" onChange={handleFileSelect} />
+        <input ref={fileInputRef} type="file" accept={CHAT_FILE_ACCEPT} className="hidden" onChange={handleFileSelect} />
       </div>
 
       {/* Confirm clear chat dialog */}

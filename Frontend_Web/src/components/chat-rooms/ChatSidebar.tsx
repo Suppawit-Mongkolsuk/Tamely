@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserAvatar } from '@/components/ui/UserAvatar';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 import { StatusDot } from './StatusDot';
 import { CreateRoomDialog } from './CreateRoomDialog';
 import type { ChatRoom, DirectMessage, ChatTab } from '@/types/chat-ui';
@@ -130,7 +131,7 @@ export function ChatSidebar({
                   onClick={() => onSelectRoom(room.id)}
                   className={`w-full h-auto text-left px-3 py-2.5 rounded-lg transition-colors justify-start ${
                     selectedRoom === room.id
-                      ? 'bg-[#5EBCAD]/10 border-l-2 border-[#5EBCAD]'
+                      ? `bg-[#5EBCAD]/10 border-l-2 ${BRAND_CLASSNAMES.tealBorder}`
                       : ''
                   }`}
                 >
@@ -144,7 +145,7 @@ export function ChatSidebar({
                         )}
                       </div>
                       {room.unread > 0 && (
-                        <Badge className="bg-[#5EBCAD] text-white shrink-0 text-xs px-1.5">
+                        <Badge className={`${BRAND_CLASSNAMES.tealBg} text-white shrink-0 text-xs px-1.5`}>
                           {room.unread}
                         </Badge>
                       )}
@@ -174,7 +175,7 @@ export function ChatSidebar({
                       }
                       className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-left
                         hover:bg-gray-50 active:scale-[0.98]
-                        ${isSelected ? 'bg-[#5EBCAD]/10 border-l-2 border-[#5EBCAD]' : ''}
+                        ${isSelected ? `bg-[#5EBCAD]/10 border-l-2 ${BRAND_CLASSNAMES.tealBorder}` : ''}
                       `}
                     >
                       {/* Avatar + Status */}
@@ -197,7 +198,7 @@ export function ChatSidebar({
                             )}
                           </div>
                           {(conv?.unread ?? 0) > 0 && (
-                            <span className="bg-[#5EBCAD] text-white text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1 shrink-0">
+                            <span className={`${BRAND_CLASSNAMES.tealBg} text-white text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1 shrink-0`}>
                               {conv!.unread}
                             </span>
                           )}

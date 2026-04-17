@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 export interface AiSession {
@@ -177,7 +178,7 @@ function SessionItem({
         ) : (
           <div className="cursor-pointer">
             <p className={cn('text-sm truncate leading-snug', isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground')}>
-              {session.isPinned && <Pin className="size-3 inline mr-1 text-[#5EBCAD]" />}
+              {session.isPinned && <Pin className={`size-3 inline mr-1 ${BRAND_CLASSNAMES.tealText}`} />}
               {session.title}
             </p>
             <p className="text-xs opacity-40 mt-0.5">

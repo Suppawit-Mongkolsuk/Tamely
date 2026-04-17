@@ -1,4 +1,6 @@
 import { Bot } from 'lucide-react';
+import { BRAND_CLASSNAMES, GRADIENT } from '@/lib/constants';
+import { formatTime } from '@/lib/utils';
 
 export interface AIMessage {
   id: string;
@@ -17,7 +19,7 @@ export function AIMessageBubble({ message }: AIMessageBubbleProps) {
   return (
     <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
-        <div className="size-8 rounded-full bg-linear-to-br from-[#5EBCAD] to-[#46769B] flex items-center justify-center shrink-0">
+        <div className={`size-8 rounded-full ${GRADIENT.tealToBlueRounded} flex items-center justify-center shrink-0`}>
           <Bot className="size-4 text-white" />
         </div>
       )}
@@ -25,7 +27,7 @@ export function AIMessageBubble({ message }: AIMessageBubbleProps) {
       <div
         className={`max-w-2xl rounded-2xl px-4 py-3 ${
           isUser
-            ? 'bg-linear-to-r from-[#5EBCAD] to-[#46769B] text-white'
+            ? `${GRADIENT.tealToBlueLinear} text-white`
             : 'bg-muted'
         }`}
       >
@@ -37,15 +39,12 @@ export function AIMessageBubble({ message }: AIMessageBubbleProps) {
             isUser ? 'text-white/70' : 'text-muted-foreground'
           }`}
         >
-          {message.timestamp.toLocaleTimeString('th-TH', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatTime(message.timestamp)}
         </p>
       </div>
 
       {isUser && (
-        <div className="size-8 rounded-full bg-[#003366] flex items-center justify-center shrink-0">
+        <div className={`size-8 rounded-full ${BRAND_CLASSNAMES.primaryBg} flex items-center justify-center shrink-0`}>
           <span className="text-white text-xs">คุณ</span>
         </div>
       )}
@@ -56,7 +55,7 @@ export function AIMessageBubble({ message }: AIMessageBubbleProps) {
 export function AITypingIndicator() {
   return (
     <div className="flex gap-3">
-      <div className="size-8 rounded-full bg-linear-to-br from-[#5EBCAD] to-[#46769B] flex items-center justify-center shrink-0">
+      <div className={`size-8 rounded-full ${GRADIENT.tealToBlueRounded} flex items-center justify-center shrink-0`}>
         <Bot className="size-4 text-white" />
       </div>
       <div className="bg-muted rounded-2xl px-4 py-3">

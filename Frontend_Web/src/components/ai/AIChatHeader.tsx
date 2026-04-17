@@ -1,5 +1,6 @@
 import { Bot, Plus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BRAND_CLASSNAMES, GRADIENT } from '@/lib/constants';
 
 interface AIChatHeaderProps {
   workspaceName?: string;
@@ -10,7 +11,7 @@ export function AIChatHeader({ workspaceName, onNewChat }: AIChatHeaderProps) {
   return (
     <div className="border-b border-border p-4 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <div className="size-10 rounded-full bg-linear-to-br from-[#5EBCAD] to-[#46769B] flex items-center justify-center">
+        <div className={`size-10 rounded-full ${GRADIENT.tealToBlueRounded} flex items-center justify-center`}>
           <Sparkles className="size-5 text-white" />
         </div>
         <div>
@@ -28,7 +29,7 @@ export function AIChatHeader({ workspaceName, onNewChat }: AIChatHeaderProps) {
         <Button
           onClick={onNewChat}
           size="sm"
-          className="md:hidden bg-linear-to-r from-[#5EBCAD] to-[#46769B] hover:opacity-90 text-white gap-1.5"
+          className={`md:hidden ${GRADIENT.tealToBlueLinear} hover:opacity-90 text-white gap-1.5`}
         >
           <Plus className="size-3.5" />
           ใหม่
@@ -45,13 +46,13 @@ interface AIAvatarProps {
 export function AIAvatar({ type }: AIAvatarProps) {
   if (type === 'bot') {
     return (
-      <div className="size-8 rounded-full bg-linear-to-br from-[#5EBCAD] to-[#46769B] flex items-center justify-center shrink-0">
+      <div className={`size-8 rounded-full ${GRADIENT.tealToBlueRounded} flex items-center justify-center shrink-0`}>
         <Bot className="size-4 text-white" />
       </div>
     );
   }
   return (
-    <div className="size-8 rounded-full bg-[#003366] flex items-center justify-center shrink-0">
+    <div className={`size-8 rounded-full ${BRAND_CLASSNAMES.primaryBg} flex items-center justify-center shrink-0`}>
       <span className="text-white text-xs font-medium">You</span>
     </div>
   );

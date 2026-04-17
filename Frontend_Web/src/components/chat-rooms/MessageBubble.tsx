@@ -9,6 +9,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { UserAvatar } from '@/components/ui/UserAvatar';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 import type { Message } from '@/types/chat-ui';
 
 interface MessageBubbleProps {
@@ -111,17 +113,12 @@ export function MessageBubble({ message, showSender = true, onDelete, showReadRe
       {!message.isOwn && (
         <div className="shrink-0 w-8">
           {showSender ? (
-            message.avatarUrl ? (
-              <img
-                src={message.avatarUrl}
-                alt={message.sender}
-                className="size-8 rounded-full object-cover"
-              />
-            ) : (
-              <div className="size-8 rounded-full flex items-center justify-center text-white text-xs font-medium bg-[#75A2BF]">
-                {message.avatar}
-              </div>
-            )
+            <UserAvatar
+              displayName={message.sender}
+              avatarUrl={message.avatarUrl}
+              size="sm"
+              className={BRAND_CLASSNAMES.lightBlueBg}
+            />
           ) : null}
         </div>
       )}
@@ -141,7 +138,7 @@ export function MessageBubble({ message, showSender = true, onDelete, showReadRe
             <div
               className={`${bubblePadding} ${
                 message.isOwn
-                  ? 'bg-[#003366] text-white rounded-2xl rounded-br-md'
+                  ? `${BRAND_CLASSNAMES.primaryBg} text-white rounded-2xl rounded-br-md`
                   : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
               }`}
             >
@@ -149,7 +146,7 @@ export function MessageBubble({ message, showSender = true, onDelete, showReadRe
             </div>
             {/* Read receipt — แสดงใต้ข้อความสุดท้ายที่ถูกอ่าน (DM เท่านั้น) */}
             {showReadReceipt && (
-              <span className="text-[10px] text-[#5EBCAD] font-medium px-1">
+              <span className={`text-[10px] font-medium px-1 ${BRAND_CLASSNAMES.tealText}`}>
                 Read
               </span>
             )}

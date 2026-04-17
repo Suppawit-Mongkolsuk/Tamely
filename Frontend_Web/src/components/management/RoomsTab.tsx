@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 import type { RoomResponse } from '@/services/chat.service';
 
 interface RoomsTabProps {
@@ -66,7 +67,7 @@ export function RoomsTab({
           />
         </div>
         <Button
-          className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90 shrink-0"
+          className={`${BRAND_CLASSNAMES.tealButton} shrink-0`}
           onClick={onCreateRoom}
         >
           <Plus className="size-4 mr-2" />
@@ -89,7 +90,7 @@ export function RoomsTab({
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-12 rounded-lg bg-[#003366] flex items-center justify-center text-white shrink-0">
+                  <div className={`size-12 rounded-lg ${BRAND_CLASSNAMES.primaryBg} flex items-center justify-center text-white shrink-0`}>
                     <Hash className="size-6" />
                   </div>
                   <div className="min-w-0">

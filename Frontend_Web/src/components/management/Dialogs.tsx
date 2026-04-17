@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 import { PERMISSION_OPTIONS } from '@/lib/permissions';
 import type { WorkspaceMember, WorkspaceMemberRole } from '@/types';
 import type { RoomMemberResponse, RoomResponse } from '@/services/chat.service';
@@ -122,7 +123,7 @@ export function InviteDialog({
               ยกเลิก
             </Button>
             <Button
-              className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+              className={`${BRAND_CLASSNAMES.tealBg} hover:bg-[#5EBCAD]/90`}
               onClick={() => void handleSubmit()}
               disabled={submitting}
             >
@@ -232,7 +233,7 @@ function RoomFormDialog({
               ยกเลิก
             </Button>
             <Button
-              className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+              className={`${BRAND_CLASSNAMES.tealBg} hover:bg-[#5EBCAD]/90`}
               onClick={() => void handleSubmit()}
               disabled={submitting}
             >
@@ -464,7 +465,7 @@ export function ManageRoomMembersDialog({
                           </div>
                           <Button
                             size="sm"
-                            className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90 text-white"
+                            className={`${BRAND_CLASSNAMES.tealBg} hover:bg-[#5EBCAD]/90 text-white`}
                             onClick={() => void onAddMember(member.userId)}
                             disabled={processingUserId === member.userId}
                           >
@@ -618,7 +619,7 @@ export function CreateRoleDialog({
             ยกเลิก
           </Button>
           <Button
-            className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+            className={`${BRAND_CLASSNAMES.tealBg} hover:bg-[#5EBCAD]/90`}
             onClick={() => void handleSubmit()}
             disabled={submitting}
           >
@@ -746,7 +747,7 @@ export function EditRoleDialog({
             ยกเลิก
           </Button>
           <Button
-            className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+            className={`${BRAND_CLASSNAMES.tealBg} hover:bg-[#5EBCAD]/90`}
             onClick={() => void handleSubmit()}
             disabled={submitting}
           >

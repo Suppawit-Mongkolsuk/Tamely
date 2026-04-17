@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import type { ChatRoom } from '@/types/chat-ui';
+import { BRAND_CLASSNAMES, GRADIENT } from '@/lib/constants';
 
 interface AvailableUser {
   id: string;
@@ -86,7 +87,7 @@ export function InviteMemberDialog({
           {/* Selected Count */}
           {selectedUsers.length > 0 && (
             <div className="flex items-center gap-2 p-3 bg-[#5EBCAD]/10 rounded-lg">
-              <UserPlus className="size-4 text-[#5EBCAD]" />
+              <UserPlus className={`size-4 ${BRAND_CLASSNAMES.tealText}`} />
               <span className="text-sm">
                 {selectedUsers.length} member
                 {selectedUsers.length > 1 ? 's' : ''} selected
@@ -105,7 +106,7 @@ export function InviteMemberDialog({
                     onClick={() => onToggleUser(user.id)}
                     className={`w-full h-auto flex items-center gap-3 p-3 rounded-lg transition-all justify-start ${
                       selectedUsers.includes(user.id)
-                        ? 'bg-[#5EBCAD]/10 border-2 border-[#5EBCAD]'
+                        ? `bg-[#5EBCAD]/10 border-2 ${BRAND_CLASSNAMES.tealBorder}`
                         : 'border-2 border-transparent'
                     }`}
                   >
@@ -122,7 +123,7 @@ export function InviteMemberDialog({
                     <div
                       className={`size-5 rounded border-2 flex items-center justify-center shrink-0 ${
                         selectedUsers.includes(user.id)
-                          ? 'bg-[#5EBCAD] border-[#5EBCAD]'
+                          ? `${BRAND_CLASSNAMES.tealBg} ${BRAND_CLASSNAMES.tealBorder}`
                           : 'border-muted-foreground'
                       }`}
                     >
@@ -177,7 +178,7 @@ export function InviteMemberDialog({
                 Cancel
               </Button>
               <Button
-                className="bg-linear-to-r from-[#5EBCAD] to-[#46769B] hover:opacity-90 text-white"
+                className={`${GRADIENT.tealToBlueLinear} hover:opacity-90 text-white`}
                 onClick={handleInvite}
                 disabled={selectedUsers.length === 0 || isInviting}
               >

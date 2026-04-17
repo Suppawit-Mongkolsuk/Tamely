@@ -8,6 +8,7 @@ import {
   type ChangeEvent,
 } from 'react';
 import { cn } from '@/components/ui/utils';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 import { apiClient } from '@/services/api';
 import type { ApiSuccessResponse, WorkspaceMember, WorkspaceMemberRole } from '@/types';
 
@@ -47,13 +48,13 @@ const ROLE_SUGGESTIONS: MentionSuggestion[] = [
 /* ======================= Avatar helper ======================= */
 
 function MiniAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
-  if (avatarUrl) {
-    return <img src={avatarUrl} alt={name} className="size-7 rounded-full object-cover shrink-0" />;
-  }
   return (
-    <div className="size-7 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-      {name.charAt(0).toUpperCase()}
-    </div>
+    <UserAvatar
+      displayName={name}
+      avatarUrl={avatarUrl}
+      size="sm"
+      className="size-7 text-[11px] shrink-0"
+    />
   );
 }
 
@@ -109,8 +110,8 @@ export const MentionInput = forwardRef<
       );
       setMembers(res.data);
       setMembersLoaded(true);
-    } catch {
-      // silent fail — dropdown จะแสดงเฉพาะ roles
+    } catch (err) {
+      console.warn('[MentionInput] Failed to load workspace members:', err);
     }
   }, [workspaceId, membersLoaded]);
 
