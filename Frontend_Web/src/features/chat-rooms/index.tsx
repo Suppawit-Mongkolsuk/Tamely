@@ -66,6 +66,7 @@ function mapMessage(m: MessageResponse, myId: string): Message {
     id: m.id,
     sender: m.sender.Name,
     avatar: m.sender.Name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2),
+    avatarUrl: m.sender.avatarUrl,
     content: m.content,
     timestamp: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     date: d.toISOString().slice(0, 10), // "YYYY-MM-DD"
@@ -109,6 +110,7 @@ function mapDMMessage(m: DMMessageResponse, myId: string): Message {
     id: m.id,
     sender: m.sender.Name,
     avatar: m.sender.Name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2),
+    avatarUrl: m.sender.avatarUrl,
     content: m.content,
     timestamp: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     date: d.toISOString().slice(0, 10), // "YYYY-MM-DD"
@@ -262,6 +264,8 @@ export function ChatRoomsPage() {
           role: (m.user.workspaceRole ?? 'MEMBER') as Member['role'],
           status: 'online' as const,
           avatar: m.user.Name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2),
+          avatarUrl: m.user.avatarUrl,
+          customRoles: (m.user as any).customRoles ?? [],
         })),
       );
     } catch {
@@ -765,6 +769,7 @@ export function ChatRoomsPage() {
             id: m.userId,
             name: m.user.Name,
             avatar: m.user.Name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2),
+            avatarUrl: m.user.avatarUrl,
             status: (onlineStatus[m.userId] ? 'online' : 'offline') as 'online' | 'offline',
           }))}
         selectedUsers={selectedUsersToInvite}

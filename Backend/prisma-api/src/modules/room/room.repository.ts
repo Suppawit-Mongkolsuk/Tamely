@@ -6,6 +6,7 @@ import { TypePayloadCreateRoom, TypePayloadUpdateRoom } from './room.model';
 
 const creatorSelect = { id: true, Name: true, avatarUrl: true } as const;
 const memberUserSelect = { id: true, Name: true, avatarUrl: true } as const;
+const customRoleSelect = { id: true, name: true, color: true, position: true, permissions: true } as const;
 const roomBaseSelect = {
   id: true,
   workspaceId: true,
@@ -136,6 +137,10 @@ export const findById = async (roomId: string, workspaceId?: string) => {
               workspaceMembers: {
                 where: workspaceId ? { workspaceId } : undefined,
                 select: { role: true },
+              },
+              customRoles: {
+                where: workspaceId ? { workspaceId } : undefined,
+                select: { customRole: { select: customRoleSelect } },
               },
             },
           },

@@ -75,11 +75,13 @@ export const getRoomById = async (roomId: string, userId: string) => {
 
   // Map สมาชิก — workspaceMembers[0] คือ role ใน workspace นี้ (filtered by workspaceId)
   const members = (room.members ?? []).map((m) => {
-    const { workspaceMembers, ...userFields } = m.user as typeof m.user & {
+    const { workspaceMembers, customRoles, ...userFields } = m.user as typeof m.user & {
       workspaceMembers: { role: string }[];
+      customRoles: { customRole: { id: string; name: string; color: string; position: number; permissions: string[] } }[];
     };
     const workspaceRole = workspaceMembers[0]?.role ?? 'MEMBER';
-    return { ...m, user: { ...userFields, workspaceRole } };
+    const mappedCustomRoles = (customRoles ?? []).map((cr) => cr.customRole);
+    return { ...m, user: { ...userFields, workspaceRole, customRoles: mappedCustomRoles } };
   });
 
   return { ...room, memberCount: room._count.members, members };

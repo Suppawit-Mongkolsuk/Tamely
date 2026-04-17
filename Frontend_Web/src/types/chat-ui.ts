@@ -1,4 +1,5 @@
 // ===== Chat Rooms — Shared Types =====
+import type { CustomRole } from './workspace';
 
 export interface ChatRoom {
   id: string;
@@ -25,6 +26,7 @@ export interface Message {
   id: string;
   sender: string;
   avatar: string;
+  avatarUrl?: string | null;
   content: string;
   timestamp: string;   // เวลา เช่น "22:54"
   date: string;        // ISO date string สำหรับคำนวณ date separator เช่น "2025-04-07"
@@ -42,6 +44,8 @@ export interface Member {
   role: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
   status: 'online' | 'away' | 'offline';
   avatar: string;
+  avatarUrl?: string | null;
+  customRoles?: CustomRole[];
 }
 
 export type ChatTab = 'rooms' | 'dms';

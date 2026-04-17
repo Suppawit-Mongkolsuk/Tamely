@@ -111,11 +111,17 @@ export function MessageBubble({ message, showSender = true, onDelete, showReadRe
       {!message.isOwn && (
         <div className="shrink-0 w-8">
           {showSender ? (
-            <div
-              className="size-8 rounded-full flex items-center justify-center text-white text-xs font-medium bg-[#75A2BF]"
-            >
-              {message.avatar}
-            </div>
+            message.avatarUrl ? (
+              <img
+                src={message.avatarUrl}
+                alt={message.sender}
+                className="size-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="size-8 rounded-full flex items-center justify-center text-white text-xs font-medium bg-[#75A2BF]">
+                {message.avatar}
+              </div>
+            )
           ) : null}
         </div>
       )}

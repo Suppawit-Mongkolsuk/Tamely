@@ -287,9 +287,17 @@ export function ChatWindow({
           ) : (
             <>
               <div className="relative">
-                <div className="size-10 rounded-full bg-[#75A2BF] flex items-center justify-center text-white font-medium">
-                  {currentDM?.avatar}
-                </div>
+                {currentDM?.avatarUrl ? (
+                  <img
+                    src={currentDM.avatarUrl}
+                    alt={currentDM.userName}
+                    className="size-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="size-10 rounded-full bg-[#75A2BF] flex items-center justify-center text-white font-medium">
+                    {currentDM?.avatar}
+                  </div>
+                )}
                 <span
                   className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-white ${
                     isOnline ? 'bg-green-500' : 'bg-gray-300'

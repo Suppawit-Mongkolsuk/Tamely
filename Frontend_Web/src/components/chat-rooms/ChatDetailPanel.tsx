@@ -6,16 +6,13 @@ import {
   UserPlus,
   UserMinus,
   User,
-  Users,
   LogOut,
-  Hash,
   Calendar,
   ChevronDown,
   ChevronUp,
   ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import type { ChatRoom, DirectMessage, Member, ChatTab, Message } from '@/types/chat-ui';
@@ -125,32 +122,55 @@ function RoomDetails({
               className="group flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
             >
               <div className="relative">
-                <div className="size-10 rounded-full bg-[#75A2BF] flex items-center justify-center text-white text-sm font-medium">
-                  {member.avatar}
-                </div>
+                {member.avatarUrl ? (
+                  <img
+                    src={member.avatarUrl}
+                    alt={member.name}
+                    className="size-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="size-10 rounded-full bg-[#75A2BF] flex items-center justify-center text-white text-sm font-medium">
+                    {member.avatar}
+                  </div>
+                )}
                 <span
                   className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-white ${
-                    member.status === 'online'
-                      ? 'bg-green-500'
-                      : 'bg-gray-300'
+                    member.status === 'online' ? 'bg-green-500' : 'bg-gray-300'
                   }`}
                 />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{member.name}</p>
-                <div className="flex items-center gap-1">
-                  {member.role === 'OWNER' && (
-                    <Crown className="size-3 text-yellow-600" />
+                <div className="flex items-center gap-1 flex-wrap">
+                  {member.customRoles && member.customRoles.length > 0 ? (
+                    member.customRoles.map((cr) => (
+                      <span
+                        key={cr.id}
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                      >
+                        <span
+                          className="size-2 rounded-full shrink-0"
+                          style={{ backgroundColor: cr.color }}
+                        />
+                        {cr.name}
+                      </span>
+                    ))
+                  ) : (
+                    <>
+                      {member.role === 'OWNER' && (
+                        <Crown className="size-3 text-yellow-600" />
+                      )}
+                      {member.role === 'ADMIN' && (
+                        <Shield className="size-3 text-blue-600" />
+                      )}
+                      {member.role === 'MODERATOR' && (
+                        <Shield className="size-3 text-purple-500" />
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {ROLE_LABEL[member.role] ?? member.role}
+                      </span>
+                    </>
                   )}
-                  {member.role === 'ADMIN' && (
-                    <Shield className="size-3 text-blue-600" />
-                  )}
-                  {member.role === 'MODERATOR' && (
-                    <Shield className="size-3 text-purple-500" />
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {ROLE_LABEL[member.role] ?? member.role}
-                  </span>
                 </div>
               </div>
               {/* ปุ่ม Remove — เห็นได้เฉพาะ OWNER และไม่ให้ลบตัวเอง/owner คนอื่น */}
@@ -250,7 +270,24 @@ function DMDetails({
             <Shield className="size-4 text-muted-foreground shrink-0" />
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">Role</p>
-              <p className="text-sm capitalize">{dmUserDetail?.role ?? '—'}</p>
+              {dmUserDetail?.customRoles && dmUserDetail.customRoles.length > 0 ? (
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {dmUserDetail.customRoles.map((cr) => (
+                    <span
+                      key={cr.id}
+                      className="inline-flex items-center gap-1 text-sm"
+                    >
+                      <span
+                        className="size-2 rounded-full shrink-0"
+                        style={{ backgroundColor: cr.color }}
+                      />
+                      {cr.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm capitalize">{dmUserDetail?.role?.toLowerCase() ?? '—'}</p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
