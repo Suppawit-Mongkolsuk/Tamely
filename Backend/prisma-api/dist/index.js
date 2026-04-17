@@ -26,6 +26,7 @@ const task_routes_1 = __importDefault(require("./modules/task/task.routes"));
 const notification_routes_1 = __importDefault(require("./modules/notification/notification.routes"));
 const dm_routes_1 = __importDefault(require("./modules/dm/dm.routes"));
 const ai_routes_1 = __importDefault(require("./modules/ai/ai.routes"));
+const admin_routes_1 = __importDefault(require("./modules/admin/admin.routes"));
 const oauth_config_1 = __importDefault(require("./modules/oauth/oauth.config"));
 const chat_gateway_1 = require("./modules/chat/chat.gateway");
 const supabase_storage_1 = require("./utils/supabase-storage");
@@ -103,6 +104,7 @@ app.get('/api/turn-credentials', async (_req, res) => {
 });
 // API Routes
 app.use('/api/auth', auth_routes_1.default);
+app.use('/api/admin', admin_routes_1.default);
 app.use('/api/oauth', oauth_routes_1.default);
 app.use('/api/workspaces', workspace_routes_1.default);
 app.use('/api', custom_role_routes_1.default);

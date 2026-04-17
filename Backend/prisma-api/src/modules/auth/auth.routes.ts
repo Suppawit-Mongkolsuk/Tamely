@@ -3,7 +3,13 @@ import { Response } from 'express';
 import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
 import { AuthRequest, LoginResponse } from '../../types';
-import { signToken, setTokenCookie, clearTokenCookie } from '../../utils/jwt.utils';
+import {
+  signToken,
+  setTokenCookie,
+  clearTokenCookie,
+  setAdminTokenCookie,
+  clearAdminTokenCookie,
+} from '../../utils/jwt.utils';
 import { RegisterSchema, LoginSchema, ForgotPasswordSchema, ResetPasswordSchema } from './auth.model';
 import * as authService from './auth.service';
 import { avatarUpload } from '../../middlewares/upload.middleware';
@@ -15,23 +21,48 @@ router.post('/register', validateRequest(RegisterSchema), asyncHandler(async (re
   const user = await authService.registerUser(req.body);
   const token = signToken(user.id);
   setTokenCookie(res, token);
-  const response: LoginResponse = { token, user };
+  const response: LoginResponse = { token, sessionType: 'user', user };
   res.status(201).json({ success: true, data: response });
 }));
 
 // POST /api/auth/login
 router.post('/login', validateRequest(LoginSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const user = await authService.loginUser(req.body);
+  const result = await authService.loginUser(req.body);
   const rememberMe = Boolean(req.body.rememberMe);
-  const token = signToken(user.id, rememberMe);
-  setTokenCookie(res, token, rememberMe);
-  const response: LoginResponse = { token, user };
+
+  let response: LoginResponse;
+
+  if (result.sessionType === 'admin') {
+    clearTokenCookie(res);
+    setAdminTokenCookie(res, result.token);
+    response = {
+      token: result.token,
+      sessionType: 'admin',
+      admin: result.admin,
+    };
+  } else {
+    const token = signToken(result.id, rememberMe);
+    clearAdminTokenCookie(res);
+    setTokenCookie(res, token, rememberMe);
+    response = {
+      token,
+      sessionType: 'user',
+      user: {
+        id: result.id,
+        email: result.email,
+        displayName: result.displayName,
+        avatarUrl: result.avatarUrl,
+      },
+    };
+  }
+
   res.json({ success: true, data: response });
 }));
 
 // POST /api/auth/logout
 router.post('/logout', (req: AuthRequest, res: Response): void => {
   clearTokenCookie(res);
+  clearAdminTokenCookie(res);
   res.json({ success: true, message: 'Logged out successfully' });
 });
 

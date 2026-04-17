@@ -5,6 +5,7 @@ import { hasPermission } from '../../utils/permissions';
 import * as messageRepository from './message.repository';
 import { prisma } from '../../index';
 import { pushToUsers } from '../push/push.service';
+import { assertWorkspaceActive } from '../../utils/workspace.helpers';
 
 /* ======================= READ ======================= */
 
@@ -15,6 +16,7 @@ export const getMessages = async (
 ) => {
   const room = await messageRepository.findRoom(roomId);
   if (!room) throw new AppError(404, 'Room not found');
+  await assertWorkspaceActive(room.workspaceId);
 
   const roomMember = await messageRepository.findRoomMember(roomId, userId);
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
@@ -47,6 +49,7 @@ export const sendMessage = async (
 ) => {
   const room = await messageRepository.findRoom(roomId);
   if (!room) throw new AppError(404, 'Room not found');
+  await assertWorkspaceActive(room.workspaceId);
 
   const roomMember = await messageRepository.findRoomMember(roomId, senderId);
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
@@ -84,6 +87,7 @@ export const sendMessage = async (
 export const deleteMessage = async (messageId: string, userId: string) => {
   const message = await messageRepository.findById(messageId);
   if (!message) throw new AppError(404, 'Message not found');
+  await assertWorkspaceActive(message.room.workspaceId);
   if (
     message.senderId !== userId &&
     !(await hasPermission(message.room.workspaceId, userId, PERMISSIONS.DELETE_ANY_MESSAGE))
@@ -101,10 +105,10 @@ export const markAsRead = async (
 ) => {
   const room = await messageRepository.findRoom(roomId);
   if (!room) throw new AppError(404, 'Room not found');
+  await assertWorkspaceActive(room.workspaceId);
 
   const roomMember = await messageRepository.findRoomMember(roomId, userId);
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
   await messageRepository.updateRoomReadState(roomId, userId, readAt);
 };
-

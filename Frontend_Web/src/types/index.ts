@@ -5,6 +5,7 @@ export * from './user';
 export * from './workspace';
 export * from './chat';
 export * from './calendar';
+export * from './admin';
 
 // UI-specific types (import directly from @/types/chat-ui, @/types/calendar-ui, @/types/management-ui)
 // NOT re-exported here to avoid name conflicts with API types

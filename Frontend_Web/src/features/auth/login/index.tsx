@@ -14,9 +14,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthContext } from '@/contexts';
+import { adminService } from '@/services';
 
 interface LoginRegisterPageProps {
-  onComplete: () => void;
+  onComplete: (sessionType: 'user' | 'admin') => void;
   onForgotPassword: () => void;
 }
 
@@ -39,6 +40,16 @@ export function LoginRegisterPage({
   // ตรวจสอบ email format (ต้องมี @ และ TLD อย่างน้อย 2 ตัวอักษร เช่น .com .th)
   const isValidEmail = (email: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+
+  React.useEffect(() => {
+    adminService.getMe()
+      .then(() => {
+        onComplete('admin');
+      })
+      .catch(() => {
+        // ignore when admin session does not exist
+      });
+  }, [onComplete]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,11 +76,12 @@ export function LoginRegisterPage({
     try {
       if (isLogin) {
         // === Login ===
-        await login({
+        const result = await login({
           email: formData.email,
           password: formData.password,
           rememberMe,
         });
+        onComplete(result.sessionType);
       } else {
         // === Register ===
         if (!formData.displayName || formData.displayName.trim().length < 2) {
@@ -86,10 +98,8 @@ export function LoginRegisterPage({
           password: formData.password,
           displayName: formData.displayName.trim(),
         });
+        onComplete('user');
       }
-
-      // สำเร็จ → ไปหน้าถัดไป
-      onComplete();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด';
       setFormError(message);

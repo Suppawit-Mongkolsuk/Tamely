@@ -62,6 +62,12 @@ enum CallStatus {
   ENDED
 }
 
+enum AdminWorkspaceActionType {
+  BLOCK
+  UNBLOCK
+  DELETE
+}
+
 // ======================================================
 // 1. USER — ผู้ใช้งานในระบบ
 //    หน้าที่: เก็บข้อมูล Authentication & Profile
@@ -126,6 +132,9 @@ model Workspace {
   inviteCode  String   @unique @default(uuid()) // รหัสเชิญเข้า Workspace (ใช้เชิญสมาชิกใหม่)
   ownerId     String   @db.Uuid // FK → User (เจ้าของ Workspace)
   isActive    Boolean  @default(true)
+  blockedReason String?
+  blockedAt   DateTime?
+  blockedByAdminUsername String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -142,9 +151,27 @@ model Workspace {
   aiSessions  AiSession[] // Session การสนทนา AI
   notifications Notification[] // แจ้งเตือนทั้งหมดใน Workspace
   directConversations DirectConversation[] // DM ทั้งหมดใน Workspace
+  adminAuditLogs AdminWorkspaceAuditLog[]
 
   @@index([ownerId])
   @@index([inviteCode])
+}
+
+model AdminWorkspaceAuditLog {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  workspaceId           String?                  @db.Uuid
+  workspaceNameSnapshot String
+  action                AdminWorkspaceActionType
+  adminUsername         String
+  reason                String?
+  previousIsActive      Boolean
+  nextIsActive          Boolean
+  createdAt             DateTime                 @default(now())
+
+  workspace             Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([createdAt])
 }
 
 // ======================================================

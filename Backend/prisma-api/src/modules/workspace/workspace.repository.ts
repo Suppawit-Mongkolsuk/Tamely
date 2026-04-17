@@ -53,7 +53,12 @@ export const create = async (
 
 export const findMembershipsByUser = async (userId: string) => {
   return prisma.workspaceMember.findMany({
-    where: { userId },
+    where: {
+      userId,
+      workspace: {
+        isActive: true,
+      },
+    },
     select: {
       role: true,
       joinedAt: true,
@@ -101,7 +106,7 @@ export const findByIdSimple = async (workspaceId: string) => {
 
 export const findByInviteCode = async (inviteCode: string) => {
   return prisma.workspace.findUnique({
-    where: { inviteCode },
+    where: { inviteCode, isActive: true },
     select: workspaceBaseSelect,
   });
 };
@@ -136,18 +141,32 @@ export const remove = async (workspaceId: string) => {
 /* ======================= MEMBERS ======================= */
 
 export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
-  return prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-    select: { userId: true, role: true },
-  });
-};
-
-export const findWorkspaceMemberDetailed = async (workspaceId: string, userId: string) => {
-  return prisma.workspaceMember.findUnique({
+  const member = await prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
     select: {
       userId: true,
       role: true,
+      workspace: { select: { isActive: true } },
+    },
+  });
+
+  if (!member?.workspace.isActive) {
+    return null;
+  }
+
+  return {
+    userId: member.userId,
+    role: member.role,
+  };
+};
+
+export const findWorkspaceMemberDetailed = async (workspaceId: string, userId: string) => {
+  const member = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+    select: {
+      userId: true,
+      role: true,
+      workspace: { select: { isActive: true } },
       user: {
         select: {
           customRoles: {
@@ -162,6 +181,13 @@ export const findWorkspaceMemberDetailed = async (workspaceId: string, userId: s
       },
     },
   });
+
+  if (!member?.workspace.isActive) {
+    return null;
+  }
+
+  const { workspace, ...result } = member;
+  return result;
 };
 
 export const findAllMembers = async (workspaceId: string) => {

@@ -4,7 +4,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { useAuthContext } from '@/contexts';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { AppLayout } from '@/components/layout';
 import { RequireAuth, RequireWorkspace, RequireManagementAccess, RedirectIfAuthenticated } from '../components/common/ProtectedRoute';
@@ -21,6 +21,9 @@ const ResetPasswordPage = lazy(() =>
 );
 const LandingPage = lazy(() =>
   import('@/Pages/LandingPage').then((m) => ({ default: m.LandingPage })),
+);
+const AdminDashboardPage = lazy(() =>
+  import('@/Pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
 );
 const HomePage = lazy(() =>
   import('@/Pages/HomePage').then((m) => ({ default: m.HomePage })),
@@ -65,7 +68,11 @@ function LoginPage() {
   const { logout } = useAuthContext();
   const { clearCurrentWorkspace } = useWorkspaceContext();
 
-  const handleLoginComplete = () => {
+  const handleLoginComplete = (sessionType: 'user' | 'admin') => {
+    if (sessionType === 'admin') {
+      navigate('/admin');
+      return;
+    }
     clearCurrentWorkspace();
     navigate('/workspace');
   };
@@ -142,6 +149,14 @@ function WorkspacePage() {
   );
 }
 
+function AdminDashboardWrapper() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <AdminDashboardPage />
+    </Suspense>
+  );
+}
+
 function AppLayoutWrapper() {
   const navigate = useNavigate();
   const { logout } = useAuthContext();
@@ -192,6 +207,7 @@ function ManagementWrapper() {
 export const router = createBrowserRouter([
   // Public — เข้าได้เสมอ
   { path: '/login', element: <LoginPage /> },
+  { path: '/admin', element: <AdminDashboardWrapper /> },
   { path: '/forgot-password', element: <ForgotPage /> },
   { path: '/reset-password', element: <ResetPage /> },
 

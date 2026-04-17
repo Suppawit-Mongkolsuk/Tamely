@@ -4,7 +4,7 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { useAuthContext } from '@/contexts';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { canAny, PERMISSIONS } from '@/lib/permissions';
 

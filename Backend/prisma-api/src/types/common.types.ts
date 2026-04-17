@@ -3,6 +3,7 @@ import { Request } from 'express';
 export interface AuthRequest extends Request {
   userId?: string; // เพิ่ม userId ลงใน Request object (JWT token uses string)
   workspaceId?: string;
+  adminUsername?: string;
 }
 
 export interface ApiResponse<T> {

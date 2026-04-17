@@ -46,21 +46,44 @@ router.post('/register', (0, validate_1.validateRequest)(auth_model_1.RegisterSc
     const user = await authService.registerUser(req.body);
     const token = (0, jwt_utils_1.signToken)(user.id);
     (0, jwt_utils_1.setTokenCookie)(res, token);
-    const response = { token, user };
+    const response = { token, sessionType: 'user', user };
     res.status(201).json({ success: true, data: response });
 }));
 // POST /api/auth/login
 router.post('/login', (0, validate_1.validateRequest)(auth_model_1.LoginSchema), (0, validate_1.asyncHandler)(async (req, res) => {
-    const user = await authService.loginUser(req.body);
+    const result = await authService.loginUser(req.body);
     const rememberMe = Boolean(req.body.rememberMe);
-    const token = (0, jwt_utils_1.signToken)(user.id, rememberMe);
-    (0, jwt_utils_1.setTokenCookie)(res, token, rememberMe);
-    const response = { token, user };
+    let response;
+    if (result.sessionType === 'admin') {
+        (0, jwt_utils_1.clearTokenCookie)(res);
+        (0, jwt_utils_1.setAdminTokenCookie)(res, result.token);
+        response = {
+            token: result.token,
+            sessionType: 'admin',
+            admin: result.admin,
+        };
+    }
+    else {
+        const token = (0, jwt_utils_1.signToken)(result.id, rememberMe);
+        (0, jwt_utils_1.clearAdminTokenCookie)(res);
+        (0, jwt_utils_1.setTokenCookie)(res, token, rememberMe);
+        response = {
+            token,
+            sessionType: 'user',
+            user: {
+                id: result.id,
+                email: result.email,
+                displayName: result.displayName,
+                avatarUrl: result.avatarUrl,
+            },
+        };
+    }
     res.json({ success: true, data: response });
 }));
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
     (0, jwt_utils_1.clearTokenCookie)(res);
+    (0, jwt_utils_1.clearAdminTokenCookie)(res);
     res.json({ success: true, message: 'Logged out successfully' });
 });
 // GET /api/auth/me

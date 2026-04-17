@@ -4,7 +4,7 @@ import { prisma } from '../../index';
 import { MessageType } from '@prisma/client';
 import { deleteFromStorage, CHAT_FILES_BUCKET } from '../../utils/supabase-storage';
 import { pushToUsers } from '../push/push.service';
-import { assertWorkspaceMember } from '../../utils/workspace.helpers';
+import { assertWorkspaceActive, assertWorkspaceMember } from '../../utils/workspace.helpers';
 
 const assertConversationParticipant = (
   conversation: { userAId: string; userBId: string },
@@ -56,6 +56,7 @@ export const getMessages = async (
 ) => {
   const conv = await dmRepository.findConversationById(conversationId);
   if (!conv) throw new AppError(404, 'Conversation not found');
+  await assertWorkspaceActive(conv.workspaceId);
   assertConversationParticipant(conv, userId);
 
   const limit = Math.min(options.limit ?? 50, 100);
@@ -81,6 +82,7 @@ export const sendMessage = async (
 ) => {
   const conv = await dmRepository.findConversationById(conversationId);
   if (!conv) throw new AppError(404, 'Conversation not found');
+  await assertWorkspaceActive(conv.workspaceId);
   assertConversationParticipant(conv, senderId);
 
   const message = await dmRepository.createMessage(conversationId, senderId, content, type, fileData);
@@ -120,6 +122,7 @@ export const deleteMessage = async (messageId: string, userId: string) => {
 export const clearMessages = async (conversationId: string, userId: string) => {
   const conv = await dmRepository.findConversationById(conversationId);
   if (!conv) throw new AppError(404, 'Conversation not found');
+  await assertWorkspaceActive(conv.workspaceId);
   assertConversationParticipant(conv, userId);
 
   const msgs = await dmRepository.findAllMessagesWithFiles(conversationId);
@@ -135,6 +138,7 @@ export const clearMessages = async (conversationId: string, userId: string) => {
 export const markAsRead = async (conversationId: string, userId: string) => {
   const conv = await dmRepository.findConversationById(conversationId);
   if (!conv) throw new AppError(404, 'Conversation not found');
+  await assertWorkspaceActive(conv.workspaceId);
   assertConversationParticipant(conv, userId);
   await dmRepository.markMessagesAsRead(conversationId, userId);
 };

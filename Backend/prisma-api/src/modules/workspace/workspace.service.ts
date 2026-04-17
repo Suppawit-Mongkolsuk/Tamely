@@ -2,6 +2,7 @@ import { WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
 import { PERMISSIONS } from '../../types/permissions';
 import { buildPermissionArray, getUserPermissionsArray, hasPermission } from '../../utils/permissions';
+import { assertWorkspaceActive } from '../../utils/workspace.helpers';
 import {
   uploadWorkspaceIcon,
   deleteOldWorkspaceIcon,
@@ -67,6 +68,7 @@ export const getWorkspaceById = async (
 
   const workspace = await workspaceRepository.findById(workspaceId);
   if (!workspace) throw new AppError(404, 'Workspace not found');
+  if (!workspace.isActive) throw new AppError(423, 'Workspace is currently blocked by admin');
 
   return {
     ...workspace,
@@ -252,6 +254,7 @@ export const regenerateInviteCode = async (
   workspaceId: string,
   userId: string,
 ) => {
+  await assertWorkspaceActive(workspaceId);
   const workspace = await workspaceRepository.findByIdSimple(workspaceId);
   if (!workspace) throw new AppError(404, 'Workspace not found');
 

@@ -3,12 +3,26 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyResetToken = exports.signResetToken = exports.extractToken = exports.clearTokenCookie = exports.getTokenFromCookie = exports.setTokenCookie = exports.verifyToken = exports.signToken = void 0;
+exports.verifyResetToken = exports.signResetToken = exports.extractToken = exports.clearAdminTokenCookie = exports.getAdminTokenFromCookie = exports.setAdminTokenCookie = exports.verifyAdminToken = exports.signAdminToken = exports.clearTokenCookie = exports.getTokenFromCookie = exports.setTokenCookie = exports.verifyToken = exports.signToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const ADMIN_SECRET = process.env.ADMIN_JWT_SECRET || `${SECRET}-admin`;
+const ADMIN_EXPIRES_IN = process.env.ADMIN_JWT_EXPIRES_IN || '7d';
+const ACCESS_COOKIE_NAME = 'accessToken';
+const ADMIN_COOKIE_NAME = process.env.ADMIN_COOKIE_NAME || 'adminAccessToken';
 const SESSION_COOKIE_MS = 0; // 0 = session cookie (หมดเมื่อปิด browser)
 const REMEMBER_COOKIE_MS = 30 * 24 * 60 * 60 * 1000; // 30 วัน
+const buildCookieOptions = (maxAge) => {
+    const isProd = process.env.NODE_ENV === 'production';
+    return {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: (isProd ? 'none' : 'lax'),
+        ...(maxAge !== undefined ? { maxAge } : {}),
+        path: '/',
+    };
+};
 /**
  * สร้าง JWT token
  * @param userId - ID ของ user
@@ -41,14 +55,7 @@ exports.verifyToken = verifyToken;
  * @param rememberMe - ถ้า true → cookie อายุ 30 วัน, false → session cookie (หมดเมื่อปิด browser)
  */
 const setTokenCookie = (res, token, rememberMe = false) => {
-    const isProd = process.env.NODE_ENV === 'production';
-    res.cookie('accessToken', token, {
-        httpOnly: true,
-        secure: isProd,
-        sameSite: isProd ? 'none' : 'lax',
-        maxAge: rememberMe ? REMEMBER_COOKIE_MS : SESSION_COOKIE_MS || undefined,
-        path: '/',
-    });
+    res.cookie(ACCESS_COOKIE_NAME, token, buildCookieOptions(rememberMe ? REMEMBER_COOKIE_MS : SESSION_COOKIE_MS || undefined));
 };
 exports.setTokenCookie = setTokenCookie;
 /**
@@ -57,9 +64,9 @@ exports.setTokenCookie = setTokenCookie;
  * @returns token string หรือ null
  */
 const getTokenFromCookie = (cookies) => {
-    if (!cookies || !cookies.accessToken)
+    if (!cookies || !cookies[ACCESS_COOKIE_NAME])
         return null;
-    return cookies.accessToken;
+    return cookies[ACCESS_COOKIE_NAME];
 };
 exports.getTokenFromCookie = getTokenFromCookie;
 /**
@@ -67,21 +74,54 @@ exports.getTokenFromCookie = getTokenFromCookie;
  * @param res - Express Response object
  */
 const clearTokenCookie = (res) => {
-    const isProd = process.env.NODE_ENV === 'production';
-    const cookieOpts = {
-        httpOnly: true,
-        secure: isProd,
-        sameSite: (isProd ? 'none' : 'lax'),
-        path: '/',
-    };
-    res.clearCookie('accessToken', cookieOpts);
-    res.cookie('accessToken', '', {
+    const cookieOpts = buildCookieOptions();
+    res.clearCookie(ACCESS_COOKIE_NAME, cookieOpts);
+    res.cookie(ACCESS_COOKIE_NAME, '', {
         ...cookieOpts,
         expires: new Date(0),
         maxAge: 0,
     });
 };
 exports.clearTokenCookie = clearTokenCookie;
+const signAdminToken = (username) => {
+    return jsonwebtoken_1.default.sign({ username, purpose: 'admin' }, ADMIN_SECRET, {
+        expiresIn: ADMIN_EXPIRES_IN,
+    });
+};
+exports.signAdminToken = signAdminToken;
+const verifyAdminToken = (token) => {
+    try {
+        const payload = jsonwebtoken_1.default.verify(token, ADMIN_SECRET);
+        if (payload.purpose !== 'admin') {
+            throw new Error('Invalid admin token');
+        }
+        return payload;
+    }
+    catch (_a) {
+        throw new Error('Invalid or expired admin token');
+    }
+};
+exports.verifyAdminToken = verifyAdminToken;
+const setAdminTokenCookie = (res, token) => {
+    res.cookie(ADMIN_COOKIE_NAME, token, buildCookieOptions());
+};
+exports.setAdminTokenCookie = setAdminTokenCookie;
+const getAdminTokenFromCookie = (cookies) => {
+    if (!cookies || !cookies[ADMIN_COOKIE_NAME])
+        return null;
+    return cookies[ADMIN_COOKIE_NAME];
+};
+exports.getAdminTokenFromCookie = getAdminTokenFromCookie;
+const clearAdminTokenCookie = (res) => {
+    const cookieOpts = buildCookieOptions();
+    res.clearCookie(ADMIN_COOKIE_NAME, cookieOpts);
+    res.cookie(ADMIN_COOKIE_NAME, '', {
+        ...cookieOpts,
+        expires: new Date(0),
+        maxAge: 0,
+    });
+};
+exports.clearAdminTokenCookie = clearAdminTokenCookie;
 /**
  * mobile app
  * @param authHeader - Authorization header

@@ -8,6 +8,7 @@ import {
   deleteOldAvatar,
 } from '../../utils/supabase-storage';
 import * as authRepository from './auth.repository';
+import * as adminService from '../admin/admin.service';
 
 /**
  * Register new user
@@ -36,6 +37,16 @@ export const registerUser = async (data: RegisterPayload) => {
  * Login user
  */
 export const loginUser = async (data: LoginPayload) => {
+  const configuredAdminUsername = process.env.ADMIN_USERNAME?.trim().toLowerCase();
+  if (configuredAdminUsername && data.email.trim().toLowerCase() === configuredAdminUsername) {
+    const adminSession = await adminService.loginAdmin(data.email.trim(), data.password);
+    return {
+      token: adminSession.token,
+      sessionType: 'admin' as const,
+      admin: adminSession.admin,
+    };
+  }
+
   const user = await authRepository.findByEmail(data.email);
   if (!user) {
     throw new AppError(401, 'Invalid email or password');
@@ -61,6 +72,7 @@ export const loginUser = async (data: LoginPayload) => {
     email: user.email,
     displayName: user.Name,
     avatarUrl: user.avatarUrl,
+    sessionType: 'user' as const,
   };
 };
 

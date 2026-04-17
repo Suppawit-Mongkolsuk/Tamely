@@ -13,6 +13,7 @@ const lastMessageSelect = {
 } as const;
 const conversationSelect = {
   id: true,
+  workspaceId: true,
   userA: { select: userSelect },
   userB: { select: userSelect },
   messages: {
@@ -62,7 +63,7 @@ export const findOrCreateConversation = async (
 export const findConversationById = async (conversationId: string) => {
   return prisma.directConversation.findUnique({
     where: { id: conversationId },
-    select: { id: true, userAId: true, userBId: true },
+    select: { id: true, workspaceId: true, userAId: true, userBId: true },
   });
 };
 

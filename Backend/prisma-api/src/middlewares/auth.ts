@@ -2,7 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import {
   verifyToken,
   getTokenFromCookie,
+  getAdminTokenFromCookie,
   extractToken,
+  verifyAdminToken,
 } from '../utils/jwt.utils';
 import { AuthRequest } from '../types';
 
@@ -36,6 +38,36 @@ export const authenticate = (
     res.status(401).json({
       success: false,
       error: 'Invalid or expired token',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+export const authenticateAdmin = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): void => {
+  try {
+    let token = getAdminTokenFromCookie(req.cookies);
+
+    if (!token) {
+      token = extractToken(req.headers.authorization);
+    }
+
+    if (!token) {
+      res.status(401).json({ success: false, error: 'No admin token provided' });
+      return;
+    }
+
+    const payload = verifyAdminToken(token);
+    req.adminUsername = payload.username;
+
+    next();
+  } catch (error) {
+    res.status(401).json({
+      success: false,
+      error: 'Invalid or expired admin token',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

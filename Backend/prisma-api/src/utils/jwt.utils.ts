@@ -1,13 +1,30 @@
 import jwt from 'jsonwebtoken';
 import { Response } from 'express';
-import { JwtPayload } from '../types';
+import { AdminJwtPayload, JwtPayload } from '../types';
 
 const SECRET: string =
   process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const EXPIRES_IN: string | number = process.env.JWT_EXPIRES_IN || '7d';
+const ADMIN_SECRET: string =
+  process.env.ADMIN_JWT_SECRET || `${SECRET}-admin`;
+const ADMIN_EXPIRES_IN: string | number =
+  process.env.ADMIN_JWT_EXPIRES_IN || '7d';
+const ACCESS_COOKIE_NAME = 'accessToken';
+const ADMIN_COOKIE_NAME = process.env.ADMIN_COOKIE_NAME || 'adminAccessToken';
 
 const SESSION_COOKIE_MS = 0; // 0 = session cookie (หมดเมื่อปิด browser)
 const REMEMBER_COOKIE_MS = 30 * 24 * 60 * 60 * 1000; // 30 วัน
+
+const buildCookieOptions = (maxAge?: number) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+    ...(maxAge !== undefined ? { maxAge } : {}),
+    path: '/',
+  };
+};
 
 /**
  * สร้าง JWT token
@@ -44,14 +61,11 @@ export const setTokenCookie = (
   token: string,
   rememberMe = false,
 ): void => {
-  const isProd = process.env.NODE_ENV === 'production';
-  res.cookie('accessToken', token, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
-    maxAge: rememberMe ? REMEMBER_COOKIE_MS : SESSION_COOKIE_MS || undefined,
-    path: '/',
-  });
+  res.cookie(
+    ACCESS_COOKIE_NAME,
+    token,
+    buildCookieOptions(rememberMe ? REMEMBER_COOKIE_MS : SESSION_COOKIE_MS || undefined),
+  );
 };
 
 /**
@@ -62,8 +76,8 @@ export const setTokenCookie = (
 export const getTokenFromCookie = (
   cookies?: Record<string, string>,
 ): string | null => {
-  if (!cookies || !cookies.accessToken) return null;
-  return cookies.accessToken;
+  if (!cookies || !cookies[ACCESS_COOKIE_NAME]) return null;
+  return cookies[ACCESS_COOKIE_NAME];
 };
 
 /**
@@ -71,15 +85,48 @@ export const getTokenFromCookie = (
  * @param res - Express Response object
  */
 export const clearTokenCookie = (res: Response): void => {
-  const isProd = process.env.NODE_ENV === 'production';
-  const cookieOpts = {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
-    path: '/',
-  };
-  res.clearCookie('accessToken', cookieOpts);
-  res.cookie('accessToken', '', {
+  const cookieOpts = buildCookieOptions();
+  res.clearCookie(ACCESS_COOKIE_NAME, cookieOpts);
+  res.cookie(ACCESS_COOKIE_NAME, '', {
+    ...cookieOpts,
+    expires: new Date(0),
+    maxAge: 0,
+  });
+};
+
+export const signAdminToken = (username: string): string => {
+  return jwt.sign({ username, purpose: 'admin' }, ADMIN_SECRET, {
+    expiresIn: ADMIN_EXPIRES_IN,
+  } as any);
+};
+
+export const verifyAdminToken = (token: string): AdminJwtPayload => {
+  try {
+    const payload = jwt.verify(token, ADMIN_SECRET) as AdminJwtPayload;
+    if (payload.purpose !== 'admin') {
+      throw new Error('Invalid admin token');
+    }
+    return payload;
+  } catch {
+    throw new Error('Invalid or expired admin token');
+  }
+};
+
+export const setAdminTokenCookie = (res: Response, token: string): void => {
+  res.cookie(ADMIN_COOKIE_NAME, token, buildCookieOptions());
+};
+
+export const getAdminTokenFromCookie = (
+  cookies?: Record<string, string>,
+): string | null => {
+  if (!cookies || !cookies[ADMIN_COOKIE_NAME]) return null;
+  return cookies[ADMIN_COOKIE_NAME];
+};
+
+export const clearAdminTokenCookie = (res: Response): void => {
+  const cookieOpts = buildCookieOptions();
+  res.clearCookie(ADMIN_COOKIE_NAME, cookieOpts);
+  res.cookie(ADMIN_COOKIE_NAME, '', {
     ...cookieOpts,
     expires: new Date(0),
     maxAge: 0,

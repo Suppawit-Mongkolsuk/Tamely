@@ -42,6 +42,22 @@ export interface AuthResponseData {
   user: User;
 }
 
+export interface AdminAuthFromLoginData {
+  token: string;
+  sessionType: 'admin';
+  admin: {
+    username: string;
+  };
+}
+
+export interface UserAuthResponseData {
+  token: string;
+  sessionType: 'user';
+  user: User;
+}
+
+export type LoginResponseData = UserAuthResponseData | AdminAuthFromLoginData;
+
 export interface ForgotPasswordRequest {
   email: string;
 }

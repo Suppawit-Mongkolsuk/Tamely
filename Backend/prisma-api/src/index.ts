@@ -22,6 +22,7 @@ import taskRoutes from './modules/task/task.routes';
 import notificationRoutes from './modules/notification/notification.routes';
 import dmRoutes from './modules/dm/dm.routes';
 import aiRoutes from './modules/ai/ai.routes';
+import adminRoutes from './modules/admin/admin.routes';
 import passport from './modules/oauth/oauth.config';
 import { initSocketIO } from './modules/chat/chat.gateway';
 import { ensureBucket, CHAT_FILES_BUCKET, WORKSPACE_ICONS_BUCKET } from './utils/supabase-storage';
@@ -109,6 +110,7 @@ app.get('/api/turn-credentials', async (_req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api', customRoleRoutes);

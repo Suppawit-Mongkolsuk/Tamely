@@ -40,6 +40,7 @@ const jwt_utils_1 = require("../../utils/jwt.utils");
 const email_service_1 = require("../../utils/email.service");
 const supabase_storage_1 = require("../../utils/supabase-storage");
 const authRepository = __importStar(require("./auth.repository"));
+const adminService = __importStar(require("../admin/admin.service"));
 /**
  * Register new user
  */
@@ -65,6 +66,16 @@ exports.registerUser = registerUser;
  * Login user
  */
 const loginUser = async (data) => {
+    var _a;
+    const configuredAdminUsername = (_a = process.env.ADMIN_USERNAME) === null || _a === void 0 ? void 0 : _a.trim().toLowerCase();
+    if (configuredAdminUsername && data.email.trim().toLowerCase() === configuredAdminUsername) {
+        const adminSession = await adminService.loginAdmin(data.email.trim(), data.password);
+        return {
+            token: adminSession.token,
+            sessionType: 'admin',
+            admin: adminSession.admin,
+        };
+    }
     const user = await authRepository.findByEmail(data.email);
     if (!user) {
         throw new types_1.AppError(401, 'Invalid email or password');
@@ -81,6 +92,7 @@ const loginUser = async (data) => {
         email: user.email,
         displayName: user.Name,
         avatarUrl: user.avatarUrl,
+        sessionType: 'user',
     };
 };
 exports.loginUser = loginUser;

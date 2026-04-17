@@ -9,11 +9,12 @@ import type {
   User,
   ApiSuccessResponse,
   AuthResponseData,
+  LoginResponseData,
 } from '@/types';
 
 export const authService = {
-  async login(data: LoginRequest): Promise<{ token: string; user: User }> {
-    const response = await apiClient.post<ApiSuccessResponse<AuthResponseData>>(
+  async login(data: LoginRequest): Promise<LoginResponseData> {
+    const response = await apiClient.post<ApiSuccessResponse<LoginResponseData>>(
       '/auth/login',
       data,
     );

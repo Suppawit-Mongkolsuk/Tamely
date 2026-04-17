@@ -57,6 +57,11 @@ export async function resolveUserPermissions(
     select: {
       role: true,
       userId: true,
+      workspace: {
+        select: {
+          isActive: true,
+        },
+      },
       user: {
         select: {
           customRoles: {
@@ -74,7 +79,7 @@ export async function resolveUserPermissions(
     },
   });
 
-  if (!member) {
+  if (!member || !member.workspace.isActive) {
     return new Set<Permission>();
   }
   return buildPermissionSet(

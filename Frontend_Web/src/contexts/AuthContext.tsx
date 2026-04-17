@@ -14,6 +14,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   ForgotPasswordRequest,
+  LoginResponseData,
 } from '@/types';
 
 interface AuthContextValue {
@@ -22,7 +23,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isSessionReady: boolean; // true เมื่อ restoreSession เสร็จแล้ว
   error: string | null;
-  login: (data: LoginRequest) => Promise<unknown>;
+  login: (data: LoginRequest) => Promise<LoginResponseData>;
   register: (data: RegisterRequest) => Promise<unknown>;
   forgotPassword: (data: ForgotPasswordRequest) => Promise<unknown>;
   logout: () => Promise<void>;

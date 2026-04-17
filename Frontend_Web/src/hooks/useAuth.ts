@@ -9,6 +9,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   ForgotPasswordRequest,
+  LoginResponseData,
 } from '@/types';
 
 export function useAuth() {
@@ -16,14 +17,18 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const login = useCallback(async (data: LoginRequest) => {
+  const login = useCallback(async (data: LoginRequest): Promise<LoginResponseData> => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await authService.login(data);
-      setUser(response.user);
-      // เก็บ token เพื่อใช้กับ socket
-      setSocketToken(response.token);
+      if (response.sessionType === 'user') {
+        setUser(response.user);
+        setSocketToken(response.token);
+      } else {
+        setUser(null);
+        setSocketToken('');
+      }
       return response;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';

@@ -2,6 +2,7 @@
 
 export { apiClient, ApiError } from './api';
 export { authService } from './auth.service';
+export { adminService } from './admin.service';
 export { userService } from './user.service';
 export { workspaceService } from './workspace.service';
 export { chatService } from './chat.service';
