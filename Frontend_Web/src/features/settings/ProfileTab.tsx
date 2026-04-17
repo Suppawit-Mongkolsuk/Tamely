@@ -126,6 +126,8 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
                 src={avatarPreview}
                 alt={displayName}
                 className="size-24 rounded-full object-cover"
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarPreview(null)}
               />
             ) : (
               <div className="size-24 rounded-full bg-[#5EBCAD] flex items-center justify-center text-white">

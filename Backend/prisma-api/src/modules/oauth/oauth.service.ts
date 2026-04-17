@@ -19,6 +19,20 @@ export const findOrCreateOAuthUser = async (data: OAuthUserData) => {
   });
 
   if (existingOAuth) {
+    // อัปเดต avatarUrl จาก provider ทุกครั้งที่ login (เผื่อ URL เปลี่ยน/หมดอายุ)
+    if (data.avatarUrl && data.avatarUrl !== existingOAuth.avatarUrl) {
+      const updated = await prisma.user.update({
+        where: { id: existingOAuth.id },
+        data: { avatarUrl: data.avatarUrl },
+      });
+      return {
+        id: updated.id,
+        email: updated.email,
+        displayName: updated.Name,
+        avatarUrl: updated.avatarUrl,
+      };
+    }
+
     return {
       id: existingOAuth.id,
       email: existingOAuth.email,

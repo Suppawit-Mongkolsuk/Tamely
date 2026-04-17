@@ -49,7 +49,7 @@ export function UserAvatar({
   return (
     <Avatar className={cn(sizeClass, className)}>
       {avatarUrl && (
-        <AvatarImage src={avatarUrl} alt={displayName} />
+        <AvatarImage src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
       )}
       <AvatarFallback
         className="bg-[#5EBCAD] text-white font-semibold select-none"
