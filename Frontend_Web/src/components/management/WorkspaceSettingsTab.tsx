@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 import { toast } from 'sonner';
 import { workspaceService } from '@/services/workspace.service';
 import type { Workspace } from '@/types';
@@ -122,7 +123,7 @@ function InviteCodeSection({
               ยกเลิก
             </Button>
             <Button
-              className="bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+              className={BRAND_CLASSNAMES.tealButton}
               onClick={handleRegenerate}
             >
               <RefreshCw className="size-4 mr-2" />
@@ -225,7 +226,7 @@ export function WorkspaceSettingsTab({
                     className="size-20 rounded-xl object-cover"
                   />
                 ) : (
-                  <div className="size-20 rounded-xl bg-[#003366] flex items-center justify-center text-white text-2xl shrink-0">
+                  <div className={`size-20 rounded-xl ${BRAND_CLASSNAMES.primaryBg} flex items-center justify-center text-white text-2xl shrink-0`}>
                     {workspace?.name?.[0]?.toUpperCase() ?? 'W'}
                   </div>
                 )}
@@ -292,7 +293,7 @@ export function WorkspaceSettingsTab({
             )}
 
             <Button
-              className="w-full bg-[#5EBCAD] hover:bg-[#5EBCAD]/90"
+              className={`w-full ${BRAND_CLASSNAMES.tealButton}`}
               onClick={handleSave}
               disabled={saving || !workspace || !canManageWorkspace}
             >

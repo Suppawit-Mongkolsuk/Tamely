@@ -96,7 +96,7 @@ export function AIChatPage() {
     setMessages([createInitialMessage(currentWorkspace.name)]);
     setConversationHistory([]);
     loadSessions(currentWorkspace.id);
-  }, [currentWorkspace?.id]);
+  }, [currentWorkspace?.id, loadSessions]);
 
   // โหลด messages ของ session ที่เลือก
   const handleSelectSession = async (selectedSessionId: string) => {

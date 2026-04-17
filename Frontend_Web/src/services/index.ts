@@ -5,4 +5,5 @@ export { authService } from './auth.service';
 export { userService } from './user.service';
 export { workspaceService } from './workspace.service';
 export { chatService } from './chat.service';
+export { dmService } from './dm.service';
 export { calendarService } from './calendar.service';

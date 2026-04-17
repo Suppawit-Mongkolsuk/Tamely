@@ -4,6 +4,7 @@
 
 import { cn } from './utils';
 import { Avatar, AvatarImage, AvatarFallback } from './avatar';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -49,10 +50,10 @@ export function UserAvatar({
   return (
     <Avatar className={cn(sizeClass, className)}>
       {avatarUrl && (
-        <AvatarImage src={avatarUrl} alt={displayName} />
+        <AvatarImage src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
       )}
       <AvatarFallback
-        className="bg-[#5EBCAD] text-white font-semibold select-none"
+        className={cn(BRAND_CLASSNAMES.tealBg, 'text-white font-semibold select-none')}
       >
         {getInitials(displayName)}
       </AvatarFallback>

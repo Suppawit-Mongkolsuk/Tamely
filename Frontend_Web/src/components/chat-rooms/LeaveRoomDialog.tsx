@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Hash, LogOut } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 import type { ChatRoom } from '@/types/chat-ui';
 
 interface LeaveRoomDialogProps {
@@ -45,7 +46,7 @@ export function LeaveRoomDialog({
     >
       {/* Room info card */}
       <div className="flex items-center gap-3 p-3 border border-border rounded-lg">
-        <div className="size-12 rounded-lg bg-[#003366] flex items-center justify-center shrink-0">
+        <div className={`size-12 rounded-lg ${BRAND_CLASSNAMES.primaryBg} flex items-center justify-center shrink-0`}>
           <Hash className="size-6 text-white" />
         </div>
         <div>

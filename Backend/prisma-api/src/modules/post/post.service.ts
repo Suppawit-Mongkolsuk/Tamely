@@ -1,18 +1,10 @@
-import { WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
 import { PERMISSIONS } from '../../types/permissions';
 import { hasPermission } from '../../utils/permissions';
+import { assertWorkspaceMember } from '../../utils/workspace.helpers';
 import { TypePayloadCreatePost, TypePayloadUpdatePost } from './post.model';
 import * as postRepository from './post.repository';
 import { processAndCreateMentionNotifications } from '../notification/notification.service';
-
-/* ======================= HELPERS ======================= */
-
-const assertWorkspaceMember = async (workspaceId: string, userId: string) => {
-  const member = await postRepository.findWorkspaceMember(workspaceId, userId);
-  if (!member) throw new AppError(403, 'You are not a member of this workspace');
-  return member;
-};
 
 /* ======================= CREATE ======================= */
 
@@ -79,8 +71,7 @@ export const updatePost = async (
   const post = await postRepository.findById(postId);
   if (!post) throw new AppError(404, 'Post not found');
 
-  const member = await postRepository.findWorkspaceMember(post.workspaceId, userId);
-  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  await assertWorkspaceMember(post.workspaceId, userId);
 
   if (
     post.authorId !== userId &&
@@ -98,8 +89,7 @@ export const deletePost = async (postId: string, userId: string) => {
   const post = await postRepository.findById(postId);
   if (!post) throw new AppError(404, 'Post not found');
 
-  const member = await postRepository.findWorkspaceMember(post.workspaceId, userId);
-  if (!member) throw new AppError(403, 'You are not a member of this workspace');
+  await assertWorkspaceMember(post.workspaceId, userId);
 
   if (
     post.authorId !== userId &&
@@ -117,10 +107,7 @@ export const togglePin = async (postId: string, userId: string, isPinned: boolea
   const post = await postRepository.findById(postId);
   if (!post) throw new AppError(404, 'Post not found');
 
-  const member = await postRepository.findWorkspaceMember(post.workspaceId, userId);
-  if (!member) {
-    throw new AppError(403, 'You are not a member of this workspace');
-  }
+  await assertWorkspaceMember(post.workspaceId, userId);
 
   const allowed = await hasPermission(post.workspaceId, userId, PERMISSIONS.PIN_POST);
   if (!allowed) {

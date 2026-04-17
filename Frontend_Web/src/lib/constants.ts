@@ -36,6 +36,22 @@ export const GRADIENT = {
   tealToBlueRounded: 'bg-linear-to-br from-[#5EBCAD] to-[#46769B]',
 } as const;
 
+export const BRAND_CLASSNAMES = {
+  primaryBg: 'bg-[#003366]',
+  primaryText: 'text-[#003366]',
+  primaryHoverBg: 'hover:bg-[#174978]',
+  tealBg: 'bg-[#5EBCAD]',
+  tealButton: 'bg-[#5EBCAD] hover:bg-[#5EBCAD]/90',
+  tealText: 'text-[#5EBCAD]',
+  tealBorder: 'border-[#5EBCAD]',
+  tealTintBg: 'bg-[#5EBCAD]/10',
+  tealTintSoftBg: 'bg-[#5EBCAD]/5',
+  tealTintHoverBg: 'hover:bg-[#5EBCAD]/10',
+  lightBlueBg: 'bg-[#75A2BF]',
+  lightBlueButton: 'bg-[#75A2BF] hover:bg-[#75A2BF]/90',
+  tealHoverText: 'hover:text-[#5EBCAD]',
+} as const;
+
 // ===== Navigation =====
 export const NAV_ITEMS = [
   { key: 'home', label: 'Home', icon: 'Home' },
@@ -56,6 +72,8 @@ export const CHAT_MESSAGE_PAGE_SIZE = 50;
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 export const ALLOWED_FILE_TYPES = [...ALLOWED_IMAGE_TYPES, 'application/pdf', 'text/plain'];
+export const CHAT_IMAGE_ACCEPT = ALLOWED_IMAGE_TYPES.join(',');
+export const CHAT_FILE_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv';
 
 // ===== Date/Time =====
 export const DATE_FORMAT = 'yyyy-MM-dd';

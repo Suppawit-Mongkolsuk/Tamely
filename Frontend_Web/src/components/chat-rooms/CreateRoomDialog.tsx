@@ -12,6 +12,7 @@ import {
   DialogTrigger,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { BRAND_CLASSNAMES, GRADIENT } from '@/lib/constants';
 
 // ยศทั้งหมดที่มีในระบบ
 const ROLES = [
@@ -81,7 +82,7 @@ export function CreateRoomDialog({
           variant="ghost"
           className="w-full justify-start gap-3 px-3 py-2 h-auto text-sm text-muted-foreground"
         >
-          <div className="size-8 rounded-lg bg-[#5EBCAD] flex items-center justify-center shrink-0">
+          <div className={`size-8 rounded-lg ${BRAND_CLASSNAMES.tealBg} flex items-center justify-center shrink-0`}>
             <Plus className="size-4 text-white" />
           </div>
           <span>Create New Room</span>
@@ -118,7 +119,7 @@ export function CreateRoomDialog({
             </p>
 
             {/* ALL option */}
-            <label className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-2 border-[#5EBCAD] bg-[#5EBCAD]/5 cursor-pointer mb-2">
+            <label className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-2 ${BRAND_CLASSNAMES.tealBorder} bg-[#5EBCAD]/5 cursor-pointer mb-2`}>
               <input
                 type="checkbox"
                 checked={isAll}
@@ -172,7 +173,7 @@ export function CreateRoomDialog({
               Cancel
             </Button>
             <Button
-              className="bg-linear-to-r from-[#5EBCAD] to-[#46769B] hover:opacity-90 text-white"
+              className={`${GRADIENT.tealToBlueLinear} hover:opacity-90 text-white`}
               onClick={handleSubmit}
               disabled={isSubmitting || (!isAll && selectedRoles.length === 0)}
             >

@@ -16,6 +16,8 @@ import { useAuthContext } from '@/contexts';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useUnreadDMs } from '@/hooks';
 import { canAny, canDo, PERMISSIONS } from '@/lib/permissions';
+import { UserAvatar } from '@/components/ui/UserAvatar';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 
 const navigation = [
   { id: 'home', path: '/home', name: 'Home / Feed', icon: Home },
@@ -77,12 +79,6 @@ export function Sidebar({ isOpen, isMobile = false, onNavigate }: SidebarProps) 
   ].filter(Boolean) as string[];
 
   const displayName = user?.displayName ?? 'User';
-  const initials = displayName
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
 
   const handleNavigate = (path: string) => {
     navigate(path);
@@ -103,7 +99,7 @@ export function Sidebar({ isOpen, isMobile = false, onNavigate }: SidebarProps) 
 
   return (
     <aside
-      className={`${positionClass} transition-all duration-300 bg-[#003366] text-white flex flex-col overflow-hidden shrink-0`}
+      className={`${positionClass} transition-all duration-300 ${BRAND_CLASSNAMES.primaryBg} text-white flex flex-col overflow-hidden shrink-0`}
     >
       {/* Logo */}
       <div className="p-6">
@@ -209,17 +205,12 @@ export function Sidebar({ isOpen, isMobile = false, onNavigate }: SidebarProps) 
           onClick={() => handleNavigate('/settings')}
           className="w-full flex items-center gap-3 rounded-lg hover:bg-white/10 transition-colors p-1"
         >
-          {user?.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={displayName}
-              className="size-10 rounded-full object-cover shrink-0"
-            />
-          ) : (
-            <div className="size-10 rounded-full bg-[#5EBCAD] flex items-center justify-center shrink-0">
-              <span>{initials}</span>
-            </div>
-          )}
+          <UserAvatar
+            displayName={displayName}
+            avatarUrl={user?.avatarUrl}
+            size="md"
+            className="shrink-0"
+          />
           <div className="flex-1 min-w-0 text-left">
             <p className="text-sm truncate">{displayName}</p>
             <p className="text-xs text-white/60 truncate">{user?.email ?? ''}</p>

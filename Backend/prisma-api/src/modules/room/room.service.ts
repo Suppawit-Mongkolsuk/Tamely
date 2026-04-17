@@ -1,17 +1,9 @@
-import { WorkspaceRole } from '@prisma/client';
 import { AppError } from '../../types';
 import { PERMISSIONS } from '../../types/permissions';
 import { hasPermission } from '../../utils/permissions';
+import { assertWorkspaceMember } from '../../utils/workspace.helpers';
 import { TypePayloadCreateRoom, TypePayloadUpdateRoom } from './room.model';
 import * as roomRepository from './room.repository';
-
-/* ======================= HELPERS ======================= */
-
-const assertWorkspaceMember = async (workspaceId: string, userId: string) => {
-  const member = await roomRepository.findWorkspaceMember(workspaceId, userId);
-  if (!member) throw new AppError(403, 'You are not a member of this workspace');
-  return member;
-};
 
 const assertManageChannelsPermission = async (workspaceId: string, userId: string) => {
   await assertWorkspaceMember(workspaceId, userId);

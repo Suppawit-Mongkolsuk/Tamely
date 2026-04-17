@@ -15,6 +15,7 @@ import type { DMConversationResponse, DMMessageResponse } from '@/services/dm.se
 import { connectSocket } from '@/lib/socket';
 import { isConversationMuted, toggleConversationMute } from '@/lib/notification-prefs';
 import { canDo, PERMISSIONS } from '@/lib/permissions';
+
 import { formatTime, getInitials } from '@/lib/utils';
 import type { ChatRoom, Message, Member, ChatTab, DirectMessage } from '@/types/chat-ui';
 import type { WorkspaceMember } from '@/types/workspace';

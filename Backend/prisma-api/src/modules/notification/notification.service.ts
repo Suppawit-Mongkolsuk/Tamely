@@ -114,6 +114,7 @@ export const processAndCreateMentionNotifications = async (params: {
 
         const roleName = resolvedRoles.find((r) => r === member.role);
         if (!roleName) continue;
+
         notifications.push({
           workspaceId,
           userId: member.userId,

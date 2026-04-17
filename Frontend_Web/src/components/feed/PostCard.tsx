@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { MentionInput } from './MentionInput';
 import { MentionText } from './MentionText';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 export interface PostComment {
   id: string;
@@ -100,19 +101,6 @@ function ImageGrid({ images, onOpen }: { images: string[]; onOpen: (idx: number)
           )}
         </div>
       ))}
-    </div>
-  );
-}
-
-/* ── Avatar helper ── */
-function Avatar({ name, avatarUrl, size = 'md' }: { name: string; avatarUrl?: string | null; size?: 'sm' | 'md' }) {
-  const cls = size === 'sm' ? 'size-8' : 'size-10';
-  if (avatarUrl) {
-    return <img src={avatarUrl} alt={name} className={`${cls} rounded-full object-cover shrink-0`} />;
-  }
-  return (
-    <div className={`${cls} rounded-full bg-primary/15 flex items-center justify-center text-sm font-bold text-primary shrink-0`}>
-      {name.charAt(0).toUpperCase()}
     </div>
   );
 }
@@ -246,7 +234,11 @@ export function PostCard({
       <div className="p-5 space-y-3">
         {/* ── Post Header ── */}
         <div className="flex items-start gap-3">
-          <Avatar name={post.author.Name} avatarUrl={post.author.avatarUrl} />
+          <UserAvatar
+            displayName={post.author.Name}
+            avatarUrl={post.author.avatarUrl}
+            size="md"
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               {post.isPinned && <Pin className="size-3.5 text-[#003366] fill-[#003366] shrink-0" />}
@@ -343,7 +335,11 @@ export function PostCard({
                 <div className="space-y-3">
                   {comments.map((comment) => (
                     <div key={comment.id} className="flex items-start gap-3 group">
-                      <Avatar name={comment.user.Name} avatarUrl={comment.user.avatarUrl} size="sm" />
+                      <UserAvatar
+                        displayName={comment.user.Name}
+                        avatarUrl={comment.user.avatarUrl}
+                        size="sm"
+                      />
                       <div className="flex-1 min-w-0">
                         {/* Bubble */}
                         <div className="bg-blue-200 rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm border border-blue-100 inline-block max-w-full">

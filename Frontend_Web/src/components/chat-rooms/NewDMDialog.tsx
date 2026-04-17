@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { BRAND_CLASSNAMES } from '@/lib/constants';
 import { workspaceService } from '@/services/workspace.service';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuthContext } from '@/contexts';
@@ -37,7 +38,8 @@ export function NewDMDialog({ open, onOpenChange, onSelectUser }: NewDMDialogPro
       .getMembers(currentWorkspace.id)
       .then((data) => setMembers(data))
       .catch((err) => {
-        console.warn('[NewDMDialog] Failed to fetch workspace members:', err);
+
+        console.warn('[NewDMDialog] Failed to load workspace members:', err);
       })
       .finally(() => setLoading(false));
   }, [open, currentWorkspace?.id]);
@@ -58,7 +60,7 @@ export function NewDMDialog({ open, onOpenChange, onSelectUser }: NewDMDialogPro
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="size-5 text-[#5EBCAD]" />
+            <MessageCircle className={`size-5 ${BRAND_CLASSNAMES.tealText}`} />
             New Direct Message
           </DialogTitle>
           <DialogDescription>เลือก member ใน workspace เพื่อเริ่มสนทนา</DialogDescription>
@@ -91,7 +93,7 @@ export function NewDMDialog({ open, onOpenChange, onSelectUser }: NewDMDialogPro
                   key={member.userId}
                   variant="ghost"
                   onClick={() => handleSelect(member.userId)}
-                  className="w-full justify-start gap-3 h-auto py-2.5 px-3 hover:bg-[#5EBCAD]/10"
+                  className={`w-full justify-start gap-3 h-auto py-2.5 px-3 ${BRAND_CLASSNAMES.tealTintHoverBg}`}
                 >
                   <UserAvatar displayName={member.user.Name} size="md" />
                   <div className="text-left">

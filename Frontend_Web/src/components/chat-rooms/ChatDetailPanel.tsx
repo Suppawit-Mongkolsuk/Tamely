@@ -122,17 +122,11 @@ function RoomDetails({
               className="group flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
             >
               <div className="relative">
-                {member.avatarUrl ? (
-                  <img
-                    src={member.avatarUrl}
-                    alt={member.name}
-                    className="size-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="size-10 rounded-full bg-[#75A2BF] flex items-center justify-center text-white text-sm font-medium">
-                    {member.avatar}
-                  </div>
-                )}
+                <UserAvatar
+                  displayName={member.name}
+                  avatarUrl={member.avatarUrl}
+                  size="md"
+                />
                 <span
                   className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-white ${
                     member.status === 'online' ? 'bg-green-500' : 'bg-gray-300'

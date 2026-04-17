@@ -7,6 +7,7 @@ import { Bell, Check, CheckCheck, Loader2 } from 'lucide-react';
 import { apiClient } from '@/services/api';
 import { useWorkspaceContext } from '@/contexts';
 import { MentionText } from '@/components/feed/MentionText';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 interface Notification {
   id: string;
@@ -191,9 +192,11 @@ export function NotificationBell() {
                   } ${n.post?.id ? 'cursor-pointer' : 'cursor-default'}`}
                 >
                   {/* Sender avatar */}
-                  <div className="size-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                    {n.sender?.Name?.charAt(0).toUpperCase() ?? '@'}
-                  </div>
+                  <UserAvatar
+                    displayName={n.sender?.Name ?? 'ระบบ'}
+                    avatarUrl={n.sender?.avatarUrl}
+                    size="sm"
+                  />
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
