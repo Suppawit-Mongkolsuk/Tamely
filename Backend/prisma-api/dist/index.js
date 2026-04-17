@@ -96,7 +96,8 @@ app.get('/api/turn-credentials', async (_req, res) => {
         });
         res.json({ iceServers });
     }
-    catch (_b) {
+    catch (err) {
+        console.error('[TURN] Failed to fetch TURN credentials:', err);
         res.json({ iceServers: [] });
     }
 });
@@ -136,7 +137,12 @@ const startServer = (port) => {
         .listen(port, () => {
         console.log(`Server running on http://localhost:${port}`);
         // Ensure Supabase buckets exist on startup
-        (0, supabase_storage_1.ensureBucket)(supabase_storage_1.CHAT_FILES_BUCKET, true).catch(() => { });
+        (0, supabase_storage_1.ensureBucket)(supabase_storage_1.CHAT_FILES_BUCKET, true).catch((err) => {
+            console.error('[Storage] Failed to ensure chat bucket:', err);
+        });
+        (0, supabase_storage_1.ensureBucket)(supabase_storage_1.WORKSPACE_ICONS_BUCKET, true).catch((err) => {
+            console.error('[Storage] Failed to ensure workspace icon bucket:', err);
+        });
     });
 };
 startServer(initialPort);
