@@ -58,7 +58,7 @@ export const getWorkspaceById = async (
     ...workspace,
     role: member.role,
     myPermissions: await getUserPermissionsArray(workspaceId, userId),
-    myCustomRoles: member.user.customRoles.map((item) => item.customRole),
+    myCustomRoles: (member as any).user.customRoles.map((item: any) => item.customRole),
   };
 };
 
@@ -84,7 +84,7 @@ export const updateWorkspace = async (
     ...updatedWorkspace,
     role: member.role,
     myPermissions: await getUserPermissionsArray(workspaceId, userId),
-    myCustomRoles: member.user.customRoles.map((item) => item.customRole),
+    myCustomRoles: (member as any).user.customRoles.map((item: any) => item.customRole),
   };
 };
 
@@ -133,7 +133,7 @@ export const getMembers = async (workspaceId: string, userId: string) => {
   const members = await workspaceRepository.findAllMembers(workspaceId);
   return members.map((workspaceMember) => ({
     ...workspaceMember,
-    customRoles: workspaceMember.user.customRoles.map((item) => item.customRole),
+    customRoles: (workspaceMember as any).user.customRoles.map((item: any) => item.customRole),
   }));
 };
 

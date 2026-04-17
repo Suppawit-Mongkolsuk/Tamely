@@ -6,6 +6,16 @@ import Constants from 'expo-constants';
 
 const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
 
+export const NOTIF_KEYS = {
+  push: 'pref_push_enabled',
+  dm: 'pref_dm_enabled',
+};
+
+export const AI_KEYS = {
+  autoSummarize: 'pref_ai_auto_summarize',
+  smartSuggest: 'pref_ai_smart_suggest',
+};
+
 // ตรวจสอบว่ารันอยู่บน Expo Go หรือเปล่า
 const isExpoGo = Constants.appOwnership === 'expo';
 
@@ -22,13 +32,28 @@ export function useNotifications() {
       const Notifications = await import('expo-notifications');
 
       Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
+        handleNotification: async (notification) => {
+          const pushRaw = await AsyncStorage.getItem(NOTIF_KEYS.push);
+          const pushEnabled = pushRaw !== 'false';
+
+          const dmRaw = await AsyncStorage.getItem(NOTIF_KEYS.dm);
+          const dmEnabled = dmRaw !== 'false';
+
+          const data = notification.request.content.data as Record<string, string> | undefined;
+          const isDm = data?.type === 'dm';
+
+          // ถ้า push ปิดอยู่ ไม่แสดงอะไรเลย
+          if (!pushEnabled) {
+            return { shouldShowAlert: false, shouldPlaySound: false, shouldSetBadge: false, shouldShowBanner: false, shouldShowList: false };
+          }
+
+          // ถ้าเป็น DM แต่ปิด DM notification
+          if (isDm && !dmEnabled) {
+            return { shouldShowAlert: false, shouldPlaySound: false, shouldSetBadge: false, shouldShowBanner: false, shouldShowList: false };
+          }
+
+          return { shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true, shouldShowBanner: true, shouldShowList: true };
+        },
       });
 
       listenerRef.current = Notifications.addNotificationReceivedListener((notification) => {

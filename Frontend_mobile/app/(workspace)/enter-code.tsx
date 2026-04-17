@@ -45,7 +45,6 @@ export default function EnterCodeScreen() {
             Authorization: `Bearer ${token}`,
             'ngrok-skip-browser-warning': 'true',
           },
-          // ✅ แก้ field name ให้ตรงกับ backend และไม่ toUpperCase
           body: JSON.stringify({ inviteCode: code.trim() }),
         }
       );

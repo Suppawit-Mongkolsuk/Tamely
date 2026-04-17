@@ -3,11 +3,11 @@ import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndica
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  ArrowLeft, User, Lock, Bell, BellRing, Moon, HelpCircle, 
-  LogOut, ChevronRight, Sparkles, Wand2 
+import {
+  ArrowLeft, User, Lock, Bell, BellRing, Moon, HelpCircle,
+  LogOut, ChevronRight, Sparkles, Wand2
 } from 'lucide-react-native';
-import { unregisterPushToken } from '../../hooks/useNotifications';
+import { unregisterPushToken, NOTIF_KEYS, AI_KEYS } from '../../hooks/useNotifications';
 
 function getInitials(name: string): string {
   if (!name) return 'YO';
@@ -37,12 +37,41 @@ export default function ProfileScreen() {
       try {
         const u = await AsyncStorage.getItem('user');
         if (u) setUserData(JSON.parse(u));
+
+        const pushRaw = await AsyncStorage.getItem(NOTIF_KEYS.push);
+        const dmRaw = await AsyncStorage.getItem(NOTIF_KEYS.dm);
+        const sumRaw = await AsyncStorage.getItem(AI_KEYS.autoSummarize);
+        const sugRaw = await AsyncStorage.getItem(AI_KEYS.smartSuggest);
+        if (pushRaw !== null) setPushEnabled(pushRaw !== 'false');
+        if (dmRaw !== null) setDmEnabled(dmRaw !== 'false');
+        if (sumRaw !== null) setAutoSumEnabled(sumRaw !== 'false');
+        if (sugRaw !== null) setSmartSugEnabled(sugRaw !== 'false');
       } finally {
         setLoading(false);
       }
     };
     loadData();
   }, []);
+
+  const handlePushToggle = async (val: boolean) => {
+    setPushEnabled(val);
+    await AsyncStorage.setItem(NOTIF_KEYS.push, String(val));
+  };
+
+  const handleDmToggle = async (val: boolean) => {
+    setDmEnabled(val);
+    await AsyncStorage.setItem(NOTIF_KEYS.dm, String(val));
+  };
+
+  const handleAutoSumToggle = async (val: boolean) => {
+    setAutoSumEnabled(val);
+    await AsyncStorage.setItem(AI_KEYS.autoSummarize, String(val));
+  };
+
+  const handleSmartSugToggle = async (val: boolean) => {
+    setSmartSugEnabled(val);
+    await AsyncStorage.setItem(AI_KEYS.smartSuggest, String(val));
+  };
 
   const handleLogOut = async () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -110,7 +139,7 @@ export default function ProfileScreen() {
             <Text style={{ fontWeight: '600' }}>Push Notifications</Text>
             <Text style={{ fontSize: 12, color: '#9ca3af' }}>Receive alerts for new messages</Text>
           </View>
-          <Switch value={pushEnabled} onValueChange={setPushEnabled} trackColor={{ true: '#111827' }} />
+          <Switch value={pushEnabled} onValueChange={handlePushToggle} trackColor={{ true: '#111827' }} />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={Bell} color="#eab308" bgColor="#fefce8" />
@@ -118,7 +147,7 @@ export default function ProfileScreen() {
             <Text style={{ fontWeight: '600' }}>Direct Messages</Text>
             <Text style={{ fontSize: 12, color: '#9ca3af' }}>Get notified for DMs</Text>
           </View>
-          <Switch value={dmEnabled} onValueChange={setDmEnabled} trackColor={{ true: '#111827' }} />
+          <Switch value={dmEnabled} onValueChange={handleDmToggle} trackColor={{ true: '#111827' }} />
         </View>
 
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>AI ASSISTANT</Text>
@@ -128,7 +157,7 @@ export default function ProfileScreen() {
             <Text style={{ fontWeight: '600' }}>Auto-Summarize</Text>
             <Text style={{ fontSize: 12, color: '#9ca3af' }}>Summarize long conversations</Text>
           </View>
-          <Switch value={autoSumEnabled} onValueChange={setAutoSumEnabled} trackColor={{ true: '#111827' }} />
+          <Switch value={autoSumEnabled} onValueChange={handleAutoSumToggle} trackColor={{ true: '#111827' }} />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={Wand2} color="#8b5cf6" bgColor="#f5f3ff" />
@@ -136,7 +165,7 @@ export default function ProfileScreen() {
             <Text style={{ fontWeight: '600' }}>Smart Suggestions</Text>
             <Text style={{ fontSize: 12, color: '#9ca3af' }}>Get AI-powered recommendations</Text>
           </View>
-          <Switch value={smartSugEnabled} onValueChange={setSmartSugEnabled} trackColor={{ true: '#111827' }} />
+          <Switch value={smartSugEnabled} onValueChange={handleSmartSugToggle} trackColor={{ true: '#111827' }} />
         </View>
 
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>APPEARANCE</Text>

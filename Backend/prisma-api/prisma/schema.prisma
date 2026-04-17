@@ -76,8 +76,7 @@ model User {
   bio          String? // คำอธิบายตัวเอง (nullable)
   pushToken    String? // push token สำหรับ mobile/web push notification
   status       String    @default("active") // สถานะ: active, inactive, banned
-  lastSeenAt   DateTime? // เวลาที่ออนไลน์ล่าสุด
-  pushToken  String?  // Expo Push Token สำหรับส่ง notification
+  lastSeenAt   DateTime? // เวลาที่ออนไลน์ล่าสุด
 
   // === OAuth Fields ===
   provider   String? // "google" | "github" | null (email/password)
