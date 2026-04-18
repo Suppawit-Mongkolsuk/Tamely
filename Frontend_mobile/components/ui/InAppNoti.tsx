@@ -68,6 +68,9 @@ export default function InAppNoti() {
 
       localSocket = socket;
 
+      // map conversationId → { otherName, otherUserId }
+      const dmInfoMap: Record<string, { otherName: string; otherUserId: string }> = {};
+
       socket.on('connect', async () => {
         if (!mounted) return;
         console.log('[InAppNoti] connected:', socket.id);
@@ -78,9 +81,12 @@ export default function InAppNoti() {
           });
           if (dmRes.ok) {
             const dmJson = await dmRes.json();
-            const convs: { id: string }[] = dmJson.data ?? [];
+            const convs: { id: string; otherUser?: { id: string; Name: string } }[] = dmJson.data ?? [];
             for (const conv of convs) {
               socket.emit('join_dm', conv.id);
+              if (conv.otherUser) {
+                dmInfoMap[conv.id] = { otherName: conv.otherUser.Name, otherUserId: conv.otherUser.id };
+              }
             }
             console.log('[InAppNoti] joined', convs.length, 'DM rooms');
           }
@@ -115,6 +121,8 @@ export default function InAppNoti() {
         if (msg.sender.id === currentUserId) return;
         if (pathnameRef.current.includes('chat-dm')) return;
 
+        const convId = msg.conversationId ?? '';
+        const dmInfo = dmInfoMap[convId];
         console.log('[InAppNoti] dm_received from:', msg.sender.Name);
         showBanner({
           id: msg.id,
@@ -122,7 +130,11 @@ export default function InAppNoti() {
           body: msg.content,
           route: {
             pathname: '/(tabs)/chat-dm',
-            params: { conversationId: msg.conversationId ?? '' },
+            params: {
+              conversationId: convId,
+              otherName: dmInfo?.otherName ?? msg.sender.Name,
+              otherUserId: dmInfo?.otherUserId ?? msg.sender.id,
+            },
           },
         });
       });
