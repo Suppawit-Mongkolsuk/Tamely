@@ -29,7 +29,7 @@ const dummyWebRTC = {
 
 // lazy require — ต้องอยู่ใน function ไม่ใช่ top-level เพราะ Expo Go ไม่มี react-native-webrtc
 function getUseCallFeature() {
-  if (isExpoGo) return (_s: any, _u: any) => dummyWebRTC;
+  if (isExpoGo) return (_args: any) => dummyWebRTC;
   return require('../../hooks/useWebRTC').useWebRTC; // eslint-disable-line @typescript-eslint/no-var-requires
 }
 function getCallOverlay() {
@@ -149,7 +149,7 @@ function GlobalCallOverlay({ onStartCall }: { onStartCall: (fn: typeof dummyWebR
   }, [token, currentUserId]);
 
   const { callState, startCall, acceptCall, rejectCall, endCall, toggleMute, minimizeCallUI, expandCallUI } =
-    useCallFeature(socketRef, currentUserId);
+    useCallFeature({ socketRef, currentUserId });
 
   useEffect(() => {
     onStartCall(startCall);
