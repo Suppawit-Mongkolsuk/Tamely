@@ -5,27 +5,28 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, Send, Phone } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AIChatBanner from '../../components/chat/AIChatBanner';
+import AIChatBanner from '../components/chat/AIChatBanner';
+import { useCall } from '../lib/CallContext';
+import { API_BASE } from '@/lib/config';
 
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
 interface DmMessage { id: string; content: string; createdAt: string; sender: Sender; isRead: boolean; }
-
-import { API_BASE } from '@/lib/config';
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 }
 
 function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  if (!name) return '?';
+  return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
 }
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
-  const colorIndex = name.charCodeAt(0) % colors.length;
+  const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
@@ -36,21 +37,34 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 export default function ChatDmScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { startCall } = useCall();
 
   const conversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : (params.conversationId ?? '');
   const otherName = Array.isArray(params.otherName) ? params.otherName[0] : (params.otherName ?? '');
-  const token = Array.isArray(params.token) ? params.token[0] : (params.token ?? '');
-  const currentUserId = Array.isArray(params.currentUserId) ? params.currentUserId[0] : (params.currentUserId ?? '');
+  const otherUserId = Array.isArray(params.otherUserId) ? params.otherUserId[0] : (params.otherUserId ?? '');
 
+  const [token, setToken] = useState('');
+  const [currentUserId, setCurrentUserId] = useState('');
   const [wsId, setWsId] = useState('');
+  const [storageLoaded, setStorageLoaded] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem('wsId').then((w) => setWsId(w ?? ''));
+    const load = async () => {
+      const t = await AsyncStorage.getItem('token') ?? '';
+      const u = await AsyncStorage.getItem('user') ?? '';
+      const w = await AsyncStorage.getItem('wsId') ?? '';
+      const userData = u ? JSON.parse(u) : null;
+      setToken(t);
+      setCurrentUserId(userData?.id ?? '');
+      setWsId(w);
+      setStorageLoaded(true);
+    };
+    load();
   }, []);
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [unreadSnapshot, setUnreadSnapshot] = useState<DmMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -59,37 +73,32 @@ export default function ChatDmScreen() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isLoadingRef = useRef(false);
-  const initialLoadDoneRef = useRef(false);
-
   const loadMessages = useCallback(async (silent = false) => {
     if (!conversationId || !token) return;
-    if (isLoadingRef.current) return;
-    isLoadingRef.current = true;
     try {
       if (!silent) setLoading(true);
       const res = await fetch(`${API_BASE}/api/dm/${conversationId}/messages?limit=50`, {
         headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(`status ${res.status}`);
       const json = await res.json();
       const data: DmMessage[] = json.data ?? [];
-      if (!silent) {
-        setUnreadSnapshot(data.filter((m) => !m.isRead));
-      }
+      if (!silent) setUnreadSnapshot(data.filter((m) => !m.isRead));
       setMessages(data);
-      initialLoadDoneRef.current = true;
     } catch {
       if (!silent) Alert.alert('เกิดข้อผิดพลาด', 'โหลดข้อความไม่สำเร็จ');
     } finally {
-      isLoadingRef.current = false;
       if (!silent) setLoading(false);
     }
   }, [conversationId, token]);
 
-  /* ===== Socket.IO setup — mount ครั้งเดียว ===== */
   useEffect(() => {
-    if (!token || !conversationId) return;
+    if (!storageLoaded || !token || !conversationId) {
+      if (storageLoaded) setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     const socket = io(API_BASE, {
       auth: { token },
@@ -105,10 +114,7 @@ export default function ChatDmScreen() {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
       }).catch(() => {});
-      // โหลดใหม่เฉพาะตอน reconnect (initial load ไม่ต้องทำซ้ำ)
-      if (initialLoadDoneRef.current) {
-        loadMessages(true);
-      }
+      loadMessages(true);
     });
 
     socket.on('connect_error', (err) => {
@@ -130,7 +136,6 @@ export default function ChatDmScreen() {
     });
 
     socket.on('dm_read', () => {
-      // อัพเดต isRead ของข้อความที่เราส่ง
       setMessages((prev) =>
         prev.map((m) => (m.sender.id === currentUserId ? { ...m, isRead: true } : m)),
       );
@@ -141,7 +146,6 @@ export default function ChatDmScreen() {
       setIsTyping(data.isTyping);
     });
 
-    // โหลดข้อความครั้งแรก
     loadMessages();
 
     return () => {
@@ -154,33 +158,22 @@ export default function ChatDmScreen() {
       socket.disconnect();
       socketRef.current = null;
     };
-  // loadMessages ตั้งใจไม่ใส่ใน deps เพื่อให้ effect รันครั้งเดียวตาม token/conversationId
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, conversationId]);
+  }, [storageLoaded, token, conversationId]);
 
-  const joinedRef = useRef(false);
-
-  /* ===== Focus: rejoin ถ้า socket หลุด + silent reload ===== */
   useFocusEffect(
     useCallback(() => {
+      if (!storageLoaded) return;
       const socket = socketRef.current;
       if (!socket) return;
-
       if (socket.connected) {
-        if (!joinedRef.current) {
-          joinedRef.current = true;
-          socket.emit('join_dm', conversationId);
-        }
+        socket.emit('join_dm', conversationId);
         loadMessages(true);
       } else {
-        joinedRef.current = false;
         socket.connect();
       }
-
-      return () => {
-        joinedRef.current = false;
-      };
-    }, [conversationId, loadMessages]),
+      return () => {};
+    }, [storageLoaded, conversationId, loadMessages]),
   );
 
   const handleSend = async () => {
@@ -206,6 +199,14 @@ export default function ChatDmScreen() {
     typingTimeoutRef.current = setTimeout(() => {
       socketRef.current?.emit('dm_typing', { conversationId, isTyping: false });
     }, 2000);
+  };
+
+  const handleStartCall = () => {
+    if (!otherUserId) {
+      Alert.alert('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลผู้รับสาย');
+      return;
+    }
+    void startCall(otherUserId, conversationId, otherName, null);
   };
 
   const renderMessage = ({ item, index }: { item: DmMessage; index: number }) => {
@@ -242,6 +243,12 @@ export default function ChatDmScreen() {
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{otherName}</Text>
             {isTyping && <Text style={{ fontSize: 12, color: '#425C95' }}>กำลังพิมพ์...</Text>}
           </View>
+          <TouchableOpacity
+            onPress={handleStartCall}
+            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#f0f4ff', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Phone size={18} color="#425C95" />
+          </TouchableOpacity>
         </View>
 
         {loading ? (
@@ -250,18 +257,14 @@ export default function ChatDmScreen() {
           </View>
         ) : (
           <View style={{ flex: 1 }}>
-            <AIChatBanner
-              unreadMessages={unreadSnapshot}
-              wsId={wsId}
-              token={token}
-            />
+            <AIChatBanner unreadMessages={unreadSnapshot} wsId={wsId} token={token} />
             <FlatList
               ref={flatListRef}
               data={messages}
               keyExtractor={(item) => item.id}
               renderItem={renderMessage}
               contentContainerStyle={{ paddingVertical: 12 }}
-              onContentSizeChange={() => messages.length > 0 && flatListRef.current?.scrollToEnd({ animated: false })}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
               ListEmptyComponent={
                 <View style={{ alignItems: 'center', paddingTop: 80 }}>
                   <Avatar name={otherName} size={60} />

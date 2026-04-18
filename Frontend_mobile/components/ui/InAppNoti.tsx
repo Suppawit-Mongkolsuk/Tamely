@@ -129,7 +129,7 @@ export default function InAppNoti() {
           title: msg.sender.Name,
           body: msg.content,
           route: {
-            pathname: '/(tabs)/chat-dm',
+            pathname: '/chat-dm',
             params: {
               conversationId: convId,
               otherName: dmInfo?.otherName ?? msg.sender.Name,
@@ -156,7 +156,7 @@ export default function InAppNoti() {
           title: `# ${msg.roomName ?? 'ห้องแชท'}`,
           body: `${msg.sender.Name}: ${msg.content}`,
           route: {
-            pathname: '/(tabs)/chat-room',
+            pathname: '/chat-room',
             params: { roomId: msg.roomId ?? '', roomName: msg.roomName ?? '' },
           },
         });

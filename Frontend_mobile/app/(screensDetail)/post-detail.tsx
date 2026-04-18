@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Pin, Heart, MessageCircle, ImageIcon, Send, Trash2 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DecorativeBubble from '../../components/ui/DecBubble';
+import DecorativeBubble from '../components/ui/DecBubble';
 
 /* ======================= TYPES ======================= */
 

@@ -64,9 +64,9 @@ export function useNotifications() {
         if (!data) return;
 
         if (data.type === 'dm' && data.conversationId) {
-          router.push({ pathname: '/(tabs)/chat-dm' as any, params: { conversationId: data.conversationId } });
+          router.push({ pathname: '/chat-dm' as any, params: { conversationId: data.conversationId } });
         } else if (data.type === 'room' && data.roomId) {
-          router.push({ pathname: '/(tabs)/chat-room' as any, params: { roomId: data.roomId, roomName: data.roomName ?? '' } });
+          router.push({ pathname: '/chat-room' as any, params: { roomId: data.roomId, roomName: data.roomName ?? '' } });
         } else {
           router.push('/(tabs)/alerts' as any);
         }

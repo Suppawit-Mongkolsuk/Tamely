@@ -552,7 +552,7 @@ export default function FeedScreen() {
   const recent = filtered.filter((p) => !p.isPinned);
 
   const navigateToDetail = (post: Post) => router.push({
-    pathname: '/(tabs)/post-detail',
+    pathname: '/post-detail',
     params: { post: JSON.stringify(post), token, wsId, currentUserId: userData?.id ?? '' },
   });
 

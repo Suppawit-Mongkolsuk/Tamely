@@ -9,6 +9,7 @@ import { io, Socket } from 'socket.io-client';
 import Constants from 'expo-constants';
 import { API_BASE } from '../../lib/config';
 import { CallProvider } from '../../lib/CallContext';
+import { OnlineStatusProvider, useOnlineStatus } from '../../lib/OnlineStatusContext';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient' || (Constants as any).appOwnership === 'expo';
 
@@ -70,6 +71,7 @@ export default function TabLayout() {
   }
 
   return (
+    <OnlineStatusProvider>
     <CallProvider value={{ startCall: startCallProxy }}>
       <View style={{ flex: 1 }}>
         <InAppNotificationBanner />
@@ -110,14 +112,10 @@ export default function TabLayout() {
               tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
             }}
           />
-          <Tabs.Screen name="post-detail" options={{ href: null }} />
-          <Tabs.Screen name="chat-room" options={{ href: null }} />
-          <Tabs.Screen name="chat-dm" options={{ href: null }} />
-          <Tabs.Screen name="profile-edit" options={{ href: null }} />
-          <Tabs.Screen name="workspace-management" options={{ href: null }} />
         </Tabs>
       </View>
     </CallProvider>
+    </OnlineStatusProvider>
   );
 }
 
@@ -157,6 +155,18 @@ function GlobalCallOverlay({ onStartCall }: { onStartCall: (fn: typeof dummyWebR
       socket?.disconnect();
     };
   }, [socket]);
+
+  const { setUserOnline, setUserOffline } = useOnlineStatus();
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('user_online', ({ userId }: { userId: string }) => setUserOnline(userId));
+    socket.on('user_offline', ({ userId }: { userId: string }) => setUserOffline(userId));
+    return () => {
+      socket.off('user_online');
+      socket.off('user_offline');
+    };
+  }, [socket, setUserOnline, setUserOffline]);
 
   const { callState, startCall, acceptCall, rejectCall, endCall, toggleMute, minimizeCallUI, expandCallUI } =
     useCallFeature({ socket, currentUserId });

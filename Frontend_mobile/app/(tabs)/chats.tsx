@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Hash, Lock, Plus, X, Search } from 'lucide-react-native';
 import Header from '../../components/ui/Header';
+import { useOnlineStatus } from '../../lib/OnlineStatusContext';
 
 /* ======================= TYPES ======================= */
 
@@ -79,6 +80,7 @@ function Avatar({ name, size = 44 }: { name: string; size?: number }) {
 
 export default function ChatsScreen() {
   const router = useRouter();
+  const { isOnline } = useOnlineStatus();
 
   const [token, setToken] = useState('');
   const [wsId, setWsId] = useState('');
@@ -159,12 +161,12 @@ export default function ChatsScreen() {
 
   /* ===== Navigate ===== */
   const goToRoom = (room: Room) => {
-    router.push({ pathname: '/(tabs)/chat-room' as any, params: { roomId: room.id, roomName: room.name, token, wsId, currentUserId: userData?.id ?? '' } });
+    router.push({ pathname: '/chat-room' as any, params: { roomId: room.id, roomName: room.name, token, wsId, currentUserId: userData?.id ?? '' } });
   };
 
   const goToDm = (dm: DmConversation) => {
     const other = dm.userA.id === userData?.id ? dm.userB : dm.userA;
-    router.push({ pathname: '/(tabs)/chat-dm' as any, params: {
+    router.push({ pathname: '/chat-dm' as any, params: {
       conversationId: dm.id,
       otherName: other.Name,
       otherUserId: other.id, 
@@ -221,6 +223,9 @@ export default function ChatsScreen() {
         <TouchableOpacity onPress={() => goToDm(dm)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
           <View style={{ position: 'relative' }}>
             <Avatar name={other.Name} size={48} />
+            {isOnline(other.id) && (
+              <View style={{ position: 'absolute', bottom: 1, right: 1, width: 13, height: 13, borderRadius: 7, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#fff' }} />
+            )}
             {dm.unreadCount > 0 && (
               <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#f9fafb' }}>
                 <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{dm.unreadCount}</Text>
