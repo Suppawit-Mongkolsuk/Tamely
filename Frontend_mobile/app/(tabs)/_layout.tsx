@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator } from 'react-native';
 import InAppNotificationBanner from '../../components/ui/InAppNoti';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect } from 'expo-router';
 import { io, Socket } from 'socket.io-client';
@@ -44,7 +44,11 @@ const CallOverlayComponent: React.ComponentType<any> | null = getCallOverlay();
 export default function TabLayout() {
   const [ready, setReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [startCallFn, setStartCallFn] = useState<typeof dummyWebRTC['startCall']>(() => dummyWebRTC.startCall);
+  const startCallRef = useRef<typeof dummyWebRTC['startCall']>(dummyWebRTC.startCall);
+
+  const startCallProxy = useRef<typeof dummyWebRTC['startCall']>(
+    (...args: Parameters<typeof dummyWebRTC['startCall']>) => startCallRef.current(...args)
+  ).current;
 
   useEffect(() => {
     AsyncStorage.getItem('token').then((token) => {
@@ -66,10 +70,10 @@ export default function TabLayout() {
   }
 
   return (
-    <CallProvider value={{ startCall: startCallFn }}>
+    <CallProvider value={{ startCall: startCallProxy }}>
       <View style={{ flex: 1 }}>
         <InAppNotificationBanner />
-        <GlobalCallOverlay onStartCall={setStartCallFn} />
+        <GlobalCallOverlay onStartCall={(fn) => { startCallRef.current = fn; }} />
         <Tabs screenOptions={{ headerShown: false }}>
           <Tabs.Screen
             name="feed"
@@ -118,7 +122,7 @@ export default function TabLayout() {
 }
 
 // Separate component to read startCall after hook runs and lift it up
-function GlobalCallOverlay({ onStartCall }: { onStartCall: (fn: typeof dummyWebRTC['startCall']) => void }) {
+function GlobalCallOverlay({ onStartCall }: { onStartCall: (fn: typeof dummyWebRTC['startCall']) => void; }) {
   const [currentUserId, setCurrentUserId] = useState('');
   const [token, setToken] = useState('');
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -159,6 +163,7 @@ function GlobalCallOverlay({ onStartCall }: { onStartCall: (fn: typeof dummyWebR
 
   useEffect(() => {
     onStartCall(startCall);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startCall]);
 
   if (!CallOverlayComponent) return null;
