@@ -36,7 +36,7 @@ const dummyCallState = {
 
 const dummyWebRTC = {
   callState: dummyCallState,
-  startCall: async () => {},
+  startCall: async (..._args: any[]) => {},  // eslint-disable-line @typescript-eslint/no-unused-vars
   acceptCall: async () => {},
   rejectCall: () => {},
   endCall: () => {},
@@ -64,12 +64,12 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 }
 
 // hook wrapper ที่ใช้ useWebRTC จริงบน dev build และ dummy บน Expo Go
-function useCallFeature(socket: Socket | null, currentUserId: string) {
-  if (isExpoGo) return dummyWebRTC;
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { useWebRTC } = require('../../hooks/useWebRTC');
-  return useWebRTC({ socket, currentUserId });
-}
+// isExpoGo คงที่ตลอด runtime จึงเลือก hook ครั้งเดียวตอน module load
+const useCallFeature: (socketRef: React.RefObject<Socket | null>, currentUserId: string) => typeof dummyWebRTC =
+  isExpoGo
+    ? (_socketRef, _currentUserId) => dummyWebRTC  // eslint-disable-line @typescript-eslint/no-unused-vars
+    : // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('../../hooks/useWebRTC').useWebRTC;
 
 export default function ChatDmScreen() {
   const router = useRouter();
@@ -100,7 +100,7 @@ export default function ChatDmScreen() {
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [unreadSnapshot, setUnreadSnapshot] = useState<DmMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -118,7 +118,7 @@ export default function ChatDmScreen() {
     toggleMute,
     minimizeCallUI,
     expandCallUI,
-  } = useCallFeature(socketRef.current, currentUserId);
+  } = useCallFeature(socketRef, currentUserId);
 
   const loadMessages = useCallback(async (silent = false) => {
     if (!conversationId || !token) return;
@@ -143,7 +143,12 @@ export default function ChatDmScreen() {
   }, [conversationId, token]);
 
   useEffect(() => {
-    if (!storageLoaded || !token || !conversationId) return;
+    if (!storageLoaded || !token || !conversationId) {
+      if (storageLoaded) setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     const socket = io(API_BASE, {
       auth: { token },
