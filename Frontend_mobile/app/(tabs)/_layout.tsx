@@ -10,7 +10,7 @@ import Constants from 'expo-constants';
 import { API_BASE } from '../../lib/config';
 import { CallProvider } from '../../lib/CallContext';
 
-const isExpoGo = Constants.executionEnvironment === 'storeClient';
+const isExpoGo = Constants.executionEnvironment === 'storeClient' || (Constants as any).appOwnership === 'expo';
 
 const dummyWebRTC = {
   callState: {
@@ -27,16 +27,20 @@ const dummyWebRTC = {
   expandCallUI: () => {},
 };
 
-const useCallFeature: (socketRef: React.RefObject<Socket | null>, currentUserId: string) => typeof dummyWebRTC =
-  isExpoGo
-    ? (_socketRef, _currentUserId) => dummyWebRTC
-    : require('../../hooks/useWebRTC').useWebRTC; // eslint-disable-line @typescript-eslint/no-var-requires
+// lazy require — ต้องอยู่ใน function ไม่ใช่ top-level เพราะ Expo Go ไม่มี react-native-webrtc
+function getUseCallFeature() {
+  if (isExpoGo) return (_s: any, _u: any) => dummyWebRTC;
+  return require('../../hooks/useWebRTC').useWebRTC; // eslint-disable-line @typescript-eslint/no-var-requires
+}
+function getCallOverlay() {
+  if (isExpoGo) return null;
+  return require('../../components/ui/CallOverlay').default; // eslint-disable-line @typescript-eslint/no-var-requires
+}
+const useCallFeature = getUseCallFeature();
+const CallOverlayComponent: React.ComponentType<any> | null = getCallOverlay();
 
-const CallOverlayComponent: React.ComponentType<any> | null = isExpoGo
-  ? null
-  : require('../../components/ui/CallOverlay').default; // eslint-disable-line @typescript-eslint/no-var-requires
 
-
+  
 export default function TabLayout() {
   const [ready, setReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
