@@ -1,13 +1,13 @@
 import bcrypt from 'bcrypt';
 
-const SALT_ROUNDS = 12;
+const SALT_ROUNDS = 12; // จำนวนรอบการ salt สำหรับ bcrypt (ยิ่งมากยิ่งปลอดภัยแต่ใช้เวลานานขึ้น)
 
 /**
  * Hash password
  * @param plainText
  * @returns
  */
-export const hashPassword = async (plainText: string): Promise<string> => {
+export const hashPassword = async (plainText: string): Promise<string> => { // รับรหัสผ่านแบบ plain text มาทำการ hash
   try {
     return await bcrypt.hash(plainText, SALT_ROUNDS);
   } catch (error) {
@@ -21,7 +21,7 @@ export const hashPassword = async (plainText: string): Promise<string> => {
  * @param hash
  * @returns
  */
-export const comparePassword = async (
+export const comparePassword = async ( // รับรหัสผ่านแบบ plain text และ hash มาทำการเปรียบเทียบกัน
   plainText: string,
   hash: string,
 ): Promise<boolean> => {
@@ -37,7 +37,7 @@ export const comparePassword = async (
  * @param password - Password to validate
  * @returns { valid: boolean, error?: string }
  */
-export const validatePasswordStrength = (
+export const validatePasswordStrength = ( // รับรหัสผ่านมาทำการตรวจสอบความแข็งแรงของรหัสผ่าน
   password: string,
 ): { valid: boolean; error?: string } => {
   // Check length
