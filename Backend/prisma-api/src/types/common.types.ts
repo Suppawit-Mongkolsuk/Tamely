@@ -22,6 +22,7 @@ export interface PaginatedResponse<T> {
 
 // Custom error class สำหรับจัดการ error ใน API
 export class AppError extends Error {
+  code?: string;
   constructor(
     public statusCode: number,
     message: string,

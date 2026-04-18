@@ -106,7 +106,10 @@ export const forgotPassword = async (email: string) => {
   }
 
   if (!user.passwordHash) {
-    return { message: 'If that email exists, a reset link has been sent.' };
+    throw Object.assign(
+      new AppError(400, 'บัญชีนี้ใช้การเข้าสู่ระบบผ่าน Google หรือ GitHub กรุณาเข้าสู่ระบบด้วยวิธีนั้นแทน'),
+      { code: 'OAUTH_ACCOUNT' },
+    );
   }
 
   const resetToken = signResetToken(user.id);

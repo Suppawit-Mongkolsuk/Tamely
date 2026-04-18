@@ -18,6 +18,7 @@ export function ForgotPasswordPage({ onBack, onResetToken }: ForgotPasswordPageP
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [isOAuthAccount, setIsOAuthAccount] = useState(false);
   /** Dev mode: backend ส่ง token กลับมาตรงๆ */
   const [devToken, setDevToken] = useState<string | null>(null);
   const [showDevToken, setShowDevToken] = useState(false);
@@ -28,6 +29,7 @@ export function ForgotPasswordPage({ onBack, onResetToken }: ForgotPasswordPageP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsOAuthAccount(false);
 
     if (!email.trim()) {
       setError('กรุณากรอกอีเมล');
@@ -55,8 +57,13 @@ export function ForgotPasswordPage({ onBack, onResetToken }: ForgotPasswordPageP
       if (res.data?.resetToken) {
         setDevToken(res.data.resetToken);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+    } catch (err: any) {
+      const code = err?.response?.data?.code;
+      if (code === 'OAUTH_ACCOUNT') {
+        setIsOAuthAccount(true);
+        return;
+      }
+      const msg = err?.response?.data?.error ?? (err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่');
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -145,7 +152,38 @@ export function ForgotPasswordPage({ onBack, onResetToken }: ForgotPasswordPageP
             กลับไปหน้าเข้าสู่ระบบ
           </button>
 
-          {sent ? (
+          {isOAuthAccount ? (
+            /* ── OAuth Account State ── */
+            <div className="space-y-6">
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center size-14 rounded-full bg-blue-100 mb-2">
+                  <Mail className="size-8 text-blue-600" />
+                </div>
+                <h2 className="mb-1">บัญชีนี้ใช้ Social Login</h2>
+                <p className="text-muted-foreground text-sm">
+                  อีเมล <span className="font-semibold text-foreground">{email}</span>{' '}
+                  เชื่อมต่อกับ Google หรือ GitHub ไว้แล้ว ไม่มีรหัสผ่านให้รีเซ็ต
+                </p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 space-y-1">
+                <p className="font-medium">วิธีเข้าสู่ระบบ:</p>
+                <p>กลับไปหน้าเข้าสู่ระบบ แล้วกด <span className="font-semibold">Continue with Google</span> หรือ <span className="font-semibold">Continue with GitHub</span></p>
+              </div>
+              <Button
+                onClick={() => {
+                  setIsOAuthAccount(false);
+                  setEmail('');
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                ลองอีเมลอื่น
+              </Button>
+              <Button onClick={onBack} className="w-full bg-[#003366] hover:bg-[#174978] text-white">
+                กลับไปหน้าเข้าสู่ระบบ
+              </Button>
+            </div>
+          ) : sent ? (
             /* ── Success State ── */
             <div className="space-y-6">
               <div className="text-center space-y-2">

@@ -13,7 +13,11 @@ export function errorHandler(
 
   // AppError — HTTP errors ที่ throw จาก service layer
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({ success: false, error: err.message });
+    return res.status(err.statusCode).json({
+      success: false,
+      error: err.message,
+      ...((err as any).code && { code: (err as any).code }),
+    });
   }
 
   // JSON body พัง
