@@ -2,19 +2,19 @@ import { Resend } from 'resend';
 
 // ===================================================
 // Email Service (Resend)
-let _resend: Resend | null = null;
-function getResend(): Resend {
-  if (!_resend) {
+let _resend: Resend | null = null; // ตัวแปรเก็บ instance ของ Resend
+function getResend(): Resend { //สร้าง/คืน Resend
+  if (!_resend) { // เช็คว่าสร้างยังถ้า ยังก็สร้างใหม่
     const key = process.env.RESEND_API_KEY;
-    if (!key) {
+    if (!key) { // ถ้าไม่มี key ใน .env ให้แจ้ง error  
       throw new Error(
         '[email.service] RESEND_API_KEY is not set in .env — ' +
         'สมัครได้ที่ https://resend.com แล้วใส่ key ใน .env',
       );
     }
-    _resend = new Resend(key);
+    _resend = new Resend(key); // สร้าง instance ของ Resend
   }
-  return _resend;
+  return _resend; // คืน instance ของ Resend
 }
 
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'TamelyChat <noreply@tamelychat.com>';
@@ -26,17 +26,17 @@ const APP_NAME = 'TamelyChat';
  * @param to      - อีเมลผู้รับ
  * @param token   - JWT reset token (อายุ 15 นาที)
  */
-export const sendPasswordResetEmail = async (
+export const sendPasswordResetEmail = async ( // รับ email และ token มาส่ง email รีเซ็ตรหัสผ่าน
   to: string,
   token: string,
 ): Promise<void> => {
-  const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+  const resetUrl = `${APP_URL}/reset-password?token=${token}`; // สร้างลิงก์สำหรับรีเซ็ตรหัสผ่าน
 
-  const { error } = await getResend().emails.send({
-    from: FROM_ADDRESS,
-    to,
+  const { error } = await getResend().emails.send({ // เรียกใช้ Resend เพื่อส่งอีเมล
+    from: FROM_ADDRESS, // ที่อยู่ผู้ส่ง
+    to, 
     subject: `[${APP_NAME}] รีเซ็ตรหัสผ่านของคุณ`,
-    html: buildResetEmailHtml(resetUrl),
+    html: buildResetEmailHtml(resetUrl), // html template สำหรับอีเมลรีเซ็ตรหัสผ่าน
   });
 
   if (error) {

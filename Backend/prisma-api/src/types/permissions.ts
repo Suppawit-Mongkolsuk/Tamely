@@ -1,6 +1,6 @@
 import { WorkspaceRole } from '@prisma/client';
 
-export const PERMISSIONS = {
+export const PERMISSIONS = { // รายการสิทธิ์ทั้งหมดในระบบ
   MANAGE_WORKSPACE: 'MANAGE_WORKSPACE',
   MANAGE_ROLES: 'MANAGE_ROLES',
   MANAGE_MEMBERS: 'MANAGE_MEMBERS',
@@ -22,11 +22,11 @@ export const PERMISSIONS = {
   MENTION_ROLE: 'MENTION_ROLE',
 } as const;
 
-export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]; // type ของ permissionที่เป็น union ของค่าทั้งหมดใน PERMISSIONS เช่น 'MANAGE_WORKSPACE' | 'MANAGE_ROLES' | ...
 
-export const PERMISSION_VALUES = Object.values(PERMISSIONS) as Permission[];
+export const PERMISSION_VALUES = Object.values(PERMISSIONS) as Permission[];// array ของค่าทั้งหมดใน PERMISSIONS เช่น ['MANAGE_WORKSPACE', 'MANAGE_ROLES', ...]
 
-export const BUILT_IN_ROLE_PERMISSIONS: Record<WorkspaceRole, Permission[]> = {
+export const BUILT_IN_ROLE_PERMISSIONS: Record<WorkspaceRole, Permission[]> = { // กำหนดสิทธิ์เริ่มต้นสำหรับแต่ละบทบาทใน workspace
   [WorkspaceRole.OWNER]: [...PERMISSION_VALUES],
   [WorkspaceRole.ADMIN]: [
     PERMISSIONS.MANAGE_WORKSPACE,
@@ -69,5 +69,5 @@ export const BUILT_IN_ROLE_PERMISSIONS: Record<WorkspaceRole, Permission[]> = {
   ],
 };
 
-export const isPermission = (value: string): value is Permission =>
+export const isPermission = (value: string): value is Permission => // ฟังก์ชันช่วยตรวจสอบว่า string ที่รับมาเป็นค่าใน Permission หรือไม่
   PERMISSION_VALUES.includes(value as Permission);
