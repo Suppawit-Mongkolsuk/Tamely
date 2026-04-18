@@ -78,10 +78,11 @@ export function useWebRTC({
 }): UseWebRTCReturn {
   const [callState, setCallState] = useState<CallState>(initialState);
 
-  const pcRef = useRef<any>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const pendingOfferRef = useRef<any>(null);
-  const pendingCandidatesRef = useRef<any[]>([]);
+  // react-native-webrtc ต้องการ sdp เป็น string เสมอ ไม่ใช่ string | undefined
+  const pendingOfferRef = useRef<{ type: RTCSdpType; sdp: string } | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const autoRejectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const outgoingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -376,7 +377,7 @@ export function useWebRTC({
       if (payload.callerId !== callState.peerId) return;
       const pc = pcRef.current;
       if (!pc) {
-        pendingOfferRef.current = payload.offer;
+        pendingOfferRef.current = { type: payload.offer?.type as RTCSdpType, sdp: payload.offer?.sdp ?? '' };
         return;
       }
       await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
@@ -421,16 +422,11 @@ export function useWebRTC({
       socketRef.current?.off('webrtc_answer', onAnswer);
       socketRef.current?.off('webrtc_ice_candidate', onIceCandidate);
     };
-  }, [
-    socketRef,
-    currentUserId,
-    callState.status,
-    callState.peerId,
-    callState.conversationId,
-    cleanupCall,
-    createPc,
-    flushPendingCandidates,
-  ]);
+  // ไม่ใส่ callState.status/peerId/conversationId ใน deps
+  // เพราะจะทำให้ listeners ถูก register/unregister ทุกครั้งที่ state เปลี่ยน (listener stacking)
+  // handlers อ่าน callState โดยตรงจาก closure ของแต่ละ re-run ซึ่ง cleanup จะล้างก่อนเสมอ
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socketRef, currentUserId, cleanupCall, createPc, flushPendingCandidates]);
 
   useEffect(() => () => {
     cleanupCall();

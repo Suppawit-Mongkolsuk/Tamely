@@ -47,6 +47,13 @@ export const sendMessage = async (
   type: MessageType = MessageType.TEXT,
   fileData?: { fileUrl: string; fileName: string; fileSize: number },
 ) => {
+  if (!content || content.trim().length === 0) {
+    throw new AppError(400, 'Message content cannot be empty');
+  }
+  if (content.length > 4000) {
+    throw new AppError(400, 'Message content cannot exceed 4000 characters');
+  }
+
   const room = await messageRepository.findRoom(roomId);
   if (!room) throw new AppError(404, 'Room not found');
   await assertWorkspaceActive(room.workspaceId);

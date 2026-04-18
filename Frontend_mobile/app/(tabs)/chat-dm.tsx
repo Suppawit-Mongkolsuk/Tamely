@@ -195,6 +195,11 @@ export default function ChatDmScreen() {
     loadMessages();
 
     return () => {
+      socket.off('connect');
+      socket.off('connect_error');
+      socket.off('dm_received');
+      socket.off('dm_read');
+      socket.off('dm_user_typing');
       socket.emit('leave_dm', conversationId);
       socket.disconnect();
       socketRef.current = null;

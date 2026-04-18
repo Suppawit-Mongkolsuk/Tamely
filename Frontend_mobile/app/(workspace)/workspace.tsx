@@ -50,11 +50,14 @@ export default function WorkspaceScreen() {
 
   const rawToken = params.token;
   const [token, setToken] = useState(Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? ''));
+  const [userStr, setUserStr] = useState('');
 
   useEffect(() => {
-    if (!token) {
-      AsyncStorage.getItem('token').then((t: string | null) => { if (t) setToken(t); });
-    }
+    AsyncStorage.multiGet(['token', 'user']).then((pairs) => {
+      const map = Object.fromEntries(pairs.map(([k, v]) => [k, v ?? '']));
+      if (!token && map['token']) setToken(map['token']);
+      if (map['user']) setUserStr(map['user']);
+    });
   }, []);
 
   const handleTokenExpired = () => {
@@ -307,7 +310,7 @@ export default function WorkspaceScreen() {
                     params: {
                       wsId: id,
                       token: token,
-                      user: params.user,
+                      user: userStr,
                       role: item.role,
                     },
                   })

@@ -61,8 +61,13 @@ export default function LoginScreen() {
         body: JSON.stringify({ accessToken }),
       });
 
-      const raw = await res.text();
-      const result = JSON.parse(raw);
+      let result: any;
+      try {
+        result = await res.json();
+      } catch {
+        Alert.alert('Server Error', 'Server ตอบกลับมาผิดรูปแบบ');
+        return;
+      }
 
       if (res.ok) {
         const token = result.data?.token ?? result.token ?? '';
@@ -99,8 +104,13 @@ export default function LoginScreen() {
         body: JSON.stringify({ email, password }),
       });
 
-      const raw = await res.text();
-      const result = JSON.parse(raw);
+      let result: any;
+      try {
+        result = await res.json();
+      } catch {
+        Alert.alert('Server Error', 'Server ตอบกลับมาผิดรูปแบบ');
+        return;
+      }
 
       if (res.ok) {
         const userData = result.data?.user ?? result.user ?? result;
