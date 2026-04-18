@@ -3,8 +3,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
-
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 
 export const NOTIF_KEYS = {
   push: 'pref_push_enabled',

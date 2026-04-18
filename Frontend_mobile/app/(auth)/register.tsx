@@ -4,6 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { AntDesign } from '@expo/vector-icons';
 import { Feather } from '@expo/vector-icons';
+import { API_BASE } from '@/lib/config';
 
 export default function RegisterScreen() {
     const router = useRouter();
@@ -26,7 +27,7 @@ export default function RegisterScreen() {
 
         try {
             console.log('Sending register request...');
-            const response = await fetch('https://ineffectual-marian-nonnattily.ngrok-free.dev/api/auth/register', {
+            const response = await fetch(`${API_BASE}/api/auth/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
