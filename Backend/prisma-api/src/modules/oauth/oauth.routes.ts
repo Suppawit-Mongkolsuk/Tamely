@@ -10,14 +10,15 @@ const CLIENT_URL = (process.env.CLIENT_URL || 'http://localhost:5173')
   .trim();
 
 // Google OAuth
-router.get(
-  '/google',
+router.get('/google', (req: Request, res: Response, next: NextFunction) => {
+  const isMobile = req.query.mobile === '1';
   passport.authenticate('google', {
     session: false,
     scope: ['profile', 'email'],
-    prompt: 'select_account', // บังคับให้เลือกบัญชีทุกครั้ง
-  } as any),
-);
+    prompt: 'select_account',
+    state: isMobile ? 'mobile' : 'web',
+  } as any)(req, res, next);
+});
 
 router.get(
   '/google/callback',
@@ -27,15 +28,17 @@ router.get(
   }),
   (req: Request, res: Response) => {
     const user = req.user as { id: string };
-    if (!user) {
-      return res.redirect(`${CLIENT_URL}/login?error=no_user`);
+    if (!user) return res.redirect(`${CLIENT_URL}/login?error=no_user`);
+
+    const token = signToken(user.id, true);
+    const state = req.query.state as string;
+
+    if (state === 'mobile') {
+      // Redirect กลับไปแอป mobile พร้อม token
+      return res.redirect(`tamely://auth?token=${encodeURIComponent(token)}`);
     }
 
-    // สร้าง JWT + set cookie เหมือน login ปกติ
-    const token = signToken(user.id, true); // OAuth = remember 30d
     setTokenCookie(res, token, true);
-
-    // Redirect กลับไป frontend
     res.redirect(`${CLIENT_URL}/workspace`);
   },
 );

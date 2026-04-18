@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   Image, Alert, ActivityIndicator
@@ -8,15 +8,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
+import * as Linking from 'expo-linking';
+import { API_BASE } from '@/lib/config';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const WEB_CLIENT_ID = '1086895750541-60k3q4ntds11ksnmjfvan0htdofgr4e1.apps.googleusercontent.com';
-const ANDROID_CLIENT_ID = '1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7.apps.googleusercontent.com';
-
-import { API_BASE } from '@/lib/config';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -25,61 +20,38 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const redirectUri = makeRedirectUri({
-    native: 'com.googleusercontent.apps.1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7:/oauth2redirect/google',
-  });
-
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: ANDROID_CLIENT_ID,
-    webClientId: WEB_CLIENT_ID,
-    redirectUri,
-  });
-
-  useEffect(() => {
-    console.log('GOOGLE RESPONSE:', JSON.stringify(response));
-    if (response?.type === 'success') {
-      const accessToken = response.authentication?.accessToken;
-      console.log('ACCESS TOKEN:', accessToken);
-      if (accessToken) {
-        sendGoogleTokenToBackend(accessToken);
-      }
-    } else if (response?.type === 'error') {
-      setGoogleLoading(false);
-      console.error('Google error:', response.error);
-      Alert.alert('Google Login Failed', response.error?.message ?? 'เกิดข้อผิดพลาด');
-    } else if (response?.type === 'dismiss' || response?.type === 'cancel') {
-      setGoogleLoading(false);
-    }
-  }, [response]);
-
-  const sendGoogleTokenToBackend = async (accessToken: string) => {
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/oauth/google/mobile`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: JSON.stringify({ accessToken }),
-      });
+      const result = await WebBrowser.openAuthSessionAsync(
+        `${API_BASE}/api/oauth/google?mobile=1`,
+        'tamely://',
+      );
 
-      const raw = await res.text();
-      const result = JSON.parse(raw);
+      if (result.type === 'success') {
+        const parsed = Linking.parse(result.url);
+        const token = parsed.queryParams?.token as string | undefined;
 
-      if (res.ok) {
-        const token = result.data?.token ?? result.token ?? '';
         if (!token) {
           Alert.alert('Login Error', 'ไม่ได้รับ token จาก server');
           return;
         }
+
         await AsyncStorage.setItem('token', token);
-        await AsyncStorage.setItem('user', JSON.stringify(result.data?.user ?? result.user ?? {}));
-        router.replace('/(workspace)/workspace');
-      } else {
-        Alert.alert('Login Failed', result.error ?? 'เกิดข้อผิดพลาด');
+
+        const userRes = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const userData = await userRes.json();
+        if (userRes.ok) {
+          await AsyncStorage.setItem('user', JSON.stringify(userData.data?.user ?? userData.user ?? {}));
+          router.replace('/(workspace)/workspace');
+        } else {
+          Alert.alert('Login Error', 'ไม่สามารถดึงข้อมูล user ได้');
+        }
       }
-    } catch (error) {
-      Alert.alert('Network Error', 'ไม่สามารถเชื่อมต่อกับ Backend ได้');
+    } catch {
+      Alert.alert('Google Login Failed', 'เกิดข้อผิดพลาด');
     } finally {
       setGoogleLoading(false);
     }
@@ -94,10 +66,7 @@ export default function LoginScreen() {
     try {
       const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
@@ -119,7 +88,7 @@ export default function LoginScreen() {
       } else {
         Alert.alert('Login Failed', 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Network Error', 'ไม่สามารถเชื่อมต่อกับ Backend ได้');
     }
   };
@@ -128,7 +97,6 @@ export default function LoginScreen() {
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-1 px-8 justify-center">
 
-        {/* รูปโลโก้ */}
         <Image
           source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
           className="w-96 h-96 mb-10 mt-25 mx-auto"
@@ -137,7 +105,6 @@ export default function LoginScreen() {
         <Text className="text-3xl font-extrabold text-[#425C95] mb-2">Welcome Back</Text>
         <Text className="text-md text-gray-500 mb-6">Sign in to continue to workspace</Text>
 
-        {/* Email Input */}
         <View className="border border-gray-300 rounded-xl px-4 py-3 mb-4">
           <TextInput
             placeholder="Email or Username"
@@ -148,7 +115,6 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* Password Input */}
         <View className="flex-row items-center border border-gray-300 rounded-xl px-4 py-3 mb-6">
           <TextInput
             className="flex-1"
@@ -162,7 +128,6 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ปุ่ม Sign In */}
         <TouchableOpacity
           className="bg-[#425C95] rounded-xl py-4 items-center"
           onPress={handleSignIn}
@@ -170,21 +135,16 @@ export default function LoginScreen() {
           <Text className="text-white font-bold text-lg">Sign In</Text>
         </TouchableOpacity>
 
-        {/* ตัวแบ่ง OR */}
         <View className="flex-row items-center mb-8 mt-6">
           <View className="flex-1 h-[1px] bg-gray-200" />
           <Text className="text-gray-400 px-4 text-sm">or</Text>
           <View className="flex-1 h-[1px] bg-gray-200" />
         </View>
 
-        {/* ปุ่ม LOGIN WITH GOOGLE */}
         <TouchableOpacity
           className="flex-row items-center justify-center border border-gray-300 rounded-xl py-3 px-4 bg-white"
-          disabled={!request || googleLoading}
-          onPress={() => {
-            setGoogleLoading(true);
-            promptAsync();
-          }}
+          disabled={googleLoading}
+          onPress={handleGoogleSignIn}
         >
           {googleLoading ? (
             <ActivityIndicator size="small" color="#425C95" style={{ marginRight: 12 }} />
@@ -196,7 +156,6 @@ export default function LoginScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* ลิงก์ Register */}
         <View className="flex-row items-center justify-center mt-6">
           <Text className="text-gray-700 font-medium text-base">
             Don't have an account?
