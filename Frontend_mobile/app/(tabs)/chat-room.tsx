@@ -145,6 +145,11 @@ export default function ChatDmScreen() {
     loadMessages();
 
     return () => {
+      socket.off('connect');
+      socket.off('connect_error');
+      socket.off('dm_received');
+      socket.off('dm_read');
+      socket.off('dm_user_typing');
       socket.emit('leave_dm', conversationId);
       socket.disconnect();
       socketRef.current = null;
@@ -153,6 +158,8 @@ export default function ChatDmScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, conversationId]);
 
+  const joinedRef = useRef(false);
+
   /* ===== Focus: rejoin ถ้า socket หลุด + silent reload ===== */
   useFocusEffect(
     useCallback(() => {
@@ -160,13 +167,19 @@ export default function ChatDmScreen() {
       if (!socket) return;
 
       if (socket.connected) {
-        socket.emit('join_dm', conversationId);
+        if (!joinedRef.current) {
+          joinedRef.current = true;
+          socket.emit('join_dm', conversationId);
+        }
         loadMessages(true);
       } else {
+        joinedRef.current = false;
         socket.connect();
       }
 
-      return () => {};
+      return () => {
+        joinedRef.current = false;
+      };
     }, [conversationId, loadMessages]),
   );
 
@@ -248,7 +261,7 @@ export default function ChatDmScreen() {
               keyExtractor={(item) => item.id}
               renderItem={renderMessage}
               contentContainerStyle={{ paddingVertical: 12 }}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              onContentSizeChange={() => messages.length > 0 && flatListRef.current?.scrollToEnd({ animated: false })}
               ListEmptyComponent={
                 <View style={{ alignItems: 'center', paddingTop: 80 }}>
                   <Avatar name={otherName} size={60} />

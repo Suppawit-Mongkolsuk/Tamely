@@ -50,11 +50,14 @@ export default function WorkspaceScreen() {
 
   const rawToken = params.token;
   const [token, setToken] = useState(Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? ''));
+  const [userStr, setUserStr] = useState('');
 
   useEffect(() => {
-    if (!token) {
-      AsyncStorage.getItem('token').then((t: string | null) => { if (t) setToken(t); });
-    }
+    AsyncStorage.multiGet(['token', 'user']).then((pairs) => {
+      const map = Object.fromEntries(pairs.map(([k, v]) => [k, v ?? '']));
+      if (!token && map['token']) setToken(map['token']);
+      if (map['user']) setUserStr(map['user']);
+    });
   }, []);
 
   const handleTokenExpired = () => {
@@ -169,11 +172,7 @@ export default function WorkspaceScreen() {
       {/* ส่วน Header */}
       <LinearGradient
         colors={['#152C53', '#234476', '#42639B']}
-        style={{
-          height: 180,
-          paddingHorizontal: 24,
-          position: 'relative',
-        }}
+        style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 }}
         start={{ x: 0, y: 1 }}
         end={{ x: 1, y: 1 }}
       >
@@ -181,33 +180,30 @@ export default function WorkspaceScreen() {
         <DecorativeBubble size={20} top={5} right={10} opacity={0.07} />
         <DecorativeBubble size={45} bottom={-13} left={-10} opacity={0.08} />
 
-        <View
-          style={{
-            width: '60%',
-            aspectRatio: 3.5 / 1,
-            marginTop: 56,
-            marginBottom: 24,
-            alignSelf: 'flex-start',
-          }}
-        >
-          <Image
-            source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
-            style={{
-              position: 'absolute',
-              top: -140,
-              left: -65,
-              width: 300,
-              height: 330,
-            }}
-            resizeMode="contain"
-          />
-        </View>
+        {/* โลโก้ */}
+        <Image
+          source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
+          style={{ width: 200, height: 200, marginTop: -60, marginBottom: -60, marginLeft: -45 }}
+          resizeMode="contain"
+        />
 
+        {/* spacer โปร่งใสกั้นไม่ให้โลโก้ทับข้อความ */}
+        <View style={{ height: 0 }} />
+
+        {/* ข้อความ */}
+        <Text style={{ fontSize: 26, fontWeight: '800', color: '#fff', marginBottom: 4 , marginTop: -20   }}>
+          Choose a Workspace
+        </Text>
+        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
+          Select a workspace to continue or start a new one
+        </Text>
+
+        {/* ปุ่ม Logout มุมขวาบน absolute */}
         <TouchableOpacity
           style={{
             position: 'absolute',
-            top: 20,
-            right: 24,
+            top: 33,
+            right: 15,
             backgroundColor: 'rgba(255,255,255,0.15)',
             paddingHorizontal: 16,
             paddingVertical: 8,
@@ -222,30 +218,6 @@ export default function WorkspaceScreen() {
             Logout
           </Text>
         </TouchableOpacity>
-
-        <Text
-          style={{
-            position: 'absolute',
-            bottom: 32,
-            left: 24,
-            fontSize: 28,
-            fontWeight: '800',
-            color: '#fff',
-          }}
-        >
-          Choose a Workspace
-        </Text>
-        <Text
-          style={{
-            position: 'absolute',
-            bottom: 10,
-            left: 24,
-            color: 'rgba(255,255,255,0.7)',
-            fontSize: 14,
-          }}
-        >
-          Select a workspace to continue or start a new one
-        </Text>
       </LinearGradient>
 
       {/* ส่วน Content */}
@@ -307,7 +279,7 @@ export default function WorkspaceScreen() {
                     params: {
                       wsId: id,
                       token: token,
-                      user: params.user,
+                      user: userStr,
                       role: item.role,
                     },
                   })

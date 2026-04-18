@@ -3,8 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, Animated } from 'react
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Sparkles, Wand2, X } from 'lucide-react-native';
 import { AI_KEYS } from '../../hooks/useNotifications';
-
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '../../lib/config';
 
 interface Props {
   // snapshot ของข้อความที่ยังไม่ได้อ่านตอนเปิดแชท (ก่อน mark read)

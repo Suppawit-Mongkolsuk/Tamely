@@ -25,9 +25,20 @@ export const CHAT_FILES_BUCKET = 'chat-files';
 export const WORKSPACE_ICONS_BUCKET = 'workspace-icons';
 
 // ===== Auth Headers =====
-/** รองรับทั้ง Legacy JWT (eyJ...) และ New format (sb_secret_...) */
+// ใช้ env var SUPABASE_KEY_TYPE=jwt|anon เพื่อบอกชัดเจนว่า key เป็น format ไหน
+// ถ้าไม่ได้ตั้งค่า จะ fallback ไปเช็ค prefix (eyJ = JWT, อื่นๆ = apikey)
 function authHeaders(): Record<string, string> {
   if (!supabaseServiceKey) return {};
+
+  const keyType = process.env.SUPABASE_KEY_TYPE;
+  if (keyType === 'jwt') {
+    return { Authorization: `Bearer ${supabaseServiceKey}` };
+  }
+  if (keyType === 'anon') {
+    return { apikey: supabaseServiceKey };
+  }
+
+  // fallback: ตรวจสอบ prefix สำหรับกรณีที่ไม่ได้ตั้ง SUPABASE_KEY_TYPE
   if (supabaseServiceKey.startsWith('eyJ')) {
     return { Authorization: `Bearer ${supabaseServiceKey}` };
   }

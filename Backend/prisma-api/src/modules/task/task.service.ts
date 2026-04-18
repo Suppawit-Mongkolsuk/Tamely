@@ -17,10 +17,15 @@ export const createTask = async (
   const allowed = await hasPermission(workspaceId, userId, PERMISSIONS.CREATE_TASK);
   if (!allowed) throw new AppError(403, 'Insufficient permissions');
 
+  const parsedDate = new Date(data.date);
+  if (isNaN(parsedDate.getTime())) {
+    throw new AppError(400, 'Invalid task date');
+  }
+
   return taskRepository.create(workspaceId, userId, {
     title: data.title,
     description: data.description,
-    date: new Date(data.date),
+    date: parsedDate,
     priority: data.priority ?? 'MEDIUM',
     assigneeId: data.assigneeId,
   });
@@ -72,7 +77,13 @@ export const updateTask = async (
   const updateData: Record<string, unknown> = {};
   if (data.title !== undefined) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
-  if (data.date !== undefined) updateData.date = new Date(data.date);
+  if (data.date !== undefined) {
+    const parsedDate = new Date(data.date);
+    if (isNaN(parsedDate.getTime())) {
+      throw new AppError(400, 'Invalid task date');
+    }
+    updateData.date = parsedDate;
+  }
   if (data.priority !== undefined) updateData.priority = data.priority;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId;

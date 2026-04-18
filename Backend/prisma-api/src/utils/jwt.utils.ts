@@ -2,11 +2,16 @@ import jwt from 'jsonwebtoken';
 import { Response } from 'express';
 import { AdminJwtPayload, JwtPayload } from '../types';
 
-const SECRET: string =
-  process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+if (!process.env.JWT_SECRET) {
+  throw new Error('[FATAL] JWT_SECRET is not set. Server cannot start without it.');
+}
+if (!process.env.ADMIN_JWT_SECRET) {
+  throw new Error('[FATAL] ADMIN_JWT_SECRET is not set. Server cannot start without it.');
+}
+
+const SECRET: string = process.env.JWT_SECRET;
 const EXPIRES_IN: string | number = process.env.JWT_EXPIRES_IN || '7d';
-const ADMIN_SECRET: string =
-  process.env.ADMIN_JWT_SECRET || `${SECRET}-admin`;
+const ADMIN_SECRET: string = process.env.ADMIN_JWT_SECRET;
 const ADMIN_EXPIRES_IN: string | number =
   process.env.ADMIN_JWT_EXPIRES_IN || '7d';
 const ACCESS_COOKIE_NAME = 'accessToken';

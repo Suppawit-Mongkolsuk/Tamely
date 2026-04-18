@@ -75,7 +75,7 @@ export const updatePost = async (
 
   if (
     post.authorId !== userId &&
-    !(await hasPermission(post.workspaceId, userId, PERMISSIONS.DELETE_ANY_POST))
+    !(await hasPermission(post.workspaceId, userId, PERMISSIONS.EDIT_ANY_POST))
   ) {
     throw new AppError(403, 'Insufficient permissions');
   }

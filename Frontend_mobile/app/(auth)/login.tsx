@@ -3,7 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  Image, Alert, ActivityIndicator
+  Image, Alert, ActivityIndicator, ScrollView,
+  KeyboardAvoidingView, Platform, useWindowDimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
@@ -15,6 +16,8 @@ WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { height } = useWindowDimensions();
+  const logoSize = Math.min(height * 0.28, 260);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -70,8 +73,13 @@ export default function LoginScreen() {
         body: JSON.stringify({ email, password }),
       });
 
-      const raw = await res.text();
-      const result = JSON.parse(raw);
+      let result: any;
+      try {
+        result = await res.json();
+      } catch {
+        Alert.alert('Server Error', 'Server ตอบกลับมาผิดรูปแบบ');
+        return;
+      }
 
       if (res.ok) {
         const userData = result.data?.user ?? result.user ?? result;
@@ -95,11 +103,20 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-1 px-8 justify-center">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 32, paddingVertical: 24 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
 
         <Image
           source={require('../../assets/images/TeamlyImage/TeamlyLogo.png')}
-          className="w-96 h-96 mb-10 mt-25 mx-auto"
+          style={{ width: logoSize, height: logoSize, alignSelf: 'center', marginBottom: 24 }}
+          resizeMode="contain"
         />
 
         <Text className="text-3xl font-extrabold text-[#425C95] mb-2">Welcome Back</Text>
@@ -167,7 +184,8 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

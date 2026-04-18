@@ -84,22 +84,38 @@ export default function ProfileScreen() {
 
   const handlePushToggle = async (val: boolean) => {
     setPushEnabled(val);
-    await AsyncStorage.setItem(NOTIF_KEYS.push, String(val));
+    try {
+      await AsyncStorage.setItem(NOTIF_KEYS.push, String(val));
+    } catch {
+      setPushEnabled(!val);
+    }
   };
 
   const handleDmToggle = async (val: boolean) => {
     setDmEnabled(val);
-    await AsyncStorage.setItem(NOTIF_KEYS.dm, String(val));
+    try {
+      await AsyncStorage.setItem(NOTIF_KEYS.dm, String(val));
+    } catch {
+      setDmEnabled(!val);
+    }
   };
 
   const handleAutoSumToggle = async (val: boolean) => {
     setAutoSumEnabled(val);
-    await AsyncStorage.setItem(AI_KEYS.autoSummarize, String(val));
+    try {
+      await AsyncStorage.setItem(AI_KEYS.autoSummarize, String(val));
+    } catch {
+      setAutoSumEnabled(!val);
+    }
   };
 
   const handleSmartSugToggle = async (val: boolean) => {
     setSmartSugEnabled(val);
-    await AsyncStorage.setItem(AI_KEYS.smartSuggest, String(val));
+    try {
+      await AsyncStorage.setItem(AI_KEYS.smartSuggest, String(val));
+    } catch {
+      setSmartSugEnabled(!val);
+    }
   };
 
   const handleLogOut = async () => {

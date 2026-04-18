@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { comparePassword } from '../../utils/password.hash';
 import { signAdminToken } from '../../utils/jwt.utils';
 import { AppError } from '../../types';
@@ -69,8 +70,16 @@ export const getWorkspaceDashboard = async (range: '7d' | '30d' | 'all' = 'all')
     adminRepository.findRecentAuditLogs(20),
   ]);
 
+  type AiUsageItem = Prisma.AiQueryGroupByOutputType & {
+    _count: { _all: number };
+    _sum: { tokensUsed: number | null };
+    _max: { createdAt: Date | null };
+  };
+
+  type DashboardWorkspace = Awaited<ReturnType<typeof adminRepository.findDashboardWorkspaces>>[number];
+
   const usageByWorkspace = new Map(
-    aiUsage.map((item) => [
+    (aiUsage as AiUsageItem[]).map((item) => [
       item.workspaceId,
       {
         aiQueryCount: item._count._all,
@@ -81,7 +90,7 @@ export const getWorkspaceDashboard = async (range: '7d' | '30d' | 'all' = 'all')
   );
 
   return {
-    workspaces: workspaces.map((workspace) => {
+    workspaces: workspaces.map((workspace: DashboardWorkspace) => {
       const usage = usageByWorkspace.get(workspace.id);
 
       return {
