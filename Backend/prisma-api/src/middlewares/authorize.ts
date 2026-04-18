@@ -14,6 +14,7 @@ export const requireWorkspaceAdmin = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    // เเยก workspaceId จาก params หรือ query
     const workspaceId =
       req.params.workspaceId || (req.query.workspaceId as string);
 
@@ -22,10 +23,10 @@ export const requireWorkspaceAdmin = async (
       return;
     }
 
-    // ดึง workspace member data
-    const member = await prisma.workspaceMember.findUnique({
+    // ดึง workspace member data(ข้อมูลสมาชิก)
+    const member = await prisma.workspaceMember.findUnique({ 
       where: {
-        workspaceId_userId: {
+        workspaceId_userId: { // composite key
           workspaceId: workspaceId as string,
           userId: req.userId!,
         },

@@ -9,10 +9,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const WEB_CLIENT_ID = '1086895750541-60k3q4ntds11ksnmjfvan0htdofgr4e1.apps.googleusercontent.com';
+const ANDROID_CLIENT_ID = '1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7.apps.googleusercontent.com';
 
 import { API_BASE } from '@/lib/config';
 
@@ -23,9 +25,14 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  const redirectUri = makeRedirectUri({
+    native: 'com.googleusercontent.apps.1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7:/oauth2redirect/google',
+  });
+
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: '1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7.apps.googleusercontent.com',
+    androidClientId: ANDROID_CLIENT_ID,
     webClientId: WEB_CLIENT_ID,
+    redirectUri,
   });
 
   useEffect(() => {
