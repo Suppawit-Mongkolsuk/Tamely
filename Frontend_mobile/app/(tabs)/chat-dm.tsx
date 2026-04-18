@@ -18,7 +18,7 @@ const isExpoGo = Constants.appOwnership === 'expo';
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
 interface DmMessage { id: string; content: string; createdAt: string; sender: Sender; isRead: boolean; }
 
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 
 // dummy call state สำหรับ Expo Go
 const dummyCallState = {

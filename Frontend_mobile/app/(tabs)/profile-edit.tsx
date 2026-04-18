@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Camera, Crown, Shield, Star, User } from 'lucide-react-native';
 
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 
 const ROLE_LABELS: Record<string, string> = {
   OWNER: 'Owner',

@@ -46,7 +46,7 @@ interface Member {
 
 /* ======================= CONFIG ======================= */
 
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 const MAX_IMAGES = 10;
 const MAX_FILE_SIZE_MB = 5;
 

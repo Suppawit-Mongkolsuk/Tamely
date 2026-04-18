@@ -15,7 +15,7 @@ import * as Clipboard from 'expo-clipboard';
 
 /* ======================= CONFIG ======================= */
 
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 
 /* ======================= TYPES ======================= */
 

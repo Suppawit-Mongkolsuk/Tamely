@@ -9,13 +9,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const ANDROID_CLIENT_ID = 'YOUR_ANDROID_CLIENT_ID';
 const WEB_CLIENT_ID = '1086895750541-60k3q4ntds11ksnmjfvan0htdofgr4e1.apps.googleusercontent.com';
 
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -24,20 +24,26 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  const redirectUri = makeRedirectUri();
+  console.log('REDIRECT URI:', redirectUri);
+
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: ANDROID_CLIENT_ID,
-    iosClientId: ANDROID_CLIENT_ID,
+    androidClientId: '1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7.apps.googleusercontent.com',
     webClientId: WEB_CLIENT_ID,
+    redirectUri,
   });
 
   useEffect(() => {
+    console.log('GOOGLE RESPONSE:', JSON.stringify(response));
     if (response?.type === 'success') {
       const accessToken = response.authentication?.accessToken;
+      console.log('ACCESS TOKEN:', accessToken);
       if (accessToken) {
         sendGoogleTokenToBackend(accessToken);
       }
     } else if (response?.type === 'error') {
       setGoogleLoading(false);
+      console.error('Google error:', response.error);
       Alert.alert('Google Login Failed', response.error?.message ?? 'เกิดข้อผิดพลาด');
     } else if (response?.type === 'dismiss' || response?.type === 'cancel') {
       setGoogleLoading(false);

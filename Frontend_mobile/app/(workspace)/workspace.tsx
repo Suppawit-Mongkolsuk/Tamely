@@ -22,7 +22,7 @@ interface WorkspaceData {
   unreadCount?: number;
 }
 
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 5000) {
   const controller = new AbortController();

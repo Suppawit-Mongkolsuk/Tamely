@@ -7,8 +7,7 @@ import {
   MediaStream,
 } from 'react-native-webrtc';
 import type { Socket } from 'socket.io-client';
-
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 
 const FALLBACK_ICE = {
   iceServers: [

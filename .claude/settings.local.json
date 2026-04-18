@@ -3,7 +3,9 @@
     "allow": [
       "Bash(python3 -c ':*)",
       "Bash(node -e ':*)",
-      "Bash(grep *)"
+      "Bash(grep *)",
+      "Bash(xargs touch *)",
+      "Bash(find \"/Users/title/Documents/Mini Project/Tamely/Frontend_mobile/node_modules\" \\\\\\( -name \"*.jar\" -o -name \"*.aar\" \\\\\\) -exec touch {} \\\\;)"
     ]
   }
 }

@@ -48,7 +48,7 @@ interface NotificationsResponse {
 
 /* ======================= CONFIG ======================= */
 
-const API_BASE = 'https://ineffectual-marian-nonnattily.ngrok-free.dev';
+import { API_BASE } from '@/lib/config';
 
 const ROLE_LABELS: Record<string, string> = {
   OWNER: 'Owner', ADMIN: 'Admin', MODERATOR: 'Moderator', MEMBER: 'Member',
