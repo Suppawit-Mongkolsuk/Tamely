@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, Image, TouchableOpacity, Modal,
-  Alert, ActivityIndicator, ScrollView,
+  Alert, ActivityIndicator, ScrollView, AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   User, Zap, Shield, LogOut, X, Settings,
   RefreshCw, Copy, ChevronRight, DoorOpen, Crown, ChevronDown,
@@ -59,6 +60,7 @@ interface HeaderProps {
   userName?: string;
   userEmail?: string;
   userRole?: string;
+  userAvatarUrl?: string | null;
   workspaceName?: string;
   workspaceId?: string;
   role?: string;
@@ -81,6 +83,26 @@ export default function Header({
   currentUserId,
 }: HeaderProps) {
   const router = useRouter();
+
+  // อ่าน avatarUrl จาก AsyncStorage โดยตรง ไม่ต้องรอ parent ส่งมา
+  const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = () => {
+      AsyncStorage.getItem('user').then((u) => {
+        if (u) {
+          const parsed = JSON.parse(u);
+          setLocalAvatarUrl(parsed.avatarUrl ?? null);
+        }
+      });
+    };
+    load();
+    // refresh เมื่อ app กลับมา foreground (เช่น หลังเปิด image picker)
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') load();
+    });
+    return () => sub.remove();
+  }, []);
 
   const [showProfile, setShowProfile] = useState(false);
   const [showWsSettings, setShowWsSettings] = useState(false);
@@ -282,8 +304,11 @@ export default function Header({
 
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4, zIndex: 10 }}>
           <TouchableOpacity onPress={() => setShowProfile(true)} style={{ position: 'relative' }}>
-            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' }}>
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{userInitials}</Text>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)', overflow: 'hidden' }}>
+              {localAvatarUrl
+                ? <Image source={{ uri: localAvatarUrl }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{userInitials}</Text>
+              }
             </View>
             <View style={{ position: 'absolute', bottom: 1, right: 1, width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#234476' }} />
           </TouchableOpacity>
@@ -302,8 +327,11 @@ export default function Header({
                 <X size={18} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' }}>
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{userInitials}</Text>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)', overflow: 'hidden' }}>
+                  {localAvatarUrl
+                    ? <Image source={{ uri: localAvatarUrl }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                    : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{userInitials}</Text>
+                  }
                 </View>
                 <View>
                   <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{userName}</Text>

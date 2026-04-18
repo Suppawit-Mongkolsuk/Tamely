@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
@@ -63,13 +64,9 @@ export default function LoginScreen() {
           Alert.alert('Login Error', 'ไม่ได้รับ token จาก server');
           return;
         }
-        router.replace({
-          pathname: '/(workspace)/workspace',
-          params: {
-            user: JSON.stringify(result.data?.user ?? result.user ?? {}),
-            token,
-          },
-        });
+        await AsyncStorage.setItem('token', token);
+        await AsyncStorage.setItem('user', JSON.stringify(result.data?.user ?? result.user ?? {}));
+        router.replace('/(workspace)/workspace');
       } else {
         Alert.alert('Login Failed', result.error ?? 'เกิดข้อผิดพลาด');
       }
@@ -108,13 +105,9 @@ export default function LoginScreen() {
           return;
         }
 
-        router.replace({
-          pathname: '/(workspace)/workspace',
-          params: {
-            user: JSON.stringify(userData),
-            token,
-          },
-        });
+        await AsyncStorage.setItem('token', token);
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
+        router.replace('/(workspace)/workspace');
       } else {
         Alert.alert('Login Failed', 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       }

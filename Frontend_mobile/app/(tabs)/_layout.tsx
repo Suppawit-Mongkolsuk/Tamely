@@ -1,9 +1,34 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import InAppNotificationBanner from '../../components/ui/InAppNoti';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Redirect } from 'expo-router';
 
 export default function TabLayout() {
+  const [ready, setReady] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('token').then((token) => {
+      setIsLoggedIn(!!token);
+      setReady(true);
+    });
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator color="#425C95" />
+      </View>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <InAppNotificationBanner />
@@ -43,18 +68,11 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
           }}
         />
-        <Tabs.Screen
-          name="post-detail"
-          options={{ href: null }}
-        />
-        <Tabs.Screen
-          name="chat-room"
-          options={{ href: null }}
-        />
-        <Tabs.Screen
-          name="chat-dm"
-          options={{ href: null }}
-        />
+        <Tabs.Screen name="post-detail" options={{ href: null }} />
+        <Tabs.Screen name="chat-room" options={{ href: null }} />
+        <Tabs.Screen name="chat-dm" options={{ href: null }} />
+        <Tabs.Screen name="profile-edit" options={{ href: null }} />
+        <Tabs.Screen name="workspace-management" options={{ href: null }} />
       </Tabs>
     </View>
   );
