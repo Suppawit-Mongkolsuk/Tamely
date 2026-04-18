@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator } from 'react-native';
 import InAppNotificationBanner from '../../components/ui/InAppNoti';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect } from 'expo-router';
 import { io, Socket } from 'socket.io-client';
@@ -121,7 +121,7 @@ export default function TabLayout() {
 function GlobalCallOverlay({ onStartCall }: { onStartCall: (fn: typeof dummyWebRTC['startCall']) => void }) {
   const [currentUserId, setCurrentUserId] = useState('');
   const [token, setToken] = useState('');
-  const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
     AsyncStorage.multiGet(['token', 'user']).then(([[, t], [, u]]) => {
@@ -132,24 +132,30 @@ function GlobalCallOverlay({ onStartCall }: { onStartCall: (fn: typeof dummyWebR
 
   useEffect(() => {
     if (!token || !currentUserId) return;
-    // delay เล็กน้อยให้ ReactInstance พร้อมก่อน connect socket
     const timer = setTimeout(() => {
-      const socket = io(API_BASE, {
+      const s = io(API_BASE, {
         auth: { token },
         transports: ['websocket'],
         extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
       });
-      socketRef.current = socket;
-    }, 1000);
+      // รอ connect event ก่อนค่อยส่ง socket ให้ useWebRTC เพื่อให้ listeners ลงหลัง socket พร้อม
+      s.once('connect', () => setSocket(s));
+    }, 500);
     return () => {
       clearTimeout(timer);
-      socketRef.current?.disconnect();
-      socketRef.current = null;
+      setSocket(null);
     };
   }, [token, currentUserId]);
 
+  // cleanup socket เมื่อ socket state เปลี่ยน (เช่น token expire แล้ว reconnect)
+  useEffect(() => {
+    return () => {
+      socket?.disconnect();
+    };
+  }, [socket]);
+
   const { callState, startCall, acceptCall, rejectCall, endCall, toggleMute, minimizeCallUI, expandCallUI } =
-    useCallFeature({ socketRef, currentUserId });
+    useCallFeature({ socket, currentUserId });
 
   useEffect(() => {
     onStartCall(startCall);
