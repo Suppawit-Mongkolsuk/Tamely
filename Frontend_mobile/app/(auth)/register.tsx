@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
-import { AntDesign } from '@expo/vector-icons';
 import { Feather } from '@expo/vector-icons';
 import { API_BASE } from '@/lib/config';
 
@@ -143,20 +142,6 @@ export default function RegisterScreen() {
                         onPress={handleRegister}
                     >
                         <Text className="text-white font-bold text-lg">Register</Text>
-                    </TouchableOpacity>
-
-                    <View className="flex-row items-center mb-6">
-                        <View className="flex-1 h-[1px] bg-gray-200" />
-                        <Text className="text-gray-400 px-4 text-sm">or</Text>
-                        <View className="flex-1 h-[1px] bg-gray-200" />
-                    </View>
-
-                    <TouchableOpacity 
-                        className="flex-row items-center justify-center border border-gray-300 rounded-xl py-3 px-4 bg-white"
-                        onPress={() => console.log('Start Google Register Flow')}
-                    >
-                        <AntDesign name="google" size={24} color="#0f0758" style={{ marginRight: 12 }} />
-                        <Text className="text-gray-700 font-medium text-base">Sign up with Google</Text>
                     </TouchableOpacity>
 
                     <View className="flex-row justify-center mt-8 mb-4">
