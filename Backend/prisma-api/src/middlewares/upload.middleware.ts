@@ -22,14 +22,14 @@ type FileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallba
  *                           รองรับ wildcard เช่น 'image/*'
  */
 export function createUploadMiddleware(maxSizeMB: number, allowedMimeTypes?: string[]) {
-  const fileFilter: FileFilter | undefined = allowedMimeTypes
+  const fileFilter: FileFilter | undefined = allowedMimeTypes // ถ้ามี allowedMimeTypes ให้สร้าง fileFilter, ถ้าไม่มีก็ไม่ต้องใช้ fileFilter
     ? (_req, file, cb) => {
-        const allowed = allowedMimeTypes.some((pattern) => {
-          if (pattern.endsWith('/*')) {
+        const allowed = allowedMimeTypes.some((pattern) => { // เช็คว่า file.mimetype ตรงกับ pattern ไหนใน allowedMimeTypes ไหม
+          if (pattern.endsWith('/*')) { // ตัด 'image/*' -> 'image/' 
             const prefix = pattern.slice(0, -2);
             return file.mimetype.startsWith(prefix + '/');
           }
-          return file.mimetype === pattern;
+          return file.mimetype === pattern; // ตรงกันเป๊ะ เช่น 'image/jpeg' === 'image/jpeg' ไม่เป็น 'image/*'
         });
 
         if (allowed) {
