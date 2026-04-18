@@ -1,13 +1,13 @@
 {
   "expo": {
     "name": "Tamely",
-    "slug": "taemly",
+    "slug": "Frontend_mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": ["tamely", "com.googleusercontent.apps.1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7"],
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "updates": {
       "enabled": false
     },
