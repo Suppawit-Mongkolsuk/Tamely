@@ -132,13 +132,20 @@ function GlobalCallOverlay({ onStartCall }: { onStartCall: (fn: typeof dummyWebR
 
   useEffect(() => {
     if (!token || !currentUserId) return;
-    const socket = io(API_BASE, {
-      auth: { token },
-      transports: ['websocket'],
-      extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
-    });
-    socketRef.current = socket;
-    return () => { socket.disconnect(); socketRef.current = null; };
+    // delay เล็กน้อยให้ ReactInstance พร้อมก่อน connect socket
+    const timer = setTimeout(() => {
+      const socket = io(API_BASE, {
+        auth: { token },
+        transports: ['websocket'],
+        extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
+      });
+      socketRef.current = socket;
+    }, 1000);
+    return () => {
+      clearTimeout(timer);
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
   }, [token, currentUserId]);
 
   const { callState, startCall, acceptCall, rejectCall, endCall, toggleMute, minimizeCallUI, expandCallUI } =
