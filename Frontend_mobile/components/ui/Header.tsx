@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  User, Zap, Shield, LogOut, X, Settings,
+  User, LogOut, X, Settings,
   RefreshCw, Copy, ChevronRight, DoorOpen, Crown, ChevronDown,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -351,14 +351,11 @@ export default function Header({
 
             {[
               { icon: <User size={18} color="#425C95" />, label: 'Profile & Settings' },
-              { icon: <Zap size={18} color="#f59e0b" />, label: 'Set Status', sub: 'Active now' },
-              { icon: <Shield size={18} color="#8b5cf6" />, label: 'Privacy & Security' },
             ].map((item, index) => (
               <TouchableOpacity key={index} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
                 {item.icon}
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{item.label}</Text>
-                  {item.sub && <Text style={{ fontSize: 12, color: '#9ca3af' }}>{item.sub}</Text>}
                 </View>
                 <ChevronRight size={16} color="#d1d5db" />
               </TouchableOpacity>

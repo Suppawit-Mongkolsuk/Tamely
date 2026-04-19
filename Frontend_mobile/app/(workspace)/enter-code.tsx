@@ -50,7 +50,8 @@ export default function EnterCodeScreen() {
       );
 
       const raw = await res.text();
-      const result = JSON.parse(raw);
+      let result: any = {};
+      try { result = JSON.parse(raw); } catch { result = {}; }
 
       if (res.ok) {
         router.replace({

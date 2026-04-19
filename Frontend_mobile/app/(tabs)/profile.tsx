@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,6 +32,8 @@ export default function ProfileScreen() {
   const [wsName, setWsName] = useState('');
 
   const isAdminOrOwner = wsRole === 'OWNER' || wsRole === 'ADMIN';
+
+  const [helpVisible, setHelpVisible] = useState(false);
 
   const [pushEnabled, setPushEnabled] = useState(true);
   const [dmEnabled, setDmEnabled] = useState(true);
@@ -223,11 +225,84 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 20, marginBottom: 8 }}>HELP & SUPPORT</Text>
-        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
+        <TouchableOpacity onPress={() => setHelpVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={HelpCircle} color="#f97316" bgColor="#fff7ed" />
           <View style={{ flex: 1, marginLeft: 14 }}><Text style={{ fontWeight: '600' }}>Help Center</Text></View>
           <ChevronRight size={18} color="#d1d5db" />
         </TouchableOpacity>
+
+        <Modal visible={helpVisible} animationType="slide" transparent onRequestClose={() => setHelpVisible(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#fff7ed', alignItems: 'center', justifyContent: 'center' }}>
+                    <HelpCircle size={20} color="#f97316" />
+                  </View>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>Help Center</Text>
+                </View>
+                <TouchableOpacity onPress={() => setHelpVisible(false)} style={{ padding: 4 }}>
+                  <Text style={{ fontSize: 22, color: '#9ca3af', lineHeight: 24 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+                {[
+                  {
+                    emoji: '💬',
+                    title: 'การส่งข้อความ',
+                    body: 'แตะที่ห้องแชทหรือ DM เพื่อเริ่มบทสนทนา พิมพ์ข้อความแล้วกดปุ่มส่ง ระบบรองรับการพิมพ์หลายบรรทัด',
+                  },
+                  {
+                    emoji: '🔔',
+                    title: 'การแจ้งเตือน',
+                    body: 'เปิด/ปิด Push Notification และ DM ได้ที่หน้า Settings → Notifications ระบบจะส่งแจ้งเตือนเมื่อมีคนกล่าวถึงคุณหรือส่ง DM',
+                  },
+                  {
+                    emoji: '🤖',
+                    title: 'AI Assistant',
+                    body: 'ใช้ AI Chat ที่แท็บ AI เพื่อถามคำถามหรือขอสรุปบทสนทนา เปิดใช้ Auto-Summarize เพื่อให้ AI สรุปให้อัตโนมัติ',
+                  },
+                  {
+                    emoji: '🏢',
+                    title: 'Workspace',
+                    body: 'สร้างหรือเข้าร่วม Workspace ด้วย Invite Code ที่ได้รับจากผู้ดูแล สมาชิกสามารถดูห้องแชทและโพสต์ภายใน Workspace ได้',
+                  },
+                  {
+                    emoji: '📢',
+                    title: 'Feed & ประกาศ',
+                    body: 'ดูโพสต์ประกาศของทีมได้ที่แท็บ Feed สามารถคอมเมนต์และรีแอคชันได้ โพสต์ที่ปักหมุดจะแสดงด้านบนเสมอ',
+                  },
+                  {
+                    emoji: '👤',
+                    title: 'แก้ไขโปรไฟล์',
+                    body: 'กดที่รูปโปรไฟล์ด้านบนหน้า Settings เพื่อเปลี่ยนชื่อ รูปภาพ และข้อมูลส่วนตัว',
+                  },
+                  {
+                    emoji: '📞',
+                    title: 'การโทร',
+                    body: 'กดปุ่มโทรในหน้า DM เพื่อเริ่มการโทรด้วยเสียง ระบบรองรับการโทรแบบ 1-ต่อ-1 ผ่านอินเทอร์เน็ต',
+                  },
+                ].map((item) => (
+                  <View key={item.title} style={{ marginBottom: 16, backgroundColor: '#f9fafb', borderRadius: 14, padding: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                      <Text style={{ fontSize: 20 }}>{item.emoji}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{item.title}</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, color: '#6b7280', lineHeight: 20 }}>{item.body}</Text>
+                  </View>
+                ))}
+
+                <View style={{ backgroundColor: '#f0f4ff', borderRadius: 14, padding: 16, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#425C95', marginBottom: 4 }}>📧 ติดต่อทีมพัฒนา</Text>
+                  <Text style={{ fontSize: 13, color: '#6b7280', lineHeight: 20 }}>หากพบปัญหาหรือต้องการความช่วยเหลือเพิ่มเติม ติดต่อได้ที่{'\n'}support@tamely.app</Text>
+                </View>
+
+                <View style={{ height: 30 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         <TouchableOpacity
           onPress={handleLogOut}

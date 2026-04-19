@@ -58,7 +58,8 @@ export default function InAppNoti() {
       if (!token || !userStr || !wsId) return;
       if (!mounted) return;
 
-      const currentUserId = JSON.parse(userStr)?.id ?? '';
+      let currentUserId = '';
+      try { currentUserId = JSON.parse(userStr)?.id ?? ''; } catch {}
 
       const socket = io(API_BASE, {
         auth: { token },

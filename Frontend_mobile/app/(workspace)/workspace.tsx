@@ -86,7 +86,8 @@ export default function WorkspaceScreen() {
       );
 
       const raw = await response.text();
-      const result = JSON.parse(raw);
+      let result: any = {};
+      try { result = JSON.parse(raw); } catch { result = {}; }
 
       if (response.ok) {
         setWorkspaces(result.data || result);
@@ -144,7 +145,8 @@ export default function WorkspaceScreen() {
       );
 
       const raw = await res.text();
-      const result = JSON.parse(raw);
+      let result: any = {};
+      try { result = JSON.parse(raw); } catch { result = {}; }
 
       if (res.ok) {
         closeModal();
