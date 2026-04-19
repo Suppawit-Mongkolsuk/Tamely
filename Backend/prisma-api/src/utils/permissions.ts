@@ -110,5 +110,5 @@ export async function getUserPermissionsArray( // ดึงสิทธิ์ท
   workspaceId: string,
   userId: string,
 ): Promise<Permission[]> {
-  return Array.from(await resolveUserPermissions(workspaceId, userId));
+  return Array.from(await resolveUserPermissions(workspaceId, userId)); // ดึงสิทธิ์ทั้งหมดของ user ใน workspace นั้น เเล้วคืนเป็นอาเรย์
 }

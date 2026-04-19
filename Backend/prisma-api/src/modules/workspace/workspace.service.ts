@@ -17,14 +17,14 @@ import * as workspaceRepository from './workspace.repository';
 /* ======================= CREATE ======================= */
 
 export const createWorkspace = async (
-  ownerId: string,
-  data: TypePayloadCreateWorkspace,
+  ownerId: string, // userId ที่สร้าง workspace นี้ (จะถูกกำหนดเป็น owner)
+  data: TypePayloadCreateWorkspace, // ข้อมูลสำหรับสร้าง workspace (เช่น name, description)
 ) => {
   const workspace = await workspaceRepository.create(ownerId, data);
-  return {
+  return { // คืนข้อมูล workspace ที่สร้างใหม่พร้อม role และ permissions ของ owner กลับไปเลย
     ...workspace,
     role: WorkspaceRole.OWNER,
-    myPermissions: await getUserPermissionsArray(workspace.id, ownerId),
+    myPermissions: await getUserPermissionsArray(workspace.id, ownerId), // ดึง permissions ของ owner ใน workspace นี้
   };
 };
 

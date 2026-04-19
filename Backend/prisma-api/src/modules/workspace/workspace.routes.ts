@@ -27,14 +27,14 @@ const createWorkspaceLimiter = rateLimit({
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validateUUID = (req: Request, res: Response, next: NextFunction): void => {
   const id = param(req.params.id);
-  if (!UUID_REGEX.test(id)) {
+  if (!UUID_REGEX.test(id)) { // ถ้าไม่ใช่ UUID format ให้ตอบ error แทนที่จะปล่อยให้ Prisma crash
     res.status(400).json({ success: false, error: 'Invalid workspace ID format' });
     return;
   }
   next();
 };
 
-// POST /api/workspaces
+// POST /api/workspaces // สร้าง workspace ใหม่
 router.post('/', createWorkspaceLimiter, validateRequest(CreateWorkspaceSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const workspace = await workspaceService.createWorkspace(req.userId!, req.body);
   res.status(201).json({ success: true, data: workspace });

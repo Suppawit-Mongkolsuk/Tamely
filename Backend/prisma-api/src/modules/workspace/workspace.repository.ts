@@ -16,18 +16,18 @@ const workspaceBaseSelect = {
   createdAt: true,
   updatedAt: true,
 } as const;
-const workspaceWithOwnerSelect = {
-  ...workspaceBaseSelect,
-  owner: { select: ownerSelect },
+const workspaceWithOwnerSelect = { // รวมข้อมูล owner มาให้ด้วย
+  ...workspaceBaseSelect, // เลือกข้อมูล workspace พื้นฐาน
+  owner: { select: ownerSelect }, // เลือกข้อมูล owner
 } as const;
-const customRoleSelect = {
+const customRoleSelect = { // เลือกข้อมูล custom role permissions
   id: true,
   name: true,
   color: true,
   position: true,
   permissions: true,
 } as const;
-const memberUserSelect = { Name: true, email: true, avatarUrl: true, lastSeenAt: true } as const;
+const memberUserSelect = { Name: true, email: true, avatarUrl: true, lastSeenAt: true } as const; // ข้อมูล user ที่จะแสดงในสมาชิก workspace 
 
 /* ======================= CREATE ======================= */
 
@@ -39,13 +39,13 @@ export const create = async (
     data: {
       name: data.name,
       description: data.description,
-      iconUrl: data.iconUrl,
-      ownerId,
-      members: {
-        create: { userId: ownerId, role: WorkspaceRole.OWNER },
+      iconUrl: data.iconUrl, 
+      ownerId, // กำหนดเจ้าของ workspace เป็น user ที่ส่งเข้ามา
+      members: { // สร้างความสสมาชิกไปเลยก็คือเจ้าของ
+        create: { userId: ownerId, role: WorkspaceRole.OWNER }, // สร้าง membership สำหรับ owner ด้วย role OWNER
       },
     },
-    select: workspaceWithOwnerSelect,
+    select: workspaceWithOwnerSelect, // เลือกข้อมูล workspace พร้อมข้อมูล owner คืนกลับไป
   });
 };
 

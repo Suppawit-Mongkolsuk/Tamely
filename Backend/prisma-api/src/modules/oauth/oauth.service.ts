@@ -11,17 +11,17 @@ interface OAuthUserData {
 // ใช้เมือ่อ login ด้วย OAuth
 export const findOrCreateOAuthUser = async (data: OAuthUserData) => {
   // 1. หาจาก provider + providerId
-  const existingOAuth = await prisma.user.findFirst({
+  const existingOAuth = await prisma.user.findFirst({ // หา user ที่เคย login ด้วย provider นี้แล้ว
     where: {
       provider: data.provider,
       providerId: data.providerId,
     },
   });
 
-  if (existingOAuth) {
+  if (existingOAuth) { // ถ้าเจอแล้ว อัปเดต avatarUrl ถ้ามีการเปลี่ยนแปลง (บาง provider URL อาจหมดอายุได้)
     // อัปเดต avatarUrl จาก provider ทุกครั้งที่ login (เผื่อ URL เปลี่ยน/หมดอายุ)
     if (data.avatarUrl && data.avatarUrl !== existingOAuth.avatarUrl) {
-      const updated = await prisma.user.update({
+      const updated = await prisma.user.update({ // อัปเดต avatarUrl ถ้ามีการเปลี่ยนแปลง
         where: { id: existingOAuth.id },
         data: { avatarUrl: data.avatarUrl },
       });
@@ -49,7 +49,7 @@ export const findOrCreateOAuthUser = async (data: OAuthUserData) => {
   if (existingEmail) {
     // Link OAuth เข้ากับ user เดิม (ไม่ลบ password เก่า)
     const updated = await prisma.user.update({
-      where: { id: existingEmail.id },
+      where: { id: existingEmail.id }, // อัปเดต provider info ของ user เดิม
       data: {
         provider: data.provider,
         providerId: data.providerId,
@@ -66,7 +66,7 @@ export const findOrCreateOAuthUser = async (data: OAuthUserData) => {
   }
 
   // 3. สร้าง user ใหม่ (ไม่มี password — OAuth only)
-  const newUser = await prisma.user.create({
+  const newUser = await prisma.user.create({ // สร้าง user ใหม่ถ้ายังไม่มีใน database
     data: {
       email: data.email,
       Name: data.name,

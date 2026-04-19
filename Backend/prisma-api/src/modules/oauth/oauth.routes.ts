@@ -57,27 +57,27 @@ router.post('/google/mobile', async (req: Request, res: Response) => {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    if (!googleRes.ok) {
+    if (!googleRes.ok) { // ถ้า token ไม่ถูกต้องหรือหมดอายุ
       res.status(401).json({ success: false, error: 'Invalid Google access token' });
       return;
     }
 
-    const googleUser = await googleRes.json() as {
+    const googleUser = await googleRes.json() as { // ข้อมูล user ที่ได้จาก Google
       sub: string;
       email: string;
       name: string;
       picture?: string;
     };
 
-    const user = await findOrCreateOAuthUser({
-      provider: 'google',
+    const user = await findOrCreateOAuthUser({ // หา user ใน database หรือสร้างใหม่ถ้ายังไม่มี
+      provider: 'google', 
       providerId: googleUser.sub,
       email: googleUser.email,
       name: googleUser.name,
       avatarUrl: googleUser.picture ?? null,
     });
 
-    const token = signToken(user.id, true);
+    const token = signToken(user.id, true); // สร้าง JWT token สำหรับ user นี้
     res.json({ success: true, data: { token, user } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Google mobile auth failed';
