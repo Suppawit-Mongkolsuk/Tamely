@@ -75,9 +75,9 @@ export default function AIChatBanner({ unreadMessages, wsId, token }: Props) {
         },
         body: JSON.stringify({ message: prompt, history: [] }),
       });
-      const json = await res.json();
       if (!res.ok) throw new Error(`status ${res.status}`);
-      setResult(json.data?.reply ?? json.reply ?? 'ไม่สามารถสรุปได้');
+      const json = await res.json();
+      setResult(json?.data?.reply ?? json?.reply ?? 'ไม่สามารถสรุปได้');
       setResultType('summary');
     } catch (e) {
       console.warn('[AIChatBanner] summarize error:', e);
@@ -108,9 +108,9 @@ export default function AIChatBanner({ unreadMessages, wsId, token }: Props) {
         },
         body: JSON.stringify({ message: prompt, history: [] }),
       });
-      const json = await res.json();
       if (!res.ok) throw new Error(`status ${res.status}`);
-      setResult(json.data?.reply ?? json.reply ?? 'ไม่สามารถแนะนำได้');
+      const json = await res.json();
+      setResult(json?.data?.reply ?? json?.reply ?? 'ไม่สามารถแนะนำได้');
       setResultType('suggest');
     } catch {
       setResult('เกิดข้อผิดพลาด กรุณาลองใหม่');

@@ -19,12 +19,13 @@ function formatDuration(seconds: number): string {
 }
 
 function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  if (!name) return '?';
+  return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
 }
 
 function CallAvatar({ name, size = 80 }: { name: string; size?: number }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
-  const colorIndex = name.charCodeAt(0) % colors.length;
+  const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
     <View style={{
       width: size, height: size, borderRadius: size / 2,

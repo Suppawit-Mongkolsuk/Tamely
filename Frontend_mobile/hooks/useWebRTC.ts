@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import {
   RTCPeerConnection,
   RTCIceCandidate,
@@ -70,23 +70,25 @@ export interface UseWebRTCReturn {
 }
 
 export function useWebRTC({
-  socketRef,
+  socket,
   currentUserId,
 }: {
-  socketRef: React.RefObject<Socket | null>;
+  socket: Socket | null;
   currentUserId: string;
 }): UseWebRTCReturn {
   const [callState, setCallState] = useState<CallState>(initialState);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  // react-native-webrtc ต้องการ sdp เป็น string เสมอ ไม่ใช่ string | undefined
   const pendingOfferRef = useRef<{ type: RTCSdpType; sdp: string } | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const autoRejectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const outgoingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const closingRef = useRef(false);
+  // keep latest callState accessible inside event handlers without re-registering
+  const callStateRef = useRef(callState);
+  useEffect(() => { callStateRef.current = callState; }, [callState]);
 
   const clearTimers = useCallback(() => {
     if (autoRejectTimerRef.current) clearTimeout(autoRejectTimerRef.current);
@@ -167,8 +169,8 @@ export function useWebRTC({
     };
 
     pc.onicecandidate = (event: any) => {
-      if (!event.candidate || !socketRef.current) return;
-      socketRef.current.emit('webrtc_ice_candidate', {
+      if (!event.candidate || !socket) return;
+      socket.emit('webrtc_ice_candidate', {
         targetUserId: peerId,
         candidate: event.candidate.toJSON(),
       });
@@ -183,14 +185,14 @@ export function useWebRTC({
       }
       if (state === 'disconnected' || state === 'failed' || state === 'closed') {
         if (!closingRef.current) {
-          socketRef.current?.emit('call_ended', { targetUserId: peerId, conversationId });
+          socket?.emit('call_ended', { targetUserId: peerId, conversationId });
         }
         cleanupCall();
       }
     };
 
     return pc;
-  }, [closePc, startDurationTimer, cleanupCall, socketRef]);
+  }, [closePc, startDurationTimer, cleanupCall, socket]);
 
   const startCall = useCallback(async (
     targetUserId: string,
@@ -198,7 +200,7 @@ export function useWebRTC({
     peerName?: string,
     peerAvatarUrl?: string | null,
   ) => {
-    if (!socketRef.current || !currentUserId) return;
+    if (!socket || !currentUserId) return;
 
     try {
       const stream = await requestAudio();
@@ -217,12 +219,12 @@ export function useWebRTC({
 
       outgoingTimeoutRef.current = setTimeout(() => {
         if (!pcRef.current) {
-          socketRef.current?.emit('call_ended', { targetUserId, conversationId });
+          socket?.emit('call_ended', { targetUserId, conversationId });
           cleanupCall();
         }
       }, 40000);
 
-      socketRef.current.emit('call_user', { targetUserId, conversationId, callType: 'audio' }, (res: any) => {
+      socket.emit('call_user', { targetUserId, conversationId, callType: 'audio' }, (res: any) => {
         if (!res || res.success) return;
         if (outgoingTimeoutRef.current) clearTimeout(outgoingTimeoutRef.current);
         cleanupCall();
@@ -231,15 +233,16 @@ export function useWebRTC({
       cleanupCall();
       console.warn('[WebRTC] startCall error:', err);
     }
-  }, [socketRef, currentUserId, requestAudio, cleanupCall]);
+  }, [socket, currentUserId, requestAudio, cleanupCall]);
 
   const acceptCall = useCallback(async () => {
-    if (!socketRef.current || !callState.peerId || !callState.conversationId) return;
+    const cs = callStateRef.current;
+    if (!socket || !cs.peerId || !cs.conversationId) return;
 
     try {
       if (autoRejectTimerRef.current) clearTimeout(autoRejectTimerRef.current);
       const stream = await requestAudio();
-      const pc = await createPc(stream, callState.peerId, callState.conversationId);
+      const pc = await createPc(stream, cs.peerId, cs.conversationId);
 
       setCallState((prev) => ({
         ...prev,
@@ -249,9 +252,9 @@ export function useWebRTC({
         isMinimized: false,
       }));
 
-      socketRef.current.emit('call_accepted', {
-        callerId: callState.peerId,
-        conversationId: callState.conversationId,
+      socket.emit('call_accepted', {
+        callerId: cs.peerId,
+        conversationId: cs.conversationId,
       });
 
       if (pendingOfferRef.current) {
@@ -259,35 +262,37 @@ export function useWebRTC({
         pendingOfferRef.current = null;
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        socketRef.current.emit('webrtc_answer', { targetUserId: callState.peerId, answer });
+        socket.emit('webrtc_answer', { targetUserId: cs.peerId, answer });
         await flushPendingCandidates();
       }
     } catch (err) {
       cleanupCall();
       console.warn('[WebRTC] acceptCall error:', err);
     }
-  }, [socketRef, callState.peerId, callState.conversationId, requestAudio, createPc, flushPendingCandidates, cleanupCall]);
+  }, [socket, requestAudio, createPc, flushPendingCandidates, cleanupCall]);
 
   const rejectCall = useCallback(() => {
-    if (socketRef.current && callState.peerId && callState.conversationId) {
-      socketRef.current.emit('call_rejected', {
-        callerId: callState.peerId,
-        conversationId: callState.conversationId,
+    const cs = callStateRef.current;
+    if (socket && cs.peerId && cs.conversationId) {
+      socket.emit('call_rejected', {
+        callerId: cs.peerId,
+        conversationId: cs.conversationId,
       });
     }
     cleanupCall();
-  }, [socketRef, callState.peerId, callState.conversationId, cleanupCall]);
+  }, [socket, cleanupCall]);
 
   const endCall = useCallback(() => {
-    if (socketRef.current && callState.peerId && callState.conversationId) {
+    const cs = callStateRef.current;
+    if (socket && cs.peerId && cs.conversationId) {
       closingRef.current = true;
-      socketRef.current.emit('call_ended', {
-        targetUserId: callState.peerId,
-        conversationId: callState.conversationId,
+      socket.emit('call_ended', {
+        targetUserId: cs.peerId,
+        conversationId: cs.conversationId,
       });
     }
     cleanupCall();
-  }, [socketRef, callState.peerId, callState.conversationId, cleanupCall]);
+  }, [socket, cleanupCall]);
 
   const toggleMute = useCallback(() => {
     const track = localStreamRef.current?.getAudioTracks()[0] as any;
@@ -304,15 +309,15 @@ export function useWebRTC({
     setCallState((prev) => ({ ...prev, isMinimized: false }));
   }, []);
 
-  // Socket event listeners
+  // Socket event listeners — re-register ทุกครั้งที่ socket instance เปลี่ยน
   useEffect(() => {
-    if (!socketRef.current || !currentUserId) return;
+    if (!socket || !currentUserId) return;
 
     const onIncomingCall = (payload: any) => {
       if (payload.callerId === currentUserId) return;
-
-      if (callState.status !== 'idle' && callState.status !== 'ended') {
-        socketRef.current?.emit('call_rejected', {
+      const cs = callStateRef.current;
+      if (cs.status !== 'idle' && cs.status !== 'ended') {
+        socket.emit('call_rejected', {
           callerId: payload.callerId,
           conversationId: payload.conversationId,
         });
@@ -335,7 +340,7 @@ export function useWebRTC({
       });
 
       autoRejectTimerRef.current = setTimeout(() => {
-        socketRef.current?.emit('call_rejected', {
+        socket.emit('call_rejected', {
           callerId: payload.callerId,
           conversationId: payload.conversationId,
         });
@@ -344,9 +349,10 @@ export function useWebRTC({
     };
 
     const onCallAccepted = async (payload: any) => {
+      const cs = callStateRef.current;
       if (
-        payload.accepterId !== callState.peerId ||
-        payload.conversationId !== callState.conversationId ||
+        payload.accepterId !== cs.peerId ||
+        payload.conversationId !== cs.conversationId ||
         !localStreamRef.current
       ) return;
 
@@ -355,26 +361,30 @@ export function useWebRTC({
       const pc = await createPc(localStreamRef.current, payload.accepterId, payload.conversationId);
       const offer = await pc.createOffer({});
       await pc.setLocalDescription(offer);
-      socketRef.current?.emit('webrtc_offer', { targetUserId: payload.accepterId, offer });
+      socket.emit('webrtc_offer', { targetUserId: payload.accepterId, offer });
     };
 
     const onCallRejected = (payload: any) => {
-      if (payload.rejecterId !== callState.peerId) return;
+      const cs = callStateRef.current;
+      if (payload.rejecterId !== cs.peerId) return;
       cleanupCall();
     };
 
     const onCallEnded = (payload: any) => {
-      if (payload.endedBy !== callState.peerId) return;
+      const cs = callStateRef.current;
+      if (payload.endedBy !== cs.peerId) return;
       cleanupCall();
     };
 
     const onCallFailed = (payload: any) => {
-      if (payload.targetUserId !== callState.peerId) return;
+      const cs = callStateRef.current;
+      if (payload.targetUserId !== cs.peerId) return;
       cleanupCall();
     };
 
     const onOffer = async (payload: any) => {
-      if (payload.callerId !== callState.peerId) return;
+      const cs = callStateRef.current;
+      if (payload.callerId !== cs.peerId) return;
       const pc = pcRef.current;
       if (!pc) {
         pendingOfferRef.current = { type: payload.offer?.type as RTCSdpType, sdp: payload.offer?.sdp ?? '' };
@@ -383,18 +393,20 @@ export function useWebRTC({
       await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      socketRef.current?.emit('webrtc_answer', { targetUserId: payload.callerId, answer });
+      socket.emit('webrtc_answer', { targetUserId: payload.callerId, answer });
       await flushPendingCandidates();
     };
 
     const onAnswer = async (payload: any) => {
-      if (payload.answererId !== callState.peerId || !pcRef.current) return;
+      const cs = callStateRef.current;
+      if (payload.answererId !== cs.peerId || !pcRef.current) return;
       await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.answer));
       await flushPendingCandidates();
     };
 
     const onIceCandidate = async (payload: any) => {
-      if (payload.fromUserId !== callState.peerId || !payload.candidate) return;
+      const cs = callStateRef.current;
+      if (payload.fromUserId !== cs.peerId || !payload.candidate) return;
       const pc = pcRef.current;
       if (!pc?.remoteDescription) {
         pendingCandidatesRef.current.push(payload.candidate);
@@ -403,30 +415,26 @@ export function useWebRTC({
       try { await pc.addIceCandidate(new RTCIceCandidate(payload.candidate)); } catch {}
     };
 
-    socketRef.current.on('incoming_call', onIncomingCall);
-    socketRef.current.on('call_accepted', onCallAccepted);
-    socketRef.current.on('call_rejected', onCallRejected);
-    socketRef.current.on('call_ended', onCallEnded);
-    socketRef.current.on('call_failed', onCallFailed);
-    socketRef.current.on('webrtc_offer', onOffer);
-    socketRef.current.on('webrtc_answer', onAnswer);
-    socketRef.current.on('webrtc_ice_candidate', onIceCandidate);
+    socket.on('incoming_call', onIncomingCall);
+    socket.on('call_accepted', onCallAccepted);
+    socket.on('call_rejected', onCallRejected);
+    socket.on('call_ended', onCallEnded);
+    socket.on('call_failed', onCallFailed);
+    socket.on('webrtc_offer', onOffer);
+    socket.on('webrtc_answer', onAnswer);
+    socket.on('webrtc_ice_candidate', onIceCandidate);
 
     return () => {
-      socketRef.current?.off('incoming_call', onIncomingCall);
-      socketRef.current?.off('call_accepted', onCallAccepted);
-      socketRef.current?.off('call_rejected', onCallRejected);
-      socketRef.current?.off('call_ended', onCallEnded);
-      socketRef.current?.off('call_failed', onCallFailed);
-      socketRef.current?.off('webrtc_offer', onOffer);
-      socketRef.current?.off('webrtc_answer', onAnswer);
-      socketRef.current?.off('webrtc_ice_candidate', onIceCandidate);
+      socket.off('incoming_call', onIncomingCall);
+      socket.off('call_accepted', onCallAccepted);
+      socket.off('call_rejected', onCallRejected);
+      socket.off('call_ended', onCallEnded);
+      socket.off('call_failed', onCallFailed);
+      socket.off('webrtc_offer', onOffer);
+      socket.off('webrtc_answer', onAnswer);
+      socket.off('webrtc_ice_candidate', onIceCandidate);
     };
-  // ไม่ใส่ callState.status/peerId/conversationId ใน deps
-  // เพราะจะทำให้ listeners ถูก register/unregister ทุกครั้งที่ state เปลี่ยน (listener stacking)
-  // handlers อ่าน callState โดยตรงจาก closure ของแต่ละ re-run ซึ่ง cleanup จะล้างก่อนเสมอ
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socketRef, currentUserId, cleanupCall, createPc, flushPendingCandidates]);
+  }, [socket, currentUserId, cleanupCall, createPc, flushPendingCandidates]);
 
   useEffect(() => () => {
     cleanupCall();

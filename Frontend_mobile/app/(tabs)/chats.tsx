@@ -60,14 +60,15 @@ function timeAgo(dateStr: string): string {
 }
 
 function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  if (!name) return '?';
+  return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
 }
 
 /* ======================= AVATAR ======================= */
 
 function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
-  const colorIndex = name.charCodeAt(0) % colors.length;
+  const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
@@ -107,7 +108,7 @@ export default function ChatsScreen() {
       const u = await AsyncStorage.getItem('user') ?? '';
       const r = await AsyncStorage.getItem('role') ?? '';
       setToken(t); setWsId(w);
-      setUserData(u ? JSON.parse(u) : null);
+      setUserData(u ? (() => { try { return JSON.parse(u); } catch { return null; } })() : null);
       setRole(r);
       setStorageLoaded(true);
     };

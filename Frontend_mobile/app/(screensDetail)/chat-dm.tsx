@@ -8,54 +8,25 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, Send, Phone } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import AIChatBanner from '../../components/chat/AIChatBanner';
-
-// ไม่ import useWebRTC และ CallOverlay ตรงๆ เพราะ react-native-webrtc ไม่รองรับ Expo Go
-// ใช้ require แบบ lazy แทนเพื่อให้ Expo Go โหลดไฟล์นี้ได้
-const isExpoGo = Constants.appOwnership === 'expo';
+import { useCall } from '../../lib/CallContext';
+import { API_BASE } from '@/lib/config';
 
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
 interface DmMessage { id: string; content: string; createdAt: string; sender: Sender; isRead: boolean; }
-
-import { API_BASE } from '@/lib/config';
-
-// dummy call state สำหรับ Expo Go
-const dummyCallState = {
-  status: 'idle' as const,
-  peerId: null,
-  peerName: null,
-  peerAvatarUrl: null,
-  conversationId: null,
-  localStream: null,
-  remoteStream: null,
-  isMuted: false,
-  callDuration: 0,
-  isMinimized: false,
-};
-
-const dummyWebRTC = {
-  callState: dummyCallState,
-  startCall: async (..._args: any[]) => {},  // eslint-disable-line @typescript-eslint/no-unused-vars
-  acceptCall: async () => {},
-  rejectCall: () => {},
-  endCall: () => {},
-  toggleMute: () => {},
-  minimizeCallUI: () => {},
-  expandCallUI: () => {},
-};
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 }
 
 function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  if (!name) return '?';
+  return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
 }
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
-  const colorIndex = name.charCodeAt(0) % colors.length;
+  const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
@@ -63,17 +34,10 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   );
 }
 
-// hook wrapper ที่ใช้ useWebRTC จริงบน dev build และ dummy บน Expo Go
-// isExpoGo คงที่ตลอด runtime จึงเลือก hook ครั้งเดียวตอน module load
-const useCallFeature: (socketRef: React.RefObject<Socket | null>, currentUserId: string) => typeof dummyWebRTC =
-  isExpoGo
-    ? (_socketRef, _currentUserId) => dummyWebRTC  // eslint-disable-line @typescript-eslint/no-unused-vars
-    : // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require('../../hooks/useWebRTC').useWebRTC;
-
 export default function ChatDmScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { startCall } = useCall();
 
   const conversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : (params.conversationId ?? '');
   const otherName = Array.isArray(params.otherName) ? params.otherName[0] : (params.otherName ?? '');
@@ -89,7 +53,8 @@ export default function ChatDmScreen() {
       const t = await AsyncStorage.getItem('token') ?? '';
       const u = await AsyncStorage.getItem('user') ?? '';
       const w = await AsyncStorage.getItem('wsId') ?? '';
-      const userData = u ? JSON.parse(u) : null;
+      let userData = null;
+      try { userData = u ? JSON.parse(u) : null; } catch {}
       setToken(t);
       setCurrentUserId(userData?.id ?? '');
       setWsId(w);
@@ -109,17 +74,6 @@ export default function ChatDmScreen() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const {
-    callState,
-    startCall,
-    acceptCall,
-    rejectCall,
-    endCall,
-    toggleMute,
-    minimizeCallUI,
-    expandCallUI,
-  } = useCallFeature(socketRef, currentUserId);
-
   const loadMessages = useCallback(async (silent = false) => {
     if (!conversationId || !token) return;
     try {
@@ -130,10 +84,7 @@ export default function ChatDmScreen() {
       if (!res.ok) throw new Error(`status ${res.status}`);
       const json = await res.json();
       const data: DmMessage[] = json.data ?? [];
-      // เก็บ snapshot ข้อความที่ยังไม่อ่านก่อน mark read (เฉพาะโหลดครั้งแรก)
-      if (!silent) {
-        setUnreadSnapshot(data.filter((m) => !m.isRead));
-      }
+      if (!silent) setUnreadSnapshot(data.filter((m) => !m.isRead));
       setMessages(data);
     } catch {
       if (!silent) Alert.alert('เกิดข้อผิดพลาด', 'โหลดข้อความไม่สำเร็จ');
@@ -176,7 +127,6 @@ export default function ChatDmScreen() {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
-      // ถ้าข้อความจากอีกฝ่าย ให้เพิ่มเข้า snapshot เพื่อให้ Banner แสดง
       if (msg.sender.id !== currentUserId) {
         setUnreadSnapshot((prev) => {
           if (prev.some((m) => m.id === msg.id)) return prev;
@@ -217,14 +167,12 @@ export default function ChatDmScreen() {
       if (!storageLoaded) return;
       const socket = socketRef.current;
       if (!socket) return;
-
       if (socket.connected) {
         socket.emit('join_dm', conversationId);
         loadMessages(true);
       } else {
         socket.connect();
       }
-
       return () => {};
     }, [storageLoaded, conversationId, loadMessages]),
   );
@@ -255,10 +203,6 @@ export default function ChatDmScreen() {
   };
 
   const handleStartCall = () => {
-    if (isExpoGo) {
-      Alert.alert('ไม่รองรับ', 'ฟีเจอร์โทรต้องใช้งานผ่าน Development Build ครับ');
-      return;
-    }
     if (!otherUserId) {
       Alert.alert('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลผู้รับสาย');
       return;
@@ -288,12 +232,6 @@ export default function ChatDmScreen() {
     );
   };
 
-  // โหลด CallOverlay แบบ lazy เฉพาะตอนไม่ได้อยู่บน Expo Go
-  const CallOverlayComponent = isExpoGo ? null : (() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('../../components/ui/CallOverlay').default;
-  })();
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -320,11 +258,7 @@ export default function ChatDmScreen() {
           </View>
         ) : (
           <View style={{ flex: 1 }}>
-            <AIChatBanner
-              unreadMessages={unreadSnapshot}
-              wsId={wsId}
-              token={token}
-            />
+            <AIChatBanner unreadMessages={unreadSnapshot} wsId={wsId} token={token} />
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -362,18 +296,6 @@ export default function ChatDmScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
-      {CallOverlayComponent && (
-        <CallOverlayComponent
-          callState={callState}
-          acceptCall={acceptCall}
-          rejectCall={rejectCall}
-          endCall={endCall}
-          toggleMute={toggleMute}
-          minimizeCallUI={minimizeCallUI}
-          expandCallUI={expandCallUI}
-        />
-      )}
     </SafeAreaView>
   );
 }

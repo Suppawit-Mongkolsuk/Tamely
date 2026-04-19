@@ -42,7 +42,7 @@ export default function WorkspaceCard({
       <View className="flex-1">
         <View className="flex-row items-center mb-1">
           <Text className="text-lg font-bold text-gray-800 mr-2" numberOfLines={1}>
-            {name}
+            {name ?? ''}
           </Text>
           {planType && (
             <View className="bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
@@ -54,14 +54,14 @@ export default function WorkspaceCard({
         {/*จำนวน USER*/}
         <View className="flex-row items-center mb-2">
           <Users size={12} color="#9ca3af" />
-          <Text className="text-gray-400 text-xs ml-1 mr-3">{`${memberCount} members`}</Text>
+          <Text className="text-gray-400 text-xs ml-1 mr-3">{`${memberCount ?? 0} members`}</Text>
           
           {/*เวลาที่ใช้งานล่าสุด*/}
           <Clock size={12} color="#9ca3af" />
           <Text className="text-gray-400 text-xs ml-1">{lastActive}</Text>
         </View>
 
-        {(isAdmin || (unreadCount && unreadCount > 0)) && (
+        {(!!isAdmin || (!!unreadCount && unreadCount > 0)) && (
           <View className="flex-row items-center mt-1">
             {isAdmin && (
               <View className="flex-row items-center bg-blue-50 border border-blue-100 px-2 py-1 rounded-full mr-2">
