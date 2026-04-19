@@ -65,11 +65,13 @@ export default function ProfileEditScreen() {
         setRole(r);
         setWsName(ws);
         if (u) {
-          const user = JSON.parse(u);
-          setDisplayName(user.displayName ?? '');
-          setEmail(user.email ?? '');
-          setBio(user.bio ?? '');
-          setAvatarUrl(user.avatarUrl ?? null);
+          try {
+            const user = JSON.parse(u);
+            setDisplayName(user.displayName ?? '');
+            setEmail(user.email ?? '');
+            setBio(user.bio ?? '');
+            setAvatarUrl(user.avatarUrl ?? null);
+          } catch {}
         }
       } finally {
         setLoading(false);

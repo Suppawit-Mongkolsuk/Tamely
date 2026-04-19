@@ -53,7 +53,8 @@ export default function ChatDmScreen() {
       const t = await AsyncStorage.getItem('token') ?? '';
       const u = await AsyncStorage.getItem('user') ?? '';
       const w = await AsyncStorage.getItem('wsId') ?? '';
-      const userData = u ? JSON.parse(u) : null;
+      let userData = null;
+      try { userData = u ? JSON.parse(u) : null; } catch {}
       setToken(t);
       setCurrentUserId(userData?.id ?? '');
       setWsId(w);

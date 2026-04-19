@@ -61,14 +61,15 @@ function timeAgo(dateStr: string): string {
 }
 
 function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  if (!name) return '?';
+  return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
 }
 
 /* ======================= AVATAR ======================= */
 
 function Avatar({ name, size = 40, light = false }: { name: string; size?: number; light?: boolean }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
-  const colorIndex = name.charCodeAt(0) % colors.length;
+  const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
     <View style={{
       width: size, height: size, borderRadius: size / 2,
@@ -92,7 +93,7 @@ export default function PostDetailScreen() {
   const rawWsId = params.wsId;
   const rawCurrentUserId = params.currentUserId;
 
-  const post: Post | null = postStr ? JSON.parse(postStr) : null;
+  const post: Post | null = postStr ? (() => { try { return JSON.parse(postStr); } catch { return null; } })() : null;
   const wsId = Array.isArray(rawWsId) ? rawWsId[0] : (rawWsId ?? '');
   const currentUserId = Array.isArray(rawCurrentUserId) ? rawCurrentUserId[0] : (rawCurrentUserId ?? '');
 

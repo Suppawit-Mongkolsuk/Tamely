@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  Image, Alert, ActivityIndicator
+  Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -73,6 +73,8 @@ export default function EnterCodeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
       <View className="flex-1 px-6">
 
         <View style={{ height: 60, marginTop: 24, marginBottom: 200 }}>
@@ -166,6 +168,8 @@ export default function EnterCodeScreen() {
         </View>
 
       </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

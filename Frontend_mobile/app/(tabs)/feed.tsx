@@ -69,14 +69,15 @@ function timeAgo(dateStr: string): string {
 }
 
 function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  if (!name) return '?';
+  return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
 }
 
 /* ======================= AVATAR ======================= */
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
-  const colorIndex = name.charCodeAt(0) % colors.length;
+  const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
@@ -483,7 +484,7 @@ export default function FeedScreen() {
       setToken(pToken);
       setWsId(pWsId);
       setRole(pRole);
-      if (pUserStr) setUserData(JSON.parse(pUserStr));
+      if (pUserStr) { try { setUserData(JSON.parse(pUserStr)); } catch {} }
       // บันทึก ลง AsyncStorage เพื่อให้ tab อื่นและ reload ใช้ได้
       AsyncStorage.setItem('token', pToken);
       AsyncStorage.setItem('wsId', pWsId);
@@ -505,7 +506,7 @@ export default function FeedScreen() {
       ]).then(([t, w, u, r]) => {
         if (t) setToken(t);
         if (w) setWsId(w);
-        if (u) setUserData(JSON.parse(u));
+        if (u) { try { setUserData(JSON.parse(u)); } catch {} }
         if (r) setRole(r);
       });
     }
@@ -514,7 +515,7 @@ export default function FeedScreen() {
   // refresh userData เมื่อกลับมาที่หน้านี้ (เช่น หลังแก้ profile)
   useFocusEffect(useCallback(() => {
     AsyncStorage.getItem('user').then((u) => {
-      if (u) setUserData(JSON.parse(u));
+      if (u) { try { setUserData(JSON.parse(u)); } catch {} }
     });
   }, []));
 

@@ -39,7 +39,8 @@ const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  if (!name) return '?';
+  return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
 }
 
 function RoleBadge({ role }: { role: string }) {

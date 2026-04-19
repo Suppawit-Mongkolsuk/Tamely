@@ -111,7 +111,7 @@ function RoleBadge({ role }: { role: string }) {
 function Avatar({ name, size = 36, uri }: { name: string; size?: number; uri?: string | null }) {
   if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
-  const bg = colors[name?.charCodeAt(0) % colors.length] ?? '#425C95';
+  const bg = name ? (colors[name.charCodeAt(0) % colors.length] ?? '#425C95') : '#425C95';
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: '#fff', fontWeight: '700', fontSize: size * 0.35 }}>{getInitials(name)}</Text>
@@ -214,8 +214,10 @@ export default function WorkspaceManagementScreen() {
   useEffect(() => {
     AsyncStorage.getItem('user').then((u) => {
       if (u) {
-        const parsed = JSON.parse(u);
-        setCurrentUserId(parsed.id ?? '');
+        try {
+          const parsed = JSON.parse(u);
+          setCurrentUserId(parsed.id ?? '');
+        } catch {}
       }
     });
   }, []);
