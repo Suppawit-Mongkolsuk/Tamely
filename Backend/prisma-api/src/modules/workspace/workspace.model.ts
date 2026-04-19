@@ -3,7 +3,7 @@ import { WorkspaceRole } from "@prisma/client";
 
 /* ======================= TYPES ======================= */
 
-export type TypePayloadCreateWorkspace = {
+export type TypePayloadCreateWorkspace = { 
   name: string;
   description?: string;
   iconUrl?: string;

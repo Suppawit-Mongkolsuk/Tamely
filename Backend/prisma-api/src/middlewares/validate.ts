@@ -6,7 +6,7 @@ import { AppError, AuthRequest } from '../types';
  * Middleware สำหรับ validate request body ด้วย Zod schema
  * ตรวจสอบข้อมลูที่ส่งมาว่าตรงตาม schema ไหม 
  */
-export const validateRequest =
+export const validateRequest = // รับ Zod schema แล้ว return middleware function
   (schema: ZodSchema) =>
   (req: Request, res: Response, next: NextFunction): void => { // รับ Zod schema แล้ว return middleware function
     const result = schema.safeParse({ //ตรวจข้อมูลแบบ ไม่ throw error

@@ -22,13 +22,13 @@ export type TypePayloadUpdateProfile = {
 /* ======================= HELPERS ======================= */
 
 const zodEmail = z
-  .string({ message: "กรุณากรอกอีเมล" })
+  .string({ message: "กรุณากรอกอีเมล" }) 
   .email({ message: "รูปแบบอีเมลไม่ถูกต้อง" })
-  .transform((v) => v.trim().toLowerCase());
+  .transform((v) => v.trim().toLowerCase()); // trim และ lowercase อีเมลเพื่อความสม่ำเสมอ
 
 const zodPassword = z
   .string({ message: "กรุณากรอกรหัสผ่าน" })
-  .min(8, { message: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร" });
+  .min(8, { message: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร" }); // กำหนดความยาวขั้นต่ำของรหัสผ่านเป็น 8 ตัวอักษร
 
 /* ======================= REGISTER ======================= */
 
