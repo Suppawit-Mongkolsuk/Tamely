@@ -5,7 +5,7 @@ import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
 import { workspaceIconUpload } from '../../middlewares/upload.middleware';
 import { AuthRequest } from '../../types';
-import { CreateWorkspaceSchema, JoinWorkspaceSchema, AddMemberSchema } from './workspace.model';
+import { CreateWorkspaceSchema, JoinWorkspaceSchema } from './workspace.model';
 import * as workspaceService from './workspace.service';
 
 const router = Router();
@@ -40,49 +40,43 @@ router.post('/', createWorkspaceLimiter, validateRequest(CreateWorkspaceSchema),
   res.status(201).json({ success: true, data: workspace });
 }));
 
-// GET /api/workspaces
+// GET /api/workspaces // ดึงรายการ workspace ที่ user เป็นสมาชิกอยู่
 router.get('/', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const workspaces = await workspaceService.getUserWorkspaces(req.userId!);
+  const workspaces = await workspaceService.getUserWorkspaces(req.userId!); 
   res.json({ success: true, data: workspaces });
 }));
 
-// POST /api/workspaces/join
+// POST /api/workspaces/join // เข้าร่วม workspace ด้วย invite code
 router.post('/join', validateRequest(JoinWorkspaceSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const workspace = await workspaceService.joinByInviteCode(req.body.inviteCode, req.userId!);
   res.json({ success: true, data: workspace });
 }));
 
-// GET /api/workspaces/:id
+// GET /api/workspaces/:id // ดึงข้อมูล workspace โดย id พร้อมตรวจสอบว่า user เป็นสมาชิกอยู่หรือไม่
 router.get('/:id', validateUUID, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const workspace = await workspaceService.getWorkspaceById(param(req.params.id), req.userId!);
   res.json({ success: true, data: workspace });
 }));
 
-// PATCH /api/workspaces/:id
+// PATCH /api/workspaces/:id // อัพเดตข้อมูล workspace (เช่น ชื่อ, คำอธิบาย)
 router.patch('/:id', validateUUID, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const workspace = await workspaceService.updateWorkspace(param(req.params.id), req.userId!, req.body);
   res.json({ success: true, data: workspace });
 }));
 
-// DELETE /api/workspaces/:id
+// DELETE /api/workspaces/:id // ลบ workspace 
 router.delete('/:id', validateUUID, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   await workspaceService.deleteWorkspace(param(req.params.id), req.userId!);
   res.json({ success: true, message: 'Workspace deleted' });
 }));
 
-// GET /api/workspaces/:id/members
+// GET /api/workspaces/:id/members // ดึงรายการสมาชิกใน workspace พร้อม role ของแต่ละคน
 router.get('/:id/members', validateUUID, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const members = await workspaceService.getMembers(param(req.params.id), req.userId!);
   res.json({ success: true, data: members });
 }));
 
-// POST /api/workspaces/:id/members
-router.post('/:id/members', validateUUID, validateRequest(AddMemberSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const member = await workspaceService.addMemberByEmail(param(req.params.id), req.userId!, req.body.email, req.body.role);
-  res.status(201).json({ success: true, data: member });
-}));
-
-// DELETE /api/workspaces/:id/members/:userId
+// DELETE /api/workspaces/:id/members/:userId // ลบสมาชิกออกจาก workspace
 router.delete('/:id/members/:userId', validateUUID, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   await workspaceService.removeMember(param(req.params.id), req.userId!, param(req.params.userId));
   res.json({ success: true, message: 'Member removed' });

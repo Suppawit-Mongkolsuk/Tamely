@@ -89,22 +89,6 @@ export const JoinWorkspaceSchema = z.object({
   }),
 });
 
-export const AddMemberSchema = z.object({
-  params: z.object({
-    id: zodUuid,
-  }),
-  body: z.object({
-    email: z
-      .string({ message: "กรุณากรอกอีเมล" })
-      .email({ message: "รูปแบบอีเมลไม่ถูกต้อง" })
-      .transform((v) => v.trim().toLowerCase()),
-    role: z
-      .enum(["MEMBER", "MODERATOR", "ADMIN"], { message: "บทบาทไม่ถูกต้อง" })
-      .optional()
-      .default("MEMBER"),
-  }),
-});
-
 export const RemoveMemberSchema = z.object({
   params: z.object({
     id: zodUuid,

@@ -51,32 +51,32 @@ export const create = async (
 
 /* ======================= READ ======================= */
 
-export const findMembershipsByUser = async (userId: string) => {
+export const findMembershipsByUser = async (userId: string) => { // ดึงข้อมูล workspace memberships ของ user พร้อมข้อมูล workspace ที่เกี่ยวข้อง (เฉพาะ workspace ที่ active อยู่)
   return prisma.workspaceMember.findMany({
     where: {
       userId,
-      workspace: {
+      workspace: { // กรองเฉพาะ workspace ที่ active อยู่
         isActive: true,
       },
     },
-    select: {
+    select: { // เลือกข้อมูล membership พร้อมข้อมูล workspace ที่เกี่ยวข้อง
       role: true,
       joinedAt: true,
       workspace: {
         select: {
-          ...workspaceBaseSelect,
-          _count: { select: { members: true, rooms: true } },
+          ...workspaceBaseSelect, // เลือกข้อมูล workspace พื้นฐาน
+          _count: { select: { members: true, rooms: true } }, // นับจำนวนสมาชิกและห้องใน workspace
         },
       },
     },
-    orderBy: { joinedAt: 'desc' },
+    orderBy: { joinedAt: 'desc' }, // เรียงตามวันที่เข้าร่วม workspace ล่าสุดก่อน
   });
 };
 
-export const findAssignedCustomRolePermissionsByUser = async (userId: string) => {
+export const findAssignedCustomRolePermissionsByUser = async (userId: string) => { // ดึงข้อมูล custom role permissions ที่ถูกกำหนดให้ user ใน workspace ต่างๆ (
   return prisma.customRoleMember.findMany({
     where: { userId },
-    select: {
+    select: { // เลือกข้อมูล custom role permissions ที่ถูกกำหนดให้ user ใน workspace ต่างๆ
       workspaceId: true,
       customRole: {
         select: {
@@ -87,7 +87,7 @@ export const findAssignedCustomRolePermissionsByUser = async (userId: string) =>
   });
 };
 
-export const findById = async (workspaceId: string) => {
+export const findById = async (workspaceId: string) => { // ดึงข้อมูล workspace โดย id พร้อมข้อมูล owner และนับจำนวนสมาชิก ห้อง และโพสต์ใน workspace นี้ด้วย
   return prisma.workspace.findUnique({
     where: { id: workspaceId },
     select: {
@@ -97,14 +97,14 @@ export const findById = async (workspaceId: string) => {
   });
 };
 
-export const findByIdSimple = async (workspaceId: string) => {
+export const findByIdSimple = async (workspaceId: string) => { // ดึงข้อมูล workspace เฉพาะ id และ ownerId เพื่อใช้ในการตรวจสอบสิทธิ์การเข้าถึง workspace ใน service ชั้นบน 
   return prisma.workspace.findUnique({
     where: { id: workspaceId },
     select: { id: true, ownerId: true },
   });
 };
 
-export const findByInviteCode = async (inviteCode: string) => {
+export const findByInviteCode = async (inviteCode: string) => { // ดึงข้อมูล workspace โดยใช้ invite code เฉพาะ workspace ที่ active อยู่เท่านั้น
   return prisma.workspace.findUnique({
     where: { inviteCode, isActive: true },
     select: workspaceBaseSelect,
@@ -134,34 +134,34 @@ export const updateInviteCode = async (workspaceId: string, newCode: string) => 
 
 /* ======================= DELETE ======================= */
 
-export const remove = async (workspaceId: string) => {
+export const remove = async (workspaceId: string) => { // ลบ workspace 
   return prisma.workspace.delete({ where: { id: workspaceId } });
 };
 
 /* ======================= MEMBERS ======================= */
 
-export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
+export const findWorkspaceMember = async (workspaceId: string, userId: string) => { // ดึงข้อมูล membership ของ user ใน workspace นี้ พร้อมตรวจสอบว่า workspace ยัง active อยู่หรือไม่ ถ้าไม่ active ให้คืนค่า null กลับไป
   const member = await prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
-    select: {
-      userId: true,
+    select: { 
+      userId: true, 
       role: true,
       workspace: { select: { isActive: true } },
     },
   });
 
-  if (!member?.workspace.isActive) {
+  if (!member?.workspace.isActive) { // ถ้า workspace ไม่ active หรือไม่มี membership ให้คืนค่า null กลับไป
     return null;
   }
 
-  return {
+  return { // ถ้า workspace ยัง active อยู่ ให้คืนข้อมูล membership กลับไป
     userId: member.userId,
     role: member.role,
   };
 };
 
-export const findWorkspaceMemberDetailed = async (workspaceId: string, userId: string) => {
-  const member = await prisma.workspaceMember.findUnique({
+export const findWorkspaceMemberDetailed = async (workspaceId: string, userId: string) => { // หา membership ของ user 
+  const member = await prisma.workspaceMember.findUnique({ 
     where: { workspaceId_userId: { workspaceId, userId } },
     select: {
       userId: true,
@@ -182,15 +182,15 @@ export const findWorkspaceMemberDetailed = async (workspaceId: string, userId: s
     },
   });
 
-  if (!member?.workspace.isActive) {
+  if (!member?.workspace.isActive) { // ถ้า workspace ไม่ active หรือไม่มี membership ให้คืนค่า null กลับไป
     return null;
   }
 
-  const { workspace, ...result } = member;
-  return result;
+  const { workspace, ...result } = member; // ถ้า workspace ยัง active อยู่ ให้คืนข้อมูล membership พร้อม custom role permissions กลับไป
+  return result; // คืนข้อมูล membership พร้อม custom role permissions กลับไป
 };
 
-export const findAllMembers = async (workspaceId: string) => {
+export const findAllMembers = async (workspaceId: string) => { // ดึงรายการสมาชิกใน workspace พร้อม role ของแต่ละคน 
   return prisma.workspaceMember.findMany({
     where: { workspaceId },
     select: {
@@ -211,36 +211,29 @@ export const findAllMembers = async (workspaceId: string) => {
         },
       },
     },
-    orderBy: { joinedAt: 'asc' },
+    orderBy: { joinedAt: 'asc' }, // เรียงตามวันที่เข้าร่วม workspace ก่อนหลัง
   });
 };
 
-export const findUserByEmail = async (email: string) => {
-  return prisma.user.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-};
-
-export const createMember = async (
+export const createMember = async ( // เพิ่มสมาชิกใหม่เข้าไปใน workspace
   workspaceId: string,
   userId: string,
   role: WorkspaceRole,
 ) => {
-  return prisma.workspaceMember.create({
-    data: { workspaceId, userId, role },
+  return prisma.workspaceMember.create({ // สร้าง membership ใหม่ให้กับ user ใน workspace นี้
+    data: { workspaceId, userId, role }, // กำหนด workspaceId, userId และ role ของสมาชิกใหม่
     select: {
       userId: true,
       role: true,
       joinedAt: true,
       user: {
-        select: {
-          ...memberUserSelect,
-          customRoles: {
-            where: { workspaceId },
+        select: { // เลือกข้อมูล user ที่จะแสดงในสมาชิก workspace
+          ...memberUserSelect, 
+          customRoles: {// เลือกข้อมูล custom role permissions ที่จะแสดงในสมาชิก workspace
+            where: { workspaceId }, 
             select: {
               customRole: {
-                select: customRoleSelect,
+                select: customRoleSelect, // เลือกข้อมูล custom role permissions ที่จะแสดงในสมาชิก workspace
               },
             },
           },
