@@ -373,8 +373,7 @@ export default function Header({
               </TouchableOpacity>
             )}
 
-            {/* เปลี่ยน Workspace — OWNER/ADMIN */}
-            {isAdminOrOwner && (
+            {/* เปลี่ยน Workspace */}
               <TouchableOpacity onPress={handleSwitchWorkspace} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
                <RefreshCw size={18} color="#6b7280" />
                 <View style={{ flex: 1 }}>
@@ -383,7 +382,6 @@ export default function Header({
                 </View>
               <ChevronRight size={16} color="#d1d5db" />
             </TouchableOpacity>
-            )}
 
             <TouchableOpacity onPress={() => { setShowProfile(false); router.replace('/(auth)/login'); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 }}>
               <LogOut size={18} color="#ef4444" />
