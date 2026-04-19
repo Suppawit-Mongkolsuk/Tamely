@@ -54,13 +54,13 @@ export async function uploadToStorage(
   fileBuffer: Buffer,
   mimeType: string,
 ): Promise<string> {
-  if (!supabaseUrl || !supabaseServiceKey) {
+  if (!supabaseUrl || !supabaseServiceKey) { // ถ้า Supabase ไม่พร้อม ให้โยน error ออกมา
     throw new Error('Supabase ยังไม่ได้ตั้งค่า');
   }
 
-  const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`;
+  const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`; // URL สำหรับอัปโหลดไฟล์ไปยัง bucket และ path ที่กำหนด
 
-  const response = await fetch(uploadUrl, {
+  const response = await fetch(uploadUrl, { // เรียก API เพื่ออัปโหลดไฟล์
     method: 'POST',
     headers: {
       ...authHeaders(),
@@ -70,13 +70,13 @@ export async function uploadToStorage(
     body: fileBuffer,
   });
 
-  if (!response.ok) {
-    const errText = await response.text();
+  if (!response.ok) { // ถ้าอัปโหลดไม่สำเร็จ ให้ log error และโยน error ออกมา
+    const errText = await response.text(); // ดึงข้อความ error จาก response เพื่อช่วย debug
     console.error(`Supabase upload error [${bucket}/${filePath}]:`, response.status, errText);
     throw new Error(`ไม่สามารถอัปโหลดไฟล์ไปยัง ${bucket} ได้`);
   }
 
-  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${filePath}`;
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${filePath}`; // คืน public URL ของไฟล์ที่อัปโหลด เพื่อให้ client สามารถเข้าถึงได้
 }
 
 /**
@@ -86,21 +86,21 @@ export async function uploadToStorage(
  * @param publicUrl - public URL ของไฟล์ที่ต้องการลบ
  */
 export async function deleteFromStorage(bucket: string, publicUrl: string | null): Promise<void> {
-  if (!publicUrl || !supabaseUrl || !supabaseServiceKey) return;
+  if (!publicUrl || !supabaseUrl || !supabaseServiceKey) return; // ถ้าไม่มี URL หรือ Supabase ไม่พร้อม ให้ข้ามการลบ
 
   try {
-    const match = publicUrl.match(
+    const match = publicUrl.match( // ดึง filePath จาก public URL โดยใช้ regex
       new RegExp(`/storage/v1/object/public/${bucket}/(.+)$`),
     );
-    if (!match) return;
+    if (!match) return; 
 
     const filePath = match[1];
-    await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`, {
+    await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`, { // เรียก API ลบไฟล์
       method: 'DELETE',
       headers: authHeaders(),
     });
   } catch (err) {
-    console.warn(`⚠️ Failed to delete from ${bucket}:`, err);
+    console.warn(`⚠️ Failed to delete from ${bucket}:`, err); // ไม่ throw error ถ้าเกิดปัญหาในการลบ — แค่ log ไว้
   }
 }
 
@@ -136,15 +136,15 @@ function sanitizeName(name: string): string {
  * [Feature: Profile] อัปโหลด Avatar ผู้ใช้
  * Path: avatars/{userId}/avatar-{timestamp}.{ext}
  */
-export async function uploadAvatar(
+export async function uploadAvatar( // อัปโหลดรูปโปรไฟล์ของ user ไปยัง bucket 'avatars'
   userId: string,
   fileBuffer: Buffer,
   mimeType: string,
   originalName: string,
 ): Promise<string> {
-  const ext = originalName.split('.').pop() || 'jpg';
-  const filePath = `${userId}/avatar-${Date.now()}.${ext}`;
-  return uploadToStorage(AVATAR_BUCKET, filePath, fileBuffer, mimeType);
+  const ext = originalName.split('.').pop() || 'jpg'; // ดึงนามสกุลไฟล์จากชื่อเดิม (default เป็น jpg ถ้าไม่มี)
+  const filePath = `${userId}/avatar-${Date.now()}.${ext}`; // สร้าง path สำหรับไฟล์ '
+  return uploadToStorage(AVATAR_BUCKET, filePath, fileBuffer, mimeType); // เรียกฟังก์ชันหลักเพื่ออัปโหลดไฟล์ไปยัง bucket 'avatars' เเละ คืน public URL กลับมา
 }
 
 /** [Feature: Profile] ลบ Avatar เก่า */

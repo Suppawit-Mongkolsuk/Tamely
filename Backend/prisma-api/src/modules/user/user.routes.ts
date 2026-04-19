@@ -12,7 +12,7 @@ router.use(authenticate);
  * mobile เรียกตอน app เปิดขึ้นมาเพื่อ register / update push token
  * body: { token: string }
  */
-router.patch(
+router.patch( // อัพเดต push token ของ user เพื่อให้ส่ง push ได้หลัง login
   '/users/push-token',
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { token } = req.body;
@@ -36,7 +36,7 @@ router.patch(
  * เรียกตอน logout เพื่อลบ token ออก ไม่ให้ส่ง push หลัง logout
  */
 router.delete(
-  '/users/push-token',
+  '/users/push-token', // ลบ push token ของ user ตอน logout
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     await prisma.user.update({
       where: { id: req.userId! },

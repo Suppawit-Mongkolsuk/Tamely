@@ -32,7 +32,7 @@ export function createUploadMiddleware(maxSizeMB: number, allowedMimeTypes?: str
           return file.mimetype === pattern; // ตรงกันเป๊ะ เช่น 'image/jpeg' === 'image/jpeg' ไม่เป็น 'image/*'
         });
 
-        if (allowed) {
+        if (allowed) { // ถ้า MIME type ของไฟล์ตรงกับ allowedMimeTypes ให้อนุญาต
           cb(null, true);
         } else {
           cb(new Error(`ประเภทไฟล์ไม่รองรับ: ${file.mimetype}`));
@@ -40,7 +40,7 @@ export function createUploadMiddleware(maxSizeMB: number, allowedMimeTypes?: str
       }
     : undefined;
 
-  return multer({
+  return multer({ // ตั้งค่า multer
     storage: memoryStorage(),
     limits: { fileSize: maxSizeMB * 1024 * 1024 },
     ...(fileFilter ? { fileFilter } : {}),

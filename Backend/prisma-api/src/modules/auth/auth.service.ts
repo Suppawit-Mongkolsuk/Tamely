@@ -186,19 +186,19 @@ export const updateUserAvatar = async (
   mimeType: string,
   originalName: string,
 ) => {
-  const user = await authRepository.findById(userId);
-  if (!user) throw new AppError(404, 'User not found');
+  const user = await authRepository.findById(userId); 
+  if (!user) throw new AppError(404, 'User not found'); 
 
-  await deleteOldAvatar(user.avatarUrl);
+  await deleteOldAvatar(user.avatarUrl); // ลบรูปเก่าที่เคยอัปโหลดไว้ใน Supabase Storage (ถ้ามี)
 
-  const publicUrl = await uploadAvatar(
+  const publicUrl = await uploadAvatar( // อัปโหลดรูปใหม่ไปยัง Supabase Storage แล้วได้ public URL กลับมา
     userId,
     fileBuffer,
     mimeType,
     originalName,
   );
 
-  const updated = await authRepository.updateAvatar(userId, publicUrl);
+  const updated = await authRepository.updateAvatar(userId, publicUrl); // อัปเดต avatarUrl ใน DB ด้วย public URL ที่ได้จาก Supabase Storage
 
   return {
     id: updated.id,

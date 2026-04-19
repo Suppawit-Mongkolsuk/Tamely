@@ -105,16 +105,16 @@ router.post('/reset-password', validateRequest(ResetPasswordSchema), asyncHandle
 // PATCH /api/auth/profile // อัพเดตข้อมูลโปรไฟล์ของ user 
 router.patch('/profile', authenticate, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const { displayName, bio } = req.body; // ดึง displayName กับ bio จาก request body
-  const user = await authService.updateProfile(req.userId!, { displayName, bio });
+  const user = await authService.updateProfile(req.userId!, { displayName, bio }); // เรียก service เพื่ออัปเดตข้อมูลโปรไฟล์ โดยส่ง userId กับข้อมูลที่ต้องการอัปเดตไป
   res.json({ success: true, data: user });
 }));
 
-// POST /api/auth/avatar
+// POST /api/auth/avatar // อัปโหลดรูปโปรไฟล์ใหม่
 router.post('/avatar', authenticate, avatarUpload.single('avatar'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const file = req.file;
-  if (!file) { res.status(400).json({ success: false, error: 'No file uploaded' }); return; }
-  const user = await authService.updateUserAvatar(req.userId!, file.buffer, file.mimetype, file.originalname);
-  res.json({ success: true, data: user });
+  const file = req.file; // ดึงไฟล์ที่อัปโหลดจาก request
+  if (!file) { res.status(400).json({ success: false, error: 'No file uploaded' }); return; } // ถ้าไม่มีไฟล์ใน request ให้ส่ง error กลับไป
+  const user = await authService.updateUserAvatar(req.userId!, file.buffer, file.mimetype, file.originalname); // เรียก service เพื่ออัปโหลด avatar และอัปเดต avatarUrl ใน DB
+  res.json({ success: true, data: user }); // ส่งข้อมูล user ที่อัปเดตแล้วกลับไปยัง client
 }));
 
 export default router;
