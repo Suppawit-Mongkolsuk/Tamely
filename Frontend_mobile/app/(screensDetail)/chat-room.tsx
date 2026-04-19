@@ -233,7 +233,7 @@ export default function ChatDmScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}>
         <View style={{ backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', gap: 12 }}>
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
             <ArrowLeft size={22} color="#111827" />
