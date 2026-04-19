@@ -334,13 +334,19 @@ export default function Header({
             {[
               { icon: <User size={18} color="#425C95" />, label: 'Profile & Settings' },
             ].map((item, index) => (
-              <TouchableOpacity key={index} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
-                {item.icon}
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{item.label}</Text>
-                </View>
-                <ChevronRight size={16} color="#d1d5db" />
-              </TouchableOpacity>
+              <TouchableOpacity 
+              onPress={() => {
+                setShowProfile(false);
+                router.push('/(screensDetail)/profile-edit'); 
+              }} 
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}
+            >
+              <User size={18} color="#425C95" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Profile & Settings</Text>
+              </View>
+              <ChevronRight size={16} color="#d1d5db" />
+            </TouchableOpacity>
             ))}
 
             {/* Workspace Settings — เฉพาะ OWNER/ADMIN */}
@@ -370,13 +376,13 @@ export default function Header({
             {/* เปลี่ยน Workspace — OWNER/ADMIN */}
             {isAdminOrOwner && (
               <TouchableOpacity onPress={handleSwitchWorkspace} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
-                <RefreshCw size={18} color="#6b7280" />
+               <RefreshCw size={18} color="#6b7280" />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>เปลี่ยน Workspace</Text>
                   <Text style={{ fontSize: 12, color: '#9ca3af' }}>กลับไปหน้าเลือก Workspace</Text>
                 </View>
-                <ChevronRight size={16} color="#d1d5db" />
-              </TouchableOpacity>
+              <ChevronRight size={16} color="#d1d5db" />
+            </TouchableOpacity>
             )}
 
             <TouchableOpacity onPress={() => { setShowProfile(false); router.replace('/(auth)/login'); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 }}>
