@@ -25,7 +25,6 @@ export default function RegisterScreen() {
         }
 
         try {
-            console.log('Sending register request...');
             const response = await fetch(`${API_BASE}/api/auth/register`, {
                 method: 'POST',
                 headers: {
@@ -41,19 +40,16 @@ export default function RegisterScreen() {
             const result = await response.json();
 
             if (response.ok) {
-                console.log('Register Success:', result.data.user);
-                router.replace({ 
+                router.replace({
                     pathname: '/(workspace)/workspace', 
                     params: { user: JSON.stringify(result.data.user), 
                     token: result.data.token,
                     } 
                 });
             } else {
-                console.log("Backend Error:", result);
                 Alert.alert("Registration Failed", result.error || result.message || JSON.stringify(result));
             }
-        } catch (error) {
-            console.error('API Error:', error);
+        } catch {
             Alert.alert('Network Error', 'Please check if backend is running.');
         }
     }

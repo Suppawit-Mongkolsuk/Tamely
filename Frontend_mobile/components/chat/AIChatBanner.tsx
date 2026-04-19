@@ -79,8 +79,7 @@ export default function AIChatBanner({ unreadMessages, wsId, token }: Props) {
       const json = await res.json();
       setResult(json?.data?.reply ?? json?.reply ?? 'ไม่สามารถสรุปได้');
       setResultType('summary');
-    } catch (e) {
-      console.warn('[AIChatBanner] summarize error:', e);
+    } catch {
       setResult('เกิดข้อผิดพลาด กรุณาลองใหม่');
       setResultType('summary');
     } finally {

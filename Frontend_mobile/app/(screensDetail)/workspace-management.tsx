@@ -323,9 +323,7 @@ export default function WorkspaceManagementScreen() {
       if (res.ok) {
         setMemberCustomRoles(json.data ?? []);
       }
-    } catch (err) {
-      console.log('Failed to fetch user roles', err);
-    }
+    } catch {}
   };
 
   const handleUpdateRole = async (newRole: string) => {

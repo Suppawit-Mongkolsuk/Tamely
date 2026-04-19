@@ -118,9 +118,7 @@ export default function ChatDmScreen() {
       loadMessages(true);
     });
 
-    socket.on('connect_error', (err) => {
-      console.warn('[Socket] connect_error:', err.message);
-    });
+    socket.on('connect_error', () => {});
 
     socket.on('dm_received', (msg: DmMessage) => {
       setMessages((prev) => {
