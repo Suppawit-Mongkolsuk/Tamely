@@ -162,7 +162,7 @@ router.post(
     // Broadcast ผ่าน Socket.IO ไปยังทุก client ในห้อง DM
     const io = getIO();
     if (io) {
-      io.to(`dm:${conversationId}`).emit('dm_received', message);
+      io.to(`dm:${conversationId}`).emit('dm_received', { ...message, conversationId });
     }
 
     res.status(201).json({ success: true, data: message });
