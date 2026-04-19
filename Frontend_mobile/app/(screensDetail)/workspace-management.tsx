@@ -146,10 +146,21 @@ export default function WorkspaceManagementScreen() {
   const params = useLocalSearchParams<{ wsId: string; token: string; role: string; wsName: string }>();
 
   const wsId = params.wsId ?? '';
-  const [token, setToken] = useState(params.token ?? '');
   const role = params.role ?? '';
   const isOwner = role === 'OWNER';
   const isAdminOrOwner = role === 'OWNER' || role === 'ADMIN';
+
+  const [token, setToken] = useState('');
+  const [storageLoaded, setStorageLoaded] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const t = params.token || await AsyncStorage.getItem('token') || '';
+      setToken(t);
+      setStorageLoaded(true);
+    };
+    load();
+  }, []);
 
   useEffect(() => {
     if (role && !isAdminOrOwner) {
@@ -158,10 +169,6 @@ export default function WorkspaceManagementScreen() {
       ]);
     }
   }, [role]);
-
-  useEffect(() => {
-    if (!token) AsyncStorage.getItem('token').then((t) => { if (t) setToken(t); });
-  }, []);
 
   const [activeTab, setActiveTab] = useState<Tab>('members');
 
@@ -293,11 +300,11 @@ export default function WorkspaceManagementScreen() {
   }, [wsId, token]);
 
   useEffect(() => {
-    if (!token || !wsId) return;
+    if (!storageLoaded || !token || !wsId) return;
     if (activeTab === 'members') fetchMembers();
     else if (activeTab === 'rooms') fetchRooms();
     else if (activeTab === 'settings') { fetchWsInfo(); fetchCustomRoles(); }
-  }, [activeTab, token, wsId]);
+  }, [activeTab, storageLoaded, token, wsId]);
 
   /* ======================= MEMBERS ACTIONS ======================= */
 
