@@ -25,24 +25,14 @@ export const CHAT_FILES_BUCKET = 'chat-files';
 export const WORKSPACE_ICONS_BUCKET = 'workspace-icons';
 
 // ===== Auth Headers =====
-// ใช้ env var SUPABASE_KEY_TYPE=jwt|anon เพื่อบอกชัดเจนว่า key เป็น format ไหน
-// ถ้าไม่ได้ตั้งค่า จะ fallback ไปเช็ค prefix (eyJ = JWT, อื่นๆ = apikey)
+// Supabase Storage REST API ต้องการทั้ง apikey และ Authorization พร้อมกัน
+// apikey = ระบุ project, Authorization = กำหนด role (service_role bypass RLS)
 function authHeaders(): Record<string, string> {
   if (!supabaseServiceKey) return {};
-
-  const keyType = process.env.SUPABASE_KEY_TYPE;
-  if (keyType === 'jwt') {
-    return { Authorization: `Bearer ${supabaseServiceKey}` };
-  }
-  if (keyType === 'anon') {
-    return { apikey: supabaseServiceKey };
-  }
-
-  // fallback: ตรวจสอบ prefix สำหรับกรณีที่ไม่ได้ตั้ง SUPABASE_KEY_TYPE
-  if (supabaseServiceKey.startsWith('eyJ')) {
-    return { Authorization: `Bearer ${supabaseServiceKey}` };
-  }
-  return { apikey: supabaseServiceKey };
+  return {
+    apikey: supabaseServiceKey,
+    Authorization: `Bearer ${supabaseServiceKey}`,
+  };
 }
 
 // ===== Generic Core =====

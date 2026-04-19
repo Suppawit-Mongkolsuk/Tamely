@@ -33,7 +33,7 @@ export const findByEmail = async (email: string) => {
   return prisma.user.findUnique({ where: { email } });
 };
 
-export const findById = async (userId: string) => {
+export const findById = async (userId: string) => { // หา user โดยใช้ ID
   return prisma.user.findUnique({ where: { id: userId } });
 };
 

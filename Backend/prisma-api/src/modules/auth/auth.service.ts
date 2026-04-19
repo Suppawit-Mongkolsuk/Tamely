@@ -42,28 +42,28 @@ export const loginUser = async (data: LoginPayload) => {
     const adminSession = await adminService.loginAdmin(data.email.trim(), data.password); // ถ้าใช่ ให้ไปเช็คกับ adminService แทน
     return {
       token: adminSession.token,
-      sessionType: 'admin' as const,
-      admin: adminSession.admin,
+      sessionType: 'admin' as const, // ระบุว่า session นี้เป็นของ admin
+      admin: adminSession.admin, // ข้อมูลโปรไฟล์ admin 
     };
   }
 
-  const user = await authRepository.findByEmail(data.email);
-  if (!user) {
+  const user = await authRepository.findByEmail(data.email); 
+  if (!user) { // ถ้าไม่พบ user ที่มีอีเมลนี้ในระบบ ให้โยน error ออกมา
     throw new AppError(401, 'Invalid email or password');
   }
 
-  if (!user.passwordHash) {
+  if (!user.passwordHash) { // เช็ตถ้าไม่มี passwordHash แสดงว่าเป็นบัญชีที่สร้างจาก OAuth 
     throw new AppError(
       401,
       `บัญชีนี้เชื่อมกับ ${user.provider || 'OAuth'} — กรุณาเข้าสู่ระบบด้วย ${user.provider || 'OAuth'}`,
     );
   }
 
-  const isPasswordValid = await comparePassword(
+  const isPasswordValid = await comparePassword( // เปรียบเทียบรหัสผ่านที่กรอกมา กับ hash ที่เก็บใน DB ว่าตรงกันหรือไม่
     data.password,
     user.passwordHash,
   );
-  if (!isPasswordValid) {
+  if (!isPasswordValid) { // เช็คว่าตรงกันไหม
     throw new AppError(401, 'Invalid email or password');
   }
 
@@ -72,7 +72,7 @@ export const loginUser = async (data: LoginPayload) => {
     email: user.email,
     displayName: user.Name,
     avatarUrl: user.avatarUrl,
-    sessionType: 'user' as const,
+    sessionType: 'user' as const, // ระบุว่า session นี้เป็นของ user
   };
 };
 
@@ -81,11 +81,11 @@ export const loginUser = async (data: LoginPayload) => {
  */
 export const getUserById = async (userId: string) => {
   const user = await authRepository.findById(userId);
-  if (!user) {
+  if (!user) { // ถ้าไม่พบ user ที่มี ID นี้ในระบบ ให้โยน error ออกมา
     throw new AppError(404, 'User not found');
   }
 
-  return {
+  return { // คืนข้อมูล user ที่จำเป็นสำหรับ client
     id: user.id,
     email: user.email,
     displayName: user.Name,
@@ -101,27 +101,27 @@ export const getUserById = async (userId: string) => {
 export const forgotPassword = async (email: string) => {
   const user = await authRepository.findByEmail(email);
 
-  if (!user) {
+  if (!user) { // ถ้าไม่พบ user ที่มีอีเมลนี้ในระบบ ให้ return ข้อความเหมือนกับตอนที่ส่งอีเมลสำเร็จ เพื่อไม่ให้แฮกเกอร์รู้ว่าอีเมลไหนมีบัญชีอยู่บ้าง
     return { message: 'If that email exists, a reset link has been sent.' };
   }
 
-  if (!user.passwordHash) {
+  if (!user.passwordHash) { // ถ้าไม่มี passwordHash แสดงว่าเป็นบัญชีที่สร้างจาก OAuth ซึ่งไม่สามารถรีเซ็ตรหัสผ่านได้
     throw Object.assign(
       new AppError(400, 'บัญชีนี้ใช้การเข้าสู่ระบบผ่าน Google หรือ GitHub กรุณาเข้าสู่ระบบด้วยวิธีนั้นแทน'),
       { code: 'OAUTH_ACCOUNT' },
     );
   }
 
-  const resetToken = signResetToken(user.id);
+  const resetToken = signResetToken(user.id); // สร้าง reset token ที่มีข้อมูล userId อยู่ข้างใน และมีอายุ 15 นาที
 
-  const hasResendKey = Boolean(process.env.RESEND_API_KEY);
-  if (hasResendKey) {
+  const hasResendKey = Boolean(process.env.RESEND_API_KEY); // ตรวจสอบว่ามีค่า RESEND_API_KEY หรือไม่
+  if (hasResendKey) { // ถ้ามีค่า RESEND_API_KEY ให้ส่งอีเมลรีเซ็ตรหัสผ่านจริงๆ ไปยังผู้ใช้
     await sendPasswordResetEmail(user.email, resetToken);
   }
 
-  const isDev = process.env.NODE_ENV === 'development';
+  const isDev = process.env.NODE_ENV === 'development';  // สำหรับ dev
   return {
-    message: 'If that email exists, a reset link has been sent.',
+    message: 'If that email exists, a reset link has been sent.', 
     ...(isDev && !hasResendKey && { resetToken, expiresInMinutes: 15 }),
   };
 };
@@ -130,19 +130,19 @@ export const forgotPassword = async (email: string) => {
  * Reset Password — ตรวจสอบ token แล้วเปลี่ยนรหัสผ่าน
  */
 export const resetPassword = async (token: string, newPassword: string) => {
-  const userId = verifyResetToken(token);
+  const userId = verifyResetToken(token); // ตรวจสอบว่า token ถูกต้องและยังไม่หมดอายุ 
 
   const user = await authRepository.findById(userId);
-  if (!user) {
+  if (!user) { // ถ้าไม่พบ user ที่มี ID นี้ในระบบ ให้โยน error ออกมา
     throw new AppError(404, 'User not found.');
   }
 
-  if (!user.passwordHash) {
+  if (!user.passwordHash) { // ถ้าไม่มี passwordHash แสดงว่าเป็นบัญชีที่สร้างจาก OAuth ซึ่งไม่สามารถรีเซ็ตรหัสผ่านได้
     throw new AppError(400, 'This account uses OAuth login and cannot reset password.');
   }
 
-  const hashedPassword = await hashPassword(newPassword);
-  await authRepository.updatePassword(userId, hashedPassword);
+  const hashedPassword = await hashPassword(newPassword); // แปลงรหัสผ่านใหม่เป็น hash
+  await authRepository.updatePassword(userId, hashedPassword); // อัปเดตรหัสผ่านใน DB
 
   return { message: 'Password has been reset successfully.' };
 };

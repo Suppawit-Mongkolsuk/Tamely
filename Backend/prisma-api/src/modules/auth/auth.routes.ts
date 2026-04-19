@@ -40,21 +40,21 @@ router.post('/login', authLimiter, validateRequest(LoginSchema), asyncHandler(as
   const result = await authService.loginUser(req.body);
   const rememberMe = Boolean(req.body.rememberMe);
 
-  let response: LoginResponse;
+  let response: LoginResponse; // ประกาศตัวแปร response พื่อจะเอาไว้เก็บข้อมูล response ที่จะส่งกลับ client
 
-  if (result.sessionType === 'admin') {
-    clearTokenCookie(res);
-    setAdminTokenCookie(res, result.token);
-    response = {
+  if (result.sessionType === 'admin') {  // ถ้าเป็น admin session
+    clearTokenCookie(res);  // ล้าง cookie ของ user ทั่วไปออกก่อน เผื่อมีอยู่แล้ว
+    setAdminTokenCookie(res, result.token); // เก็บ token ของ admin ไว้ใน cookie แยกต่างหาก
+    response = { // เตรียมข้อมูล response สำหรับ admin
       token: result.token,
       sessionType: 'admin',
       admin: result.admin,
     };
   } else {
-    const token = signToken(result.id, rememberMe);
-    clearAdminTokenCookie(res);
-    setTokenCookie(res, token, rememberMe);
-    response = {
+    const token = signToken(result.id, rememberMe); // สร้าง token สำหรับ user
+    clearAdminTokenCookie(res);  // ล้าง cookie 
+    setTokenCookie(res, token, rememberMe); // เก็บ token ของ user ไว้ใน cookie
+    response = { // เตรียมข้อมูล response สำหรับ user
       token,
       sessionType: 'user',
       user: {
@@ -66,26 +66,26 @@ router.post('/login', authLimiter, validateRequest(LoginSchema), asyncHandler(as
     };
   }
 
-  res.json({ success: true, data: response });
+  res.json({ success: true, data: response }); // ส่ง response กลับไปยัง client
 }));
 
 // POST /api/auth/logout
 router.post('/logout', (_req: AuthRequest, res: Response): void => {
-  clearTokenCookie(res);
-  clearAdminTokenCookie(res);
+  clearTokenCookie(res); // ล้าง cookie ของ user ทั่วไป
+  clearAdminTokenCookie(res); // ล้าง cookie ของ admin
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // GET /api/auth/me
 router.get('/me', authenticate, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const user = await authService.getUserById(req.userId!);
+  const user = await authService.getUserById(req.userId!); // ดึงข้อมูล user จาก DB โดยใช้ userId 
   res.status(200).json({ success: true, data: user });
 }));
 
 // GET /api/auth/token — คืน fresh token สำหรับ Socket auth (ใช้ตอน page refresh)
 router.get('/token', authenticate, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const token = signToken(req.userId!);
-  setTokenCookie(res, token);
+  const token = signToken(req.userId!); // สร้าง token ใหม่
+  setTokenCookie(res, token); // อัพเดต cookie ด้วย token ใหม่ เผื่อมีการ refresh หน้าเว็บแล้ว token เก่าหมดอายุ
   res.json({ success: true, data: { token } });
 }));
 
