@@ -7,13 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  User, LogOut, X, Settings,
+  User, Zap, Shield, LogOut, X, Settings,
   RefreshCw, Copy, ChevronRight, DoorOpen, Crown, ChevronDown,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import DecorativeBubble from './DecBubble';
 import { API_BASE } from '../../lib/config';
-import { useOnlineStatus } from '../../lib/OnlineStatusContext';
 
 /* ======================= TYPES ======================= */
 
@@ -83,8 +82,6 @@ export default function Header({
   currentUserId,
 }: HeaderProps) {
   const router = useRouter();
-  const { isOnline } = useOnlineStatus();
-  const amIOnline = currentUserId ? isOnline(currentUserId) : false;
 
   // อ่าน avatarUrl จาก AsyncStorage โดยตรง ไม่ต้องรอ parent ส่งมา
   const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(null);
@@ -125,6 +122,7 @@ export default function Header({
 
   const isOwner = role === 'OWNER';
   const isAdminOrOwner = role === 'OWNER' || role === 'ADMIN';
+  const isModOrMember = role === 'MODERATOR' || role === 'MEMBER';
 
   /* ===== Roles ที่ assign ได้ตาม role ตัวเอง ===== */
   const assignableRoles = isOwner
@@ -311,9 +309,7 @@ export default function Header({
                 : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{userInitials}</Text>
               }
             </View>
-            {amIOnline && (
-              <View style={{ position: 'absolute', bottom: 1, right: 1, width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#234476' }} />
-            )}
+            <View style={{ position: 'absolute', bottom: 1, right: 1, width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#234476' }} />
           </TouchableOpacity>
         </View>
 
@@ -352,13 +348,20 @@ export default function Header({
               <Text style={{ fontSize: 13, color: '#425C95', marginTop: 4 }}>{workspaceName}</Text>
             </View>
 
-            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
-              <User size={18} color="#425C95" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Profile & Settings</Text>
-              </View>
-              <ChevronRight size={16} color="#d1d5db" />
-            </TouchableOpacity>
+            {[
+              { icon: <User size={18} color="#425C95" />, label: 'Profile & Settings' },
+              { icon: <Zap size={18} color="#f59e0b" />, label: 'Set Status', sub: 'Active now' },
+              { icon: <Shield size={18} color="#8b5cf6" />, label: 'Privacy & Security' },
+            ].map((item, index) => (
+              <TouchableOpacity key={index} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
+                {item.icon}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{item.label}</Text>
+                  {item.sub && <Text style={{ fontSize: 12, color: '#9ca3af' }}>{item.sub}</Text>}
+                </View>
+                <ChevronRight size={16} color="#d1d5db" />
+              </TouchableOpacity>
+            ))}
 
             {/* Workspace Settings — เฉพาะ OWNER/ADMIN */}
             {isAdminOrOwner && (
@@ -372,8 +375,8 @@ export default function Header({
               </TouchableOpacity>
             )}
 
-            {/* ออกจาก Workspace — ทุก role ยกเว้น OWNER */}
-            {!isOwner && (
+            {/* ออกจาก Workspace — เฉพาะ MODERATOR/MEMBER */}
+            {isModOrMember && (
               <TouchableOpacity onPress={handleLeaveWorkspace} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
                 <DoorOpen size={18} color="#ef4444" />
                 <View style={{ flex: 1 }}>
@@ -384,14 +387,17 @@ export default function Header({
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity onPress={handleSwitchWorkspace} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
-              <RefreshCw size={18} color="#6b7280" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>เปลี่ยน Workspace</Text>
-                <Text style={{ fontSize: 12, color: '#9ca3af' }}>กลับไปหน้าเลือก Workspace</Text>
-              </View>
-              <ChevronRight size={16} color="#d1d5db" />
-            </TouchableOpacity>
+            {/* เปลี่ยน Workspace — OWNER/ADMIN */}
+            {isAdminOrOwner && (
+              <TouchableOpacity onPress={handleSwitchWorkspace} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
+                <RefreshCw size={18} color="#6b7280" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>เปลี่ยน Workspace</Text>
+                  <Text style={{ fontSize: 12, color: '#9ca3af' }}>กลับไปหน้าเลือก Workspace</Text>
+                </View>
+                <ChevronRight size={16} color="#d1d5db" />
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity onPress={() => { setShowProfile(false); router.replace('/(auth)/login'); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 }}>
               <LogOut size={18} color="#ef4444" />
