@@ -19,6 +19,11 @@ export type TypePayloadUpdateProfile = {
   bio?: string;
 };
 
+export type UpdateProfileData = {
+  displayName?: string;
+  bio?: string;
+};
+
 /* ======================= HELPERS ======================= */
 
 const zodEmail = z
@@ -90,3 +95,5 @@ export const UpdateProfileSchema = z.object({
       .optional(),
   }),
 });
+
+

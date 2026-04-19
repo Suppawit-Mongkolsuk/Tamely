@@ -25,14 +25,10 @@ export const CHAT_FILES_BUCKET = 'chat-files';
 export const WORKSPACE_ICONS_BUCKET = 'workspace-icons';
 
 // ===== Auth Headers =====
-// Supabase Storage REST API ต้องการทั้ง apikey และ Authorization พร้อมกัน
-// apikey = ระบุ project, Authorization = กำหนด role (service_role bypass RLS)
+// service_role key เป็น JWT (ขึ้นต้น eyJ) → ส่งเป็น Authorization Bearer
 function authHeaders(): Record<string, string> {
   if (!supabaseServiceKey) return {};
-  return {
-    apikey: supabaseServiceKey,
-    Authorization: `Bearer ${supabaseServiceKey}`,
-  };
+  return { Authorization: `Bearer ${supabaseServiceKey}` };
 }
 
 // ===== Generic Core =====

@@ -7,6 +7,7 @@ import {
   uploadAvatar,
   deleteOldAvatar,
 } from '../../utils/supabase-storage';
+import { UpdateProfileData } from './auth.model';
 import * as authRepository from './auth.repository';
 import * as adminService from '../admin/admin.service';
 
@@ -151,28 +152,24 @@ export const resetPassword = async (token: string, newPassword: string) => {
 // UPDATE PROFILE
 // ======================================================
 
-interface UpdateProfileData {
-  displayName?: string;
-  bio?: string;
-}
 
 /**
  * อัปเดตข้อมูลโปรไฟล์ (displayName, bio)
  */
 export const updateProfile = async (
-  userId: string,
+  userId: string, // 
   data: UpdateProfileData,
 ) => {
-  const user = await authRepository.findById(userId);
-  if (!user) throw new AppError(404, 'User not found');
+  const user = await authRepository.findById(userId); // หา user โดยใช้ ID
+  if (!user) throw new AppError(404, 'User not found'); // ถ้าไม่พบ user ที่มี ID นี้ในระบบ ให้โยน error ออกมา
 
-  const updated = await authRepository.updateUser(userId, {
-    ...(data.displayName !== undefined && { Name: data.displayName }),
-    ...(data.bio !== undefined && { bio: data.bio }),
+  const updated = await authRepository.updateUser(userId, { // อัปเดตข้อมูล user ใน DB โดยส่งเฉพาะฟิลด์ที่มีค่าเท่านั้น
+    ...(data.displayName !== undefined && { Name: data.displayName }), // ถ้า displayName มีค่า ให้รวมเข้าไปใน object ที่จะอัปเดต
+    ...(data.bio !== undefined && { bio: data.bio }), // ถ้า bio มีค่า ให้รวมเข้าไปใน object ที่จะอัปเดต
   });
 
-  return {
-    id: updated.id,
+  return { // คืนข้อมูล user ที่อัปเดตแล้ว กลับไปยัง client
+    //id: updated.id,
     email: updated.email,
     displayName: updated.Name,
     avatarUrl: updated.avatarUrl,

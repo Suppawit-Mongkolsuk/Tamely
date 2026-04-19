@@ -89,22 +89,22 @@ router.get('/token', authenticate, asyncHandler(async (req: AuthRequest, res: Re
   res.json({ success: true, data: { token } });
 }));
 
-// POST /api/auth/forgot-password
+// POST /api/auth/forgot-password  // สร้าง reset token และส่งอีเมลรีเซ็ตรหัสผ่าน
 router.post('/forgot-password', authLimiter, validateRequest(ForgotPasswordSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const result = await authService.forgotPassword(req.body.email);
   res.json({ success: true, data: result });
 }));
 
-// POST /api/auth/reset-password
+// POST /api/auth/reset-password  // รีเซ็ตรหัสผ่านโดยใช้ reset token ที่ได้รับจากอีเมล
 router.post('/reset-password', validateRequest(ResetPasswordSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const { token, newPassword } = req.body;
-  const result = await authService.resetPassword(token, newPassword);
+  const { token, newPassword } = req.body; // ดึง token กับรหัสผ่านใหม่จาก request body
+  const result = await authService.resetPassword(token, newPassword); // เรียก service เพื่อรีเซ็ตรหัสผ่าน โดยส่ง token กับรหัสผ่านใหม่ไป
   res.json({ success: true, data: result });
 }));
 
-// PATCH /api/auth/profile
+// PATCH /api/auth/profile // อัพเดตข้อมูลโปรไฟล์ของ user 
 router.patch('/profile', authenticate, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const { displayName, bio } = req.body;
+  const { displayName, bio } = req.body; // ดึง displayName กับ bio จาก request body
   const user = await authService.updateProfile(req.userId!, { displayName, bio });
   res.json({ success: true, data: user });
 }));
