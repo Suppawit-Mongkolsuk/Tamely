@@ -124,7 +124,7 @@ export const update = async (
   });
 };
 
-export const updateInviteCode = async (workspaceId: string, newCode: string) => {
+export const updateInviteCode = async (workspaceId: string, newCode: string) => { // อัพเดต invite code ใหม่ใน database และคืนข้อมูล workspace ที่อัพเดตแล้วกลับไป
   return prisma.workspace.update({
     where: { id: workspaceId },
     data: { inviteCode: newCode },
@@ -249,15 +249,15 @@ export const deleteMember = async (workspaceId: string, userId: string) => {
   });
 };
 
-export const updateMemberRole = async (
+export const updateMemberRole = async ( // อัพเดต role ของสมาชิกใน workspace
   workspaceId: string,
   userId: string,
   role: WorkspaceRole,
 ) => {
   return prisma.workspaceMember.update({
-    where: { workspaceId_userId: { workspaceId, userId } },
-    data: { role },
-    select: {
+    where: { workspaceId_userId: { workspaceId, userId } }, // กำหนดเงื่อนไขในการอัพเดตสมาชิกใน workspace
+    data: { role }, 
+    select: { // เลือกข้อมูลสมาชิกที่อัพเดตแล้วกลับไป
       userId: true,
       role: true,
       joinedAt: true,

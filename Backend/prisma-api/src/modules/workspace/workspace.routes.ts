@@ -11,7 +11,7 @@ import * as workspaceService from './workspace.service';
 const router = Router();
 router.use(authenticate);
 
-const param = (value: string | string[] | undefined): string =>
+const param = (value: string | string[] | undefined): string => // ฟังก์ชันช่วยอ่านค่า route param ที่อาจจะเป็น string หรือ array (กรณีที่มี param ซ้ำกันหลายค่า) และคืนค่าเป็น string เดียว (ถ้าเป็น array ให้เอาค่าตัวแรกมาใช้ ถ้าเป็น undefined ให้คืนเป็น empty string แทน)
   Array.isArray(value) ? value[0] : (value ?? '');
 
 // ป้องกัน spam สร้าง workspace: 20 ครั้ง/ชั่วโมง ต่อ IP
@@ -82,23 +82,23 @@ router.delete('/:id/members/:userId', validateUUID, asyncHandler(async (req: Aut
   res.json({ success: true, message: 'Member removed' });
 }));
 
-// PATCH /api/workspaces/:id/members/:userId
+// PATCH /api/workspaces/:id/members/:userId // อัพเดต role ของสมาชิกใน workspace (เช่น เปลี่ยนจาก member เป็น admin)
 router.patch('/:id/members/:userId', validateUUID, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const member = await workspaceService.updateMemberRole(param(req.params.id), req.userId!, param(req.params.userId), req.body);
   res.json({ success: true, data: member });
 }));
 
-// POST /api/workspaces/:id/regenerate-invite
+// POST /api/workspaces/:id/regenerate-invite // สร้าง invite code ใหม่สำหรับ workspace 
 router.post('/:id/regenerate-invite', validateUUID, asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const result = await workspaceService.regenerateInviteCode(param(req.params.id), req.userId!);
   res.json({ success: true, data: result });
 }));
 
-// POST /api/workspaces/:id/icon
+// POST /api/workspaces/:id/icon // อัพโหลดหรือเปลี่ยนไอคอนของ workspace
 router.post('/:id/icon', validateUUID, workspaceIconUpload.single('icon'), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-  const file = req.file;
-  if (!file) { res.status(400).json({ success: false, error: 'No file uploaded' }); return; }
-  const result = await workspaceService.updateWorkspaceIcon(
+  const file = req.file; // ไฟล์ที่อัพโหลดมาจาก middleware
+  if (!file) { res.status(400).json({ success: false, error: 'No file uploaded' }); return; } // ถ้าไม่มีไฟล์ให้ตอบ error กลับไป
+  const result = await workspaceService.updateWorkspaceIcon( // อัพเดตไอคอนของ workspace 
     param(req.params.id),
     req.userId!,
     file.buffer,

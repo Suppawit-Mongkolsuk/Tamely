@@ -174,15 +174,15 @@ export async function uploadPostImage(
  * [Feature: Workspace] อัปโหลดไอคอน Workspace
  * Path: workspace-icons/{workspaceId}/icon-{timestamp}.{ext}
  */
-export async function uploadWorkspaceIcon(
+export async function uploadWorkspaceIcon( // อัปโหลดไอคอนของ workspace ไปยัง bucket 'workspace-icons'
   workspaceId: string,
   fileBuffer: Buffer,
   mimeType: string,
   originalName: string,
 ): Promise<string> {
-  const ext = originalName.split('.').pop() || 'png';
-  const filePath = `${workspaceId}/icon-${Date.now()}.${ext}`;
-  return uploadToStorage(WORKSPACE_ICONS_BUCKET, filePath, fileBuffer, mimeType);
+  const ext = originalName.split('.').pop() || 'png'; // ไอคอน workspace แนะนำให้ใช้ PNG เป็นหลัก (default เป็น png ถ้าไม่มีนามสกุล)
+  const filePath = `${workspaceId}/icon-${Date.now()}.${ext}`; // สร้าง path สำหรับไฟล์ไอคอนของ workspace
+  return uploadToStorage(WORKSPACE_ICONS_BUCKET, filePath, fileBuffer, mimeType); // คืน public URL 
 }
 
 /** [Feature: Workspace] ลบไอคอน Workspace เก่า */
