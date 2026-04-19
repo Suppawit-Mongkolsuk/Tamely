@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AIChatBanner from '../components/chat/AIChatBanner';
+import AIChatBanner from '../../components/chat/AIChatBanner';
 
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
 interface DmMessage { id: string; content: string; createdAt: string; sender: Sender; isRead: boolean; }

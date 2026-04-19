@@ -8,8 +8,8 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, Send, Phone } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AIChatBanner from '../components/chat/AIChatBanner';
-import { useCall } from '../lib/CallContext';
+import AIChatBanner from '../../components/chat/AIChatBanner';
+import { useCall } from '../../lib/CallContext';
 import { API_BASE } from '@/lib/config';
 
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
