@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, FlatList,
+  View, Text, TouchableOpacity, FlatList, Image,
   RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { BellOff, Check, MessageCircle, FileText, AtSign } from 'lucide-react-na
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import Header from '../../components/ui/Header';
+import { useOnlineStatus } from '../../lib/OnlineStatusContext';
 
 /* ======================= TYPES ======================= */
 
@@ -76,19 +77,23 @@ function getInitials(name: string): string {
 
 /* ======================= AVATAR ======================= */
 
-function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+function Avatar({ name, size = 40, uri }: { name: string; size?: number; uri?: string | null }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
   const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
+      ) : (
+        <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+      )}
     </View>
   );
 }
 
 /* ======================= NOTIFICATION CARD ======================= */
 
-function NotificationCard({ notification, onPress }: { notification: Notification; onPress: () => void }) {
+function NotificationCard({ notification, onPress, isOnline }: { notification: Notification; onPress: () => void; isOnline: (userId: string) => boolean }) {
   const isRole = notification.type === 'ROLE';
   const hasPost = !!notification.post;
   const hasComment = !!notification.comment;
@@ -96,10 +101,13 @@ function NotificationCard({ notification, onPress }: { notification: Notificatio
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ flexDirection: 'row', gap: 12, padding: 16, backgroundColor: notification.isRead ? '#fff' : '#f0f4ff', borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
       <View style={{ position: 'relative' }}>
-        <Avatar name={notification.sender.Name} size={44} />
+        <Avatar name={notification.sender.Name} size={44} uri={notification.sender.avatarUrl} />
         <View style={{ position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderRadius: 10, backgroundColor: isRole ? '#7C3AED' : '#425C95', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' }}>
           <AtSign size={11} color="#fff" />
         </View>
+        {isOnline(notification.sender.id) && (
+          <View style={{ position: 'absolute', top: 0, right: -2, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#fff' }} />
+        )}
       </View>
 
       <View style={{ flex: 1 }}>
@@ -166,6 +174,7 @@ type FilterType = 'all' | 'unread' | 'mentions';
 
 export default function AlertsScreen() {
   const router = useRouter();
+  const { isOnline } = useOnlineStatus();
   const [token, setToken] = useState('');
   const [wsId, setWsId] = useState('');
   const [userData, setUserData] = useState<any>(null);
@@ -322,9 +331,9 @@ export default function AlertsScreen() {
                   }
                 }
               } catch {}
-              router.push({ pathname: '/(screensDetail)/post-detail', params: { post: JSON.stringify(item.post), token, wsId, currentUserId: userData?.id ?? '' } });
+              Alert.alert('ไม่พบโพสต์', 'โพสต์นี้อาจถูกลบไปแล้ว');
             }
-          }} />}
+          }} isOnline={isOnline} />}
           ListFooterComponent={<Text style={{ textAlign: 'center', fontSize: 12, color: '#d1d5db', padding: 20 }}>{notifications.length} รายการ</Text>}
         />
       )}

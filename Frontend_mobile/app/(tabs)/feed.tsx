@@ -11,6 +11,7 @@ import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../../components/ui/Header';
+import { useOnlineStatus } from '../../lib/OnlineStatusContext';
 
 /* ======================= TYPES ======================= */
 
@@ -75,12 +76,16 @@ function getInitials(name: string): string {
 
 /* ======================= AVATAR ======================= */
 
-function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+function Avatar({ name, size = 32, uri }: { name: string; size?: number; uri?: string | null }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
   const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
+      ) : (
+        <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+      )}
     </View>
   );
 }
@@ -136,7 +141,7 @@ function MentionSuggestions({ suggestions, onSelect }: { suggestions: Member[]; 
     <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#f3f4f6', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
       {suggestions.map((m) => (
         <TouchableOpacity key={m.user.id} onPress={() => onSelect(m)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f9fafb' }}>
-          <Avatar name={m.user.Name} size={28} />
+          <Avatar name={m.user.Name} size={28} uri={m.user.avatarUrl} />
           <View>
             <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>{m.user.Name}</Text>
             <Text style={{ fontSize: 11, color: '#9ca3af' }}>{m.role}</Text>
@@ -159,9 +164,10 @@ interface PostCardProps {
   onEdit: (post: Post) => void;
   onPinToggled: () => void;
   onPress: () => void;
+  isOnline: (userId: string) => boolean;
 }
 
-function PostCard({ post, currentUserId, isAdminOrOwner, role, token, onDeleted, onEdit, onPinToggled, onPress }: PostCardProps) {
+function PostCard({ post, currentUserId, isAdminOrOwner, role, token, onDeleted, onEdit, onPinToggled, onPress, isOnline }: PostCardProps) {
   const canManage = isAdminOrOwner || post.author.id === currentUserId;
   const canPin = role === 'OWNER' || role === 'ADMIN' || role === 'MODERATOR';
 
@@ -255,7 +261,12 @@ function PostCard({ post, currentUserId, isAdminOrOwner, role, token, onDeleted,
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f9fafb' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Avatar name={post.author.Name} size={24} />
+          <View style={{ position: 'relative' }}>
+            <Avatar name={post.author.Name} size={24} uri={post.author.avatarUrl} />
+            {isOnline(post.author.id) && (
+              <View style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e', borderWidth: 1.5, borderColor: '#fff' }} />
+            )}
+          </View>
           <Text style={{ fontSize: 12, color: '#6b7280', fontWeight: '500' }}>{post.author.Name}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -479,6 +490,7 @@ function PostFormModal({ visible, onClose, onSuccess, token, wsId, editingPost, 
 
 export default function FeedScreen() {
   const params = useLocalSearchParams();
+  const { isOnline } = useOnlineStatus();
 
   const [token, setToken] = useState('');
   const [wsId, setWsId] = useState('');
@@ -633,7 +645,7 @@ export default function FeedScreen() {
                     <Text style={{ fontSize: 11, color: '#1d4ed8', fontWeight: '700' }}>{pinned.length}</Text>
                   </View>
                 </View>
-                {pinned.map((post) => <PostCard key={post.id} post={post} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} role={role} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPinToggled={() => loadPosts(true)} onPress={() => navigateToDetail(post)} />)}
+                {pinned.map((post) => <PostCard key={post.id} post={post} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} role={role} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPinToggled={() => loadPosts(true)} onPress={() => navigateToDetail(post)} isOnline={isOnline} />)}
               </>
             )}
             {!loading && recent.length > 0 && (
@@ -641,7 +653,7 @@ export default function FeedScreen() {
             )}
           </>
         }
-        renderItem={({ item }) => !loading ? <PostCard post={item} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} role={role} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPinToggled={() => loadPosts(true)} onPress={() => navigateToDetail(item)} /> : null}
+        renderItem={({ item }) => !loading ? <PostCard post={item} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} role={role} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPinToggled={() => loadPosts(true)} onPress={() => navigateToDetail(item)} isOnline={isOnline} /> : null}
         ListEmptyComponent={
           !loading && !error ? (
             <View style={{ alignItems: 'center', marginTop: 60 }}>

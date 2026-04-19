@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, FlatList,
+  View, Text, TouchableOpacity, FlatList, Image,
   RefreshControl, TextInput, Modal, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Hash, Lock, Plus, X, Search } from 'lucide-react-native';
 import Header from '../../components/ui/Header';
+import { useOnlineStatus } from '../../lib/OnlineStatusContext';
 
 /* ======================= TYPES ======================= */
 
@@ -73,12 +74,16 @@ function getInitials(name: string): string {
 
 /* ======================= AVATAR ======================= */
 
-function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+function Avatar({ name, size = 44, uri }: { name: string; size?: number; uri?: string | null }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
   const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
+      ) : (
+        <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+      )}
     </View>
   );
 }
@@ -87,6 +92,7 @@ function Avatar({ name, size = 44 }: { name: string; size?: number }) {
 
 export default function ChatsScreen() {
   const router = useRouter();
+  const { isOnline } = useOnlineStatus();
 
   const [token, setToken] = useState('');
   const [wsId, setWsId] = useState('');
@@ -181,6 +187,7 @@ export default function ChatsScreen() {
       conversationId: dm.id,
       otherName: other.Name,
       otherUserId: other.id,
+      otherAvatarUrl: other.avatarUrl ?? '',
       token,
       wsId,
     }});
@@ -200,6 +207,7 @@ export default function ChatsScreen() {
           conversationId: conv.id,
           otherName: member.user.Name,
           otherUserId: member.userId,
+          otherAvatarUrl: member.user.avatarUrl ?? '',
           token,
           wsId,
         }});
@@ -262,7 +270,10 @@ export default function ChatsScreen() {
       return (
         <TouchableOpacity onPress={() => goToDm(dm)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
           <View style={{ position: 'relative' }}>
-            <Avatar name={other.Name} size={48} />
+            <Avatar name={other.Name} size={48} uri={other.avatarUrl} />
+            {isOnline(other.id) && (
+              <View style={{ position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#f9fafb' }} />
+            )}
             {dm.unreadCount > 0 && (
               <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#f9fafb' }}>
                 <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{dm.unreadCount}</Text>
@@ -288,7 +299,12 @@ export default function ChatsScreen() {
       const m = item.data;
       return (
         <TouchableOpacity onPress={() => goToDmWithMember(m)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
-          <Avatar name={m.user.Name || m.user.email} size={48} />
+          <View style={{ position: 'relative' }}>
+            <Avatar name={m.user.Name || m.user.email} size={48} uri={m.user.avatarUrl} />
+            {isOnline(m.user.id) && (
+              <View style={{ position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#f9fafb' }} />
+            )}
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{m.user.Name || m.user.email.split('@')[0]}</Text>
             <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{m.user.email} · {m.role}</Text>

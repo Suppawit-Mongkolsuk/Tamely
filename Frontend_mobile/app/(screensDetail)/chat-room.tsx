@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, FlatList,
+  View, Text, TextInput, TouchableOpacity, FlatList, Image,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { ArrowLeft, Send } from 'lucide-react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AIChatBanner from '../../components/chat/AIChatBanner';
+import { useOnlineStatus } from '../../lib/OnlineStatusContext';
 import { API_BASE } from '@/lib/config';
 
 interface Sender { id: string; Name: string; avatarUrl: string | null; }
@@ -29,18 +30,23 @@ function getInitials(name: string): string {
   return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
 }
 
-function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+function Avatar({ name, size = 32, uri }: { name: string; size?: number; uri?: string | null }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
   const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[colorIndex], alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
+      ) : (
+        <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+      )}
     </View>
   );
 }
 
 export default function ChatRoomScreen() {
   const router = useRouter();
+  const { isOnline } = useOnlineStatus();
   const params = useLocalSearchParams();
 
   const roomId = Array.isArray(params.roomId) ? params.roomId[0] : (params.roomId ?? '');
@@ -195,7 +201,14 @@ export default function ChatRoomScreen() {
           <Text style={{ fontSize: 11, color: '#6b7280', marginBottom: 2, marginLeft: 36 }}>{item.sender.Name}</Text>
         )}
         <View style={{ flexDirection: 'row', justifyContent: isMe ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8 }}>
-          {!isMe && (showAvatar ? <Avatar name={item.sender.Name} size={28} /> : <View style={{ width: 28 }} />)}
+          {!isMe && (showAvatar ? (
+            <View style={{ position: 'relative' }}>
+              <Avatar name={item.sender.Name} size={28} uri={item.sender.avatarUrl} />
+              {isOnline(item.sender.id) && (
+                <View style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e', borderWidth: 1.5, borderColor: '#f9fafb' }} />
+              )}
+            </View>
+          ) : <View style={{ width: 28 }} />)}
           <View style={{ maxWidth: '75%' }}>
             <View style={{ backgroundColor: isMe ? '#425C95' : '#fff', borderRadius: 16, borderBottomRightRadius: isMe ? 4 : 16, borderBottomLeftRadius: isMe ? 16 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: isMe ? 0 : 1, borderColor: '#f3f4f6', elevation: 1 }}>
               <Text style={{ fontSize: 14, color: isMe ? '#fff' : '#111827', lineHeight: 20 }}>{item.content}</Text>

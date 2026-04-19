@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Pin, MessageCircle, ImageIcon, Send, Trash2 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DecorativeBubble from '../../components/ui/DecBubble';
+import { useOnlineStatus } from '../../lib/OnlineStatusContext';
 
 /* ======================= TYPES ======================= */
 
@@ -67,7 +68,7 @@ function getInitials(name: string): string {
 
 /* ======================= AVATAR ======================= */
 
-function Avatar({ name, size = 40, light = false }: { name: string; size?: number; light?: boolean }) {
+function Avatar({ name, size = 40, light = false, uri }: { name: string; size?: number; light?: boolean; uri?: string | null }) {
   const colors = ['#425C95', '#7C3AED', '#059669', '#DC2626', '#D97706'];
   const colorIndex = name ? name.charCodeAt(0) % colors.length : 0;
   return (
@@ -77,8 +78,13 @@ function Avatar({ name, size = 40, light = false }: { name: string; size?: numbe
       alignItems: 'center', justifyContent: 'center',
       borderWidth: light ? 2 : 0,
       borderColor: light ? 'rgba(255,255,255,0.5)' : 'transparent',
+      overflow: 'hidden',
     }}>
-      <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
+      ) : (
+        <Text style={{ color: '#fff', fontSize: size * 0.35, fontWeight: '700' }}>{getInitials(name)}</Text>
+      )}
     </View>
   );
 }
@@ -87,6 +93,7 @@ function Avatar({ name, size = 40, light = false }: { name: string; size?: numbe
 
 export default function PostDetailScreen() {
   const router = useRouter();
+  const { isOnline } = useOnlineStatus();
   const params = useLocalSearchParams();
 
   const postStr = Array.isArray(params.post) ? params.post[0] : (params.post ?? '');
@@ -285,7 +292,12 @@ export default function PostDetailScreen() {
           </TouchableOpacity>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <Avatar name={post.author.Name} size={36} light />
+            <View style={{ position: 'relative' }}>
+              <Avatar name={post.author.Name} size={36} light uri={post.author.avatarUrl} />
+              {isOnline(post.author.id) && (
+                <View style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#fff' }} />
+              )}
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600' }}>
                 {post.author.Name}
@@ -368,7 +380,12 @@ export default function PostDetailScreen() {
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Avatar name={comment.user.Name} size={28} />
+                    <View style={{ position: 'relative' }}>
+                      <Avatar name={comment.user.Name} size={28} uri={comment.user.avatarUrl} />
+                      {isOnline(comment.user.id) && (
+                        <View style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e', borderWidth: 1.5, borderColor: '#fff' }} />
+                      )}
+                    </View>
                     <View>
                       <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>{comment.user.Name}</Text>
                       <Text style={{ fontSize: 11, color: '#9ca3af' }}>{timeAgo(comment.createdAt)}</Text>
@@ -396,7 +413,7 @@ export default function PostDetailScreen() {
                   onPress={() => handleSelectMention(item)}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f9fafb' }}
                 >
-                  <Avatar name={item.user.Name} size={30} />
+                  <Avatar name={item.user.Name} size={30} uri={item.user.avatarUrl} />
                   <View>
                     <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>{item.user.Name}</Text>
                     <Text style={{ fontSize: 11, color: '#9ca3af' }}>{item.role}</Text>
