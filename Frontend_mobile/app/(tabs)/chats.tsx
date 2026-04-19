@@ -28,10 +28,8 @@ interface DmUser {
 
 interface WorkspaceMember {
   userId: string;
-  displayName: string;
-  email: string;
-  avatarUrl: string | null;
   role: string;
+  user: { id: string; Name: string; email: string; avatarUrl: string | null };
 }
 
 interface DmConversation {
@@ -190,7 +188,7 @@ export default function ChatsScreen() {
 
   const goToDmWithMember = async (member: WorkspaceMember) => {
     try {
-      const res = await fetch(`${API_BASE}/api/workspaces/${wsId}/dm`, {
+      const res = await fetch(`${API_BASE}/api/workspaces/${wsId}/dm/open`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({ targetUserId: member.userId }),
@@ -200,7 +198,7 @@ export default function ChatsScreen() {
       if (conv?.id) {
         router.push({ pathname: '/(screensDetail)/chat-dm', params: {
           conversationId: conv.id,
-          otherName: member.displayName,
+          otherName: member.user.Name,
           otherUserId: member.userId,
           token,
           wsId,
@@ -210,14 +208,14 @@ export default function ChatsScreen() {
   };
 
   /* ===== Build combined list ===== */
-  const filteredRooms = rooms.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredRooms = rooms.filter((r) => (r.name ?? '').toLowerCase().includes(search.toLowerCase()));
   const filteredDms = dms.filter((d) => {
     const other = d.userA.id === userData?.id ? d.userB : d.userA;
-    return other.Name.toLowerCase().includes(search.toLowerCase());
+    return (other.Name ?? '').toLowerCase().includes(search.toLowerCase());
   });
   const filteredMembers = members.filter((m) =>
     m.userId !== userData?.id &&
-    (m.displayName.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()))
+    ((m.user.Name ?? '').toLowerCase().includes(search.toLowerCase()) || (m.user.email ?? '').toLowerCase().includes(search.toLowerCase()))
   );
 
   const listData: ChatItem[] = [
@@ -290,10 +288,10 @@ export default function ChatsScreen() {
       const m = item.data;
       return (
         <TouchableOpacity onPress={() => goToDmWithMember(m)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
-          <Avatar name={m.displayName || m.email} size={48} />
+          <Avatar name={m.user.Name || m.user.email} size={48} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{m.displayName || m.email.split('@')[0]}</Text>
-            <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{m.email} · {m.role}</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{m.user.Name || m.user.email.split('@')[0]}</Text>
+            <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{m.user.email} · {m.role}</Text>
           </View>
         </TouchableOpacity>
       );

@@ -183,7 +183,6 @@ export default function AlertsScreen() {
       setUserData(u ? (() => { try { return JSON.parse(u); } catch { return null; } })() : null);
       setRole(r);
       setStorageLoaded(true);
-      console.log('userData from storage:', u);
     };
     loadFromStorage();
   }, []);

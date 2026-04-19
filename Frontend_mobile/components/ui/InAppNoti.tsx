@@ -75,9 +75,6 @@ export default function InAppNoti() {
       socket.on('connect', async () => {
         if (!mounted) return;
 
-        // join workspace room เพื่อรับ new_notification
-        socket.emit('join_workspace', wsId);
-
         try {
           const dmRes = await fetch(`${API_BASE}/api/workspaces/${wsId}/dm`, {
             headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
@@ -106,10 +103,6 @@ export default function InAppNoti() {
             }
           }
         } catch {}
-      });
-
-      socket.on('connect_error', (err) => {
-        console.log('[InAppNoti] connect_error:', err.message);
       });
 
       socket.on('dm_received', (msg: {
@@ -167,7 +160,6 @@ export default function InAppNoti() {
         id: string;
         senderName?: string;
         content: string;
-        postId?: string;
       }) => {
         if (!mounted) return;
         if (pathnameRef.current.includes('alerts')) return;
@@ -178,7 +170,7 @@ export default function InAppNoti() {
           body: data.content,
           route: {
             pathname: '/(tabs)/alerts',
-            params: data.postId ? { highlightPostId: data.postId } : {},
+            params: {},
           },
         });
       });
