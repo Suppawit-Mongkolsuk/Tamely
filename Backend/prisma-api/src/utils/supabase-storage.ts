@@ -25,10 +25,13 @@ export const CHAT_FILES_BUCKET = 'chat-files';
 export const WORKSPACE_ICONS_BUCKET = 'workspace-icons';
 
 // ===== Auth Headers =====
-// service_role key เป็น JWT (ขึ้นต้น eyJ) → ส่งเป็น Authorization Bearer
+// รองรับทั้ง JWT (eyJ...) และ new-style key (sb_secret_/anon)
 function authHeaders(): Record<string, string> {
   if (!supabaseServiceKey) return {};
-  return { Authorization: `Bearer ${supabaseServiceKey}` };
+  if (supabaseServiceKey.startsWith('eyJ')) {
+    return { Authorization: `Bearer ${supabaseServiceKey}` };
+  }
+  return { apikey: supabaseServiceKey };
 }
 
 // ===== Generic Core =====
