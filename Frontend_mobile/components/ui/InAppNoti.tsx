@@ -74,7 +74,9 @@ export default function InAppNoti() {
 
       socket.on('connect', async () => {
         if (!mounted) return;
-        console.log('[InAppNoti] connected:', socket.id);
+
+        // join workspace room เพื่อรับ new_notification
+        socket.emit('join_workspace', wsId);
 
         try {
           const dmRes = await fetch(`${API_BASE}/api/workspaces/${wsId}/dm`, {
@@ -89,7 +91,6 @@ export default function InAppNoti() {
                 dmInfoMap[conv.id] = { otherName: conv.otherUser.Name, otherUserId: conv.otherUser.id };
               }
             }
-            console.log('[InAppNoti] joined', convs.length, 'DM rooms');
           }
         } catch {}
 
@@ -103,7 +104,6 @@ export default function InAppNoti() {
             for (const room of rooms) {
               socket.emit('join_room', room.id);
             }
-            console.log('[InAppNoti] joined', rooms.length, 'rooms');
           }
         } catch {}
       });
@@ -124,17 +124,18 @@ export default function InAppNoti() {
 
         const convId = msg.conversationId ?? '';
         const dmInfo = dmInfoMap[convId];
-        console.log('[InAppNoti] dm_received from:', msg.sender.Name);
         showBanner({
           id: msg.id,
-          title: msg.sender.Name,
+          title: `💬 ${msg.sender.Name}`,
           body: msg.content,
           route: {
-            pathname: '/(tabs)/chat-dm',
+            pathname: '/(screensDetail)/chat-dm',
             params: {
               conversationId: convId,
               otherName: dmInfo?.otherName ?? msg.sender.Name,
               otherUserId: dmInfo?.otherUserId ?? msg.sender.id,
+              token,
+              wsId,
             },
           },
         });
@@ -151,32 +152,34 @@ export default function InAppNoti() {
         if (msg.sender.id === currentUserId) return;
         if (pathnameRef.current.includes('chat-room')) return;
 
-        console.log('[InAppNoti] message_received from:', msg.sender.Name);
         showBanner({
           id: msg.id,
           title: `# ${msg.roomName ?? 'ห้องแชท'}`,
           body: `${msg.sender.Name}: ${msg.content}`,
           route: {
-            pathname: '/(tabs)/chat-room',
-            params: { roomId: msg.roomId ?? '', roomName: msg.roomName ?? '' },
+            pathname: '/(screensDetail)/chat-room',
+            params: { roomId: msg.roomId ?? '', roomName: msg.roomName ?? '', token, wsId, currentUserId },
           },
         });
       });
 
       socket.on('new_notification', (data: {
         id: string;
-        senderName: string;
+        senderName?: string;
         content: string;
+        postId?: string;
       }) => {
         if (!mounted) return;
         if (pathnameRef.current.includes('alerts')) return;
 
-        console.log('[InAppNoti] new_notification:', data.content);
         showBanner({
           id: data.id,
-          title: 'มีการแท็กถึงคุณ',
+          title: '🔔 มีการแท็กถึงคุณ',
           body: data.content,
-          route: { pathname: '/(tabs)/alerts' },
+          route: {
+            pathname: '/(tabs)/alerts',
+            params: data.postId ? { highlightPostId: data.postId } : {},
+          },
         });
       });
     };

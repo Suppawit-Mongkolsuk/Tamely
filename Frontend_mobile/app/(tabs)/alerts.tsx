@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BellOff, Check, MessageCircle, FileText, AtSign } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import Header from '../../components/ui/Header';
 
 /* ======================= TYPES ======================= */
@@ -164,6 +165,7 @@ function SkeletonCard() {
 type FilterType = 'all' | 'unread' | 'mentions';
 
 export default function AlertsScreen() {
+  const router = useRouter();
   const [token, setToken] = useState('');
   const [wsId, setWsId] = useState('');
   const [userData, setUserData] = useState<any>(null);
@@ -305,7 +307,12 @@ export default function AlertsScreen() {
           data={notifications}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadNotifications(true)} tintColor="#425C95" colors={['#425C95']} />}
-          renderItem={({ item }) => <NotificationCard notification={item} onPress={() => handleMarkRead(item)} />}
+          renderItem={({ item }) => <NotificationCard notification={item} onPress={() => {
+            handleMarkRead(item);
+            if (item.post?.id) {
+              router.push({ pathname: '/(screensDetail)/post-detail', params: { post: JSON.stringify(item.post), token, wsId, currentUserId: userData?.id ?? '' } });
+            }
+          }} />}
           ListFooterComponent={<Text style={{ textAlign: 'center', fontSize: 12, color: '#d1d5db', padding: 20 }}>{notifications.length} รายการ</Text>}
         />
       )}

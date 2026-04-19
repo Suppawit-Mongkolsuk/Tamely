@@ -86,18 +86,17 @@ export default function Header({
 
   // อ่าน avatarUrl จาก AsyncStorage โดยตรง ไม่ต้องรอ parent ส่งมา
   const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(null);
+  const [localPermissions, setLocalPermissions] = useState<string[]>([]);
 
   useEffect(() => {
     const load = () => {
-      AsyncStorage.getItem('user').then((u) => {
-        if (u) {
-          const parsed = JSON.parse(u);
-          setLocalAvatarUrl(parsed.avatarUrl ?? null);
-        }
+      AsyncStorage.multiGet(['user', 'myPermissions']).then((pairs) => {
+        const map = Object.fromEntries(pairs.map(([k, v]) => [k, v ?? '']));
+        if (map['user']) try { const p = JSON.parse(map['user']); setLocalAvatarUrl(p.avatarUrl ?? null); } catch {}
+        if (map['myPermissions']) try { setLocalPermissions(JSON.parse(map['myPermissions'])); } catch {}
       });
     };
     load();
-    // refresh เมื่อ app กลับมา foreground (เช่น หลังเปิด image picker)
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') load();
     });
@@ -122,8 +121,8 @@ export default function Header({
   const [updatingRole, setUpdatingRole] = useState(false);
 
   const isOwner = role === 'OWNER';
-  const isAdminOrOwner = role === 'OWNER' || role === 'ADMIN';
-  const isModOrMember = role === 'MODERATOR' || role === 'MEMBER';
+  const isAdminOrOwner = role === 'OWNER' || role === 'ADMIN' || localPermissions.includes('MANAGE_WORKSPACE') || localPermissions.includes('MANAGE_MEMBERS');
+  const isModOrMember = !isAdminOrOwner && (role === 'MODERATOR' || role === 'MEMBER');
 
   /* ===== Roles ที่ assign ได้ตาม role ตัวเอง ===== */
   const assignableRoles = isOwner

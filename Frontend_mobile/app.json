@@ -5,7 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": ["tamely", "com.googleusercontent.apps.1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7"],
+    "scheme": [
+      "tamely",
+      "com.googleusercontent.apps.1086895750541-9efm8904pcqnrgqr3i3tsa18b24tk3s7"
+    ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "updates": {
@@ -61,8 +64,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ae72affe-d522-4a16-a802-e89e2a298334"
+        "projectId": "46c5a260-9db4-4a2c-a011-995312256489"
       }
-    }
+    },
+    "owner": "yararnnn"
   }
 }

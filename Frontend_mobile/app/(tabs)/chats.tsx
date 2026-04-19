@@ -26,6 +26,14 @@ interface DmUser {
   avatarUrl: string | null;
 }
 
+interface WorkspaceMember {
+  userId: string;
+  displayName: string;
+  email: string;
+  avatarUrl: string | null;
+  role: string;
+}
+
 interface DmConversation {
   id: string;
   userA: DmUser;
@@ -37,7 +45,8 @@ interface DmConversation {
 type ChatItem =
   | { kind: 'section'; title: string }
   | { kind: 'room'; data: Room }
-  | { kind: 'dm'; data: DmConversation };
+  | { kind: 'dm'; data: DmConversation }
+  | { kind: 'member'; data: WorkspaceMember };
 
 /* ======================= CONFIG ======================= */
 
@@ -90,6 +99,7 @@ export default function ChatsScreen() {
   const [search, setSearch] = useState('');
   const [rooms, setRooms] = useState<Room[]>([]);
   const [dms, setDms] = useState<DmConversation[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -122,17 +132,21 @@ export default function ChatsScreen() {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const [roomRes, dmRes] = await Promise.all([
+      const [roomRes, dmRes, memberRes] = await Promise.all([
         fetch(`${API_BASE}/api/workspaces/${wsId}/rooms`, {
           headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
         }),
         fetch(`${API_BASE}/api/workspaces/${wsId}/dm`, {
           headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
         }),
+        fetch(`${API_BASE}/api/workspaces/${wsId}/members`, {
+          headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+        }),
       ]);
 
       if (roomRes.ok) { const j = await roomRes.json(); setRooms(j.data ?? []); }
       if (dmRes.ok) { const j = await dmRes.json(); setDms(j.data ?? []); }
+      if (memberRes.ok) { const j = await memberRes.json(); setMembers(j.data ?? []); }
     } catch {}
     finally { setLoading(false); setRefreshing(false); }
   }, [token, wsId]);
@@ -160,16 +174,39 @@ export default function ChatsScreen() {
 
   /* ===== Navigate ===== */
   const goToRoom = (room: Room) => {
-    router.push({ pathname: '/(tabs)/chat-room' as any, params: { roomId: room.id, roomName: room.name, token, wsId, currentUserId: userData?.id ?? '' } });
+    router.push({ pathname: '/(screensDetail)/chat-room', params: { roomId: room.id, roomName: room.name, token, wsId, currentUserId: userData?.id ?? '' } });
   };
 
   const goToDm = (dm: DmConversation) => {
     const other = dm.userA.id === userData?.id ? dm.userB : dm.userA;
-    router.push({ pathname: '/(tabs)/chat-dm' as any, params: {
+    router.push({ pathname: '/(screensDetail)/chat-dm', params: {
       conversationId: dm.id,
       otherName: other.Name,
-      otherUserId: other.id, 
+      otherUserId: other.id,
+      token,
+      wsId,
     }});
+  };
+
+  const goToDmWithMember = async (member: WorkspaceMember) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/workspaces/${wsId}/dm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ targetUserId: member.userId }),
+      });
+      const j = await res.json();
+      const conv = j.data;
+      if (conv?.id) {
+        router.push({ pathname: '/(screensDetail)/chat-dm', params: {
+          conversationId: conv.id,
+          otherName: member.displayName,
+          otherUserId: member.userId,
+          token,
+          wsId,
+        }});
+      }
+    } catch {}
   };
 
   /* ===== Build combined list ===== */
@@ -178,12 +215,18 @@ export default function ChatsScreen() {
     const other = d.userA.id === userData?.id ? d.userB : d.userA;
     return other.Name.toLowerCase().includes(search.toLowerCase());
   });
+  const filteredMembers = members.filter((m) =>
+    m.userId !== userData?.id &&
+    (m.displayName.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()))
+  );
 
   const listData: ChatItem[] = [
     ...(filteredRooms.length > 0 ? [{ kind: 'section' as const, title: 'ห้องแชท' }] : []),
     ...filteredRooms.map((r) => ({ kind: 'room' as const, data: r })),
     ...(filteredDms.length > 0 ? [{ kind: 'section' as const, title: 'ข้อความส่วนตัว' }] : []),
     ...filteredDms.map((d) => ({ kind: 'dm' as const, data: d })),
+    ...(filteredMembers.length > 0 ? [{ kind: 'section' as const, title: 'สมาชิกใน workspace' }] : []),
+    ...filteredMembers.map((m) => ({ kind: 'member' as const, data: m })),
   ];
 
   /* ===== Render item ===== */
@@ -238,6 +281,19 @@ export default function ChatsScreen() {
                 ? `${dm.lastMessage.sender.id === userData?.id ? 'คุณ: ' : ''}${dm.lastMessage.content}`
                 : 'เริ่มบทสนทนา'}
             </Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    if (item.kind === 'member') {
+      const m = item.data;
+      return (
+        <TouchableOpacity onPress={() => goToDmWithMember(m)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f9fafb', gap: 12 }}>
+          <Avatar name={m.displayName || m.email} size={48} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{m.displayName || m.email.split('@')[0]}</Text>
+            <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{m.email} · {m.role}</Text>
           </View>
         </TouchableOpacity>
       );

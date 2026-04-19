@@ -163,7 +163,7 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#425C95']} />}>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/profile-edit' as any)} style={{ margin: 20, padding: 16, backgroundColor: '#f5f7ff', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => router.push('/(screensDetail)/profile-edit' as any)} style={{ margin: 20, padding: 16, backgroundColor: '#f5f7ff', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {userData?.avatarUrl
               ? <Image source={{ uri: userData.avatarUrl }} style={{ width: 56, height: 56, borderRadius: 28 }} />
@@ -179,7 +179,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', marginHorizontal: 20, marginTop: 10, marginBottom: 8 }}>ACCOUNT</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/profile-edit' as any)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
+        <TouchableOpacity onPress={() => router.push('/(screensDetail)/profile-edit' as any)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
           <MenuIcon icon={User} color="#3b82f6" bgColor="#eff6ff" />
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={{ fontWeight: '600', color: '#111827' }}>Profile</Text>
@@ -190,7 +190,7 @@ export default function ProfileScreen() {
         {isAdminOrOwner && (
           <TouchableOpacity
             onPress={() => router.push({
-              pathname: '/(tabs)/workspace-management' as any,
+              pathname: '/(screensDetail)/workspace-management',
               params: { wsId, token, role: wsRole, wsName },
             })}
             style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}
