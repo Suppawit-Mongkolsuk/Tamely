@@ -153,26 +153,53 @@ interface PostCardProps {
   post: Post;
   currentUserId: string;
   isAdminOrOwner: boolean;
+  role: string;
   token: string;
   onDeleted: () => void;
   onEdit: (post: Post) => void;
+  onPinToggled: () => void;
   onPress: () => void;
 }
 
-function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdit, onPress }: PostCardProps) {
+function PostCard({ post, currentUserId, isAdminOrOwner, role, token, onDeleted, onEdit, onPinToggled, onPress }: PostCardProps) {
   const canManage = isAdminOrOwner || post.author.id === currentUserId;
+  const canPin = role === 'OWNER' || role === 'ADMIN' || role === 'MODERATOR';
+
+  const handlePin = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/posts/${post.id}/pin`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ isPinned: !post.isPinned }),
+      });
+      if (res.status === 403) { Alert.alert('ไม่มีสิทธิ์', 'คุณไม่มีสิทธิ์ปักหมุดโพสต์'); return; }
+      if (!res.ok) { Alert.alert('เกิดข้อผิดพลาด', 'ปักหมุดโพสต์ไม่สำเร็จ'); return; }
+      onPinToggled();
+    } catch { Alert.alert('Network Error', 'ไม่สามารถเชื่อมต่อ server ได้'); }
+  };
 
   const handleMorePress = () => {
+    const pinLabel = post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดโพสต์';
     if (Platform.OS === 'ios') {
+      const options = ['ยกเลิก', ...(canPin ? [pinLabel] : []), ...(canManage ? ['แก้ไขโพสต์', 'ลบโพสต์'] : [])];
+      const destructiveIndex = options.indexOf('ลบโพสต์');
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['ยกเลิก', 'แก้ไขโพสต์', 'ลบโพสต์'], destructiveButtonIndex: 2, cancelButtonIndex: 0 },
-        (index) => { if (index === 1) onEdit(post); if (index === 2) confirmDelete(); },
+        { options, destructiveButtonIndex: destructiveIndex, cancelButtonIndex: 0 },
+        (index) => {
+          const label = options[index];
+          if (label === pinLabel) handlePin();
+          else if (label === 'แก้ไขโพสต์') onEdit(post);
+          else if (label === 'ลบโพสต์') confirmDelete();
+        },
       );
     } else {
       Alert.alert('จัดการโพสต์', '', [
-        { text: 'แก้ไขโพสต์', onPress: () => onEdit(post) },
-        { text: 'ลบโพสต์', style: 'destructive', onPress: confirmDelete },
-        { text: 'ยกเลิก', style: 'cancel' },
+        ...(canPin ? [{ text: pinLabel, onPress: handlePin }] : []),
+        ...(canManage ? [
+          { text: 'แก้ไขโพสต์', onPress: () => onEdit(post) },
+          { text: 'ลบโพสต์', style: 'destructive' as const, onPress: confirmDelete },
+        ] : []),
+        { text: 'ยกเลิก', style: 'cancel' as const },
       ]);
     }
   };
@@ -208,7 +235,7 @@ function PostCard({ post, currentUserId, isAdminOrOwner, token, onDeleted, onEdi
             <Text style={{ fontSize: 11, color: '#425C95', fontWeight: '700', letterSpacing: 0.3 }}>PINNED</Text>
           </View>
         ) : <View />}
-        {canManage && (
+        {(canManage || canPin) && (
           <TouchableOpacity onPress={handleMorePress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ padding: 2 }}>
             <MoreHorizontal size={18} color="#9ca3af" />
           </TouchableOpacity>
@@ -457,6 +484,7 @@ export default function FeedScreen() {
   const [wsId, setWsId] = useState('');
   const [userData, setUserData] = useState<any>(null);
   const [role, setRole] = useState('');
+  const [myPermissions, setMyPermissions] = useState<string[]>([]);
 
   const isAdminOrOwner = role === 'OWNER' || role === 'ADMIN';
 
@@ -475,21 +503,25 @@ export default function FeedScreen() {
     const rawWsId = params.wsId;
     const rawUser = params.user;
     const rawRole = params.role;
+    const rawPerms = params.myPermissions;
     const pToken = Array.isArray(rawToken) ? rawToken[0] : (rawToken ?? '');
     const pWsId = Array.isArray(rawWsId) ? rawWsId[0] : (rawWsId ?? '');
     const pUserStr = Array.isArray(rawUser) ? rawUser[0] : (rawUser ?? '');
     const pRole = Array.isArray(rawRole) ? rawRole[0] : (rawRole ?? '');
+    const pPermsStr = Array.isArray(rawPerms) ? rawPerms[0] : (rawPerms ?? '[]');
 
     if (pToken && pWsId) {
       setToken(pToken);
       setWsId(pWsId);
       setRole(pRole);
+      try { setMyPermissions(JSON.parse(pPermsStr)); } catch { setMyPermissions([]); }
       if (pUserStr) { try { setUserData(JSON.parse(pUserStr)); } catch {} }
       // บันทึก ลง AsyncStorage เพื่อให้ tab อื่นและ reload ใช้ได้
       AsyncStorage.setItem('token', pToken);
       AsyncStorage.setItem('wsId', pWsId);
       AsyncStorage.setItem('user', pUserStr);
       AsyncStorage.setItem('role', pRole);
+      AsyncStorage.setItem('myPermissions', pPermsStr);
       // ดึงชื่อ workspace แล้ว save ให้ tab Profile ใช้ได้
       fetch(`${API_BASE}/api/workspaces/${pWsId}`, {
         headers: { Authorization: `Bearer ${pToken}`, 'ngrok-skip-browser-warning': 'true' },
@@ -503,11 +535,13 @@ export default function FeedScreen() {
         AsyncStorage.getItem('wsId'),
         AsyncStorage.getItem('user'),
         AsyncStorage.getItem('role'),
-      ]).then(([t, w, u, r]) => {
+        AsyncStorage.getItem('myPermissions'),
+      ]).then(([t, w, u, r, p]) => {
         if (t) setToken(t);
         if (w) setWsId(w);
         if (u) { try { setUserData(JSON.parse(u)); } catch {} }
         if (r) setRole(r);
+        if (p) { try { setMyPermissions(JSON.parse(p)); } catch {} }
       });
     }
   }, []);
@@ -553,7 +587,7 @@ export default function FeedScreen() {
   const recent = filtered.filter((p) => !p.isPinned);
 
   const navigateToDetail = (post: Post) => router.push({
-    pathname: '/(tabs)/post-detail',
+    pathname: '/(screensDetail)/post-detail',
     params: { post: JSON.stringify(post), token, wsId, currentUserId: userData?.id ?? '' },
   });
 
@@ -563,7 +597,7 @@ export default function FeedScreen() {
         subtitle="Stay updated with announcements"
         userName={userData?.displayName ?? 'Your Name'}
         userEmail={userData?.email ?? ''}
-        userInitials={(userData?.displayName ?? 'YO').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+        userInitials={(userData?.displayName || userData?.email?.split('@')[0] || 'YO').split(' ').map((w: string) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || 'YO'}
         userAvatarUrl={userData?.avatarUrl ?? null}
         userRole={ROLE_LABELS[role] ?? 'Member'}
         workspaceId={wsId}
@@ -599,7 +633,7 @@ export default function FeedScreen() {
                     <Text style={{ fontSize: 11, color: '#1d4ed8', fontWeight: '700' }}>{pinned.length}</Text>
                   </View>
                 </View>
-                {pinned.map((post) => <PostCard key={post.id} post={post} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPress={() => navigateToDetail(post)} />)}
+                {pinned.map((post) => <PostCard key={post.id} post={post} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} role={role} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPinToggled={() => loadPosts(true)} onPress={() => navigateToDetail(post)} />)}
               </>
             )}
             {!loading && recent.length > 0 && (
@@ -607,7 +641,7 @@ export default function FeedScreen() {
             )}
           </>
         }
-        renderItem={({ item }) => !loading ? <PostCard post={item} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPress={() => navigateToDetail(item)} /> : null}
+        renderItem={({ item }) => !loading ? <PostCard post={item} currentUserId={userData?.id ?? ''} isAdminOrOwner={isAdminOrOwner} role={role} token={token} onDeleted={() => loadPosts(true)} onEdit={handleEdit} onPinToggled={() => loadPosts(true)} onPress={() => navigateToDetail(item)} /> : null}
         ListEmptyComponent={
           !loading && !error ? (
             <View style={{ alignItems: 'center', marginTop: 60 }}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator, Image, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator, Image, Modal, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,9 +31,24 @@ export default function ProfileScreen() {
   const [wsRole, setWsRole] = useState('');
   const [wsName, setWsName] = useState('');
 
-  const isAdminOrOwner = wsRole === 'OWNER' || wsRole === 'ADMIN';
+  const [myPermissions, setMyPermissions] = useState<string[]>([]);
+  const isAdminOrOwner = myPermissions.includes('MANAGE_WORKSPACE') || myPermissions.includes('MANAGE_MEMBERS') || wsRole === 'OWNER' || wsRole === 'ADMIN';
 
   const [helpVisible, setHelpVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    const pairs = await AsyncStorage.multiGet(['user', 'token', 'wsId', 'role', 'wsName', 'myPermissions']);
+    const map = Object.fromEntries(pairs.map(([k, v]) => [k, v ?? '']));
+    if (map['user']) try { setUserData(JSON.parse(map['user'])); } catch {}
+    setToken(map['token']);
+    setWsId(map['wsId']);
+    setWsRole(map['role']);
+    setWsName(map['wsName']);
+    if (map['myPermissions']) try { setMyPermissions(JSON.parse(map['myPermissions'])); } catch {}
+    setRefreshing(false);
+  };
 
   const [pushEnabled, setPushEnabled] = useState(true);
   const [dmEnabled, setDmEnabled] = useState(true);
@@ -43,13 +58,14 @@ export default function ProfileScreen() {
   // refresh รูป/ชื่อ และ ws context เมื่อกลับมาที่ tab นี้
   useFocusEffect(useCallback(() => {
     // feed.tsx บันทึก key: 'token', 'wsId', 'role', 'user', 'wsName'
-    AsyncStorage.multiGet(['user', 'token', 'wsId', 'role', 'wsName']).then((pairs) => {
+    AsyncStorage.multiGet(['user', 'token', 'wsId', 'role', 'wsName', 'myPermissions']).then((pairs) => {
       const map = Object.fromEntries(pairs.map(([k, v]) => [k, v ?? '']));
-      if (map['user']) setUserData(JSON.parse(map['user']));
+      if (map['user']) try { setUserData(JSON.parse(map['user'])); } catch {}
       setToken(map['token']);
       setWsId(map['wsId']);
       setWsRole(map['role']);
       setWsName(map['wsName']);
+      if (map['myPermissions']) try { setMyPermissions(JSON.parse(map['myPermissions'])); } catch {}
     });
   }, []));
 
@@ -146,7 +162,7 @@ export default function ProfileScreen() {
         <Text style={{ fontSize: 18, fontWeight: '700', marginLeft: 12 }}>Settings</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#425C95']} />}>
         <TouchableOpacity onPress={() => router.push('/(tabs)/profile-edit' as any)} style={{ margin: 20, padding: 16, backgroundColor: '#f5f7ff', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {userData?.avatarUrl

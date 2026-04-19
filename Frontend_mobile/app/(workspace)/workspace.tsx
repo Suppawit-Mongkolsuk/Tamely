@@ -18,6 +18,7 @@ interface WorkspaceData {
   iconUrl?: string | null;
   memberCount?: number;
   role?: string;
+  myPermissions?: string[];
   planType?: 'Pro' | 'Enterprise' | null;
   unreadCount?: number;
 }
@@ -283,6 +284,7 @@ export default function WorkspaceScreen() {
                       token: token,
                       user: userStr,
                       role: item.role,
+                      myPermissions: JSON.stringify(item.myPermissions ?? []),
                     },
                   })
                 }

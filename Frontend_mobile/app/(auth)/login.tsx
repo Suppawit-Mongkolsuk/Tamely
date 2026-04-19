@@ -43,11 +43,12 @@ export default function LoginScreen() {
         await AsyncStorage.setItem('token', token);
 
         const userRes = await fetch(`${API_BASE}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
         });
         const userData = await userRes.json();
         if (userRes.ok) {
-          await AsyncStorage.setItem('user', JSON.stringify(userData.data?.user ?? userData.user ?? {}));
+          const user = userData.data ?? {};
+          await AsyncStorage.setItem('user', JSON.stringify(user));
           router.replace('/(workspace)/workspace');
         } else {
           Alert.alert('Login Error', 'ไม่สามารถดึงข้อมูล user ได้');

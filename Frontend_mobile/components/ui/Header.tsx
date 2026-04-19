@@ -247,27 +247,10 @@ export default function Header({
     }
   };
 
-  /* ===== ออกจาก workspace (MODERATOR/MEMBER) ===== */
+  /* ===== ออกจาก workspace (MODERATOR/MEMBER) — แค่ switch ไม่ได้ลบ membership ===== */
   const handleLeaveWorkspace = () => {
-    Alert.alert('ออกจาก Workspace?', 'คุณจะไม่สามารถกลับเข้ามาได้จนกว่าจะได้รับเชิญใหม่', [
-      { text: 'ยกเลิก', style: 'cancel' },
-      {
-        text: 'ออก', style: 'destructive', onPress: async () => {
-          if (!workspaceId || !token || !currentUserId) return;
-          try {
-            const res = await fetch(`${API_BASE}/api/workspaces/${workspaceId}/members/${currentUserId}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
-            });
-            if (!res.ok) throw new Error();
-            setShowProfile(false);
-            router.replace({ pathname: '/(workspace)/workspace', params: { token } });
-          } catch {
-            Alert.alert('เกิดข้อผิดพลาด', 'ออกจาก Workspace ไม่สำเร็จ');
-          }
-        }
-      },
-    ]);
+    setShowProfile(false);
+    router.replace({ pathname: '/(workspace)/workspace', params: { token } });
   };
 
   /* ===== เปลี่ยน workspace (OWNER/ADMIN) ===== */

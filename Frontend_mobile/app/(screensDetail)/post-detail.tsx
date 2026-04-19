@@ -7,7 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Pin, Heart, MessageCircle, ImageIcon, Send, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Pin, MessageCircle, ImageIcon, Send, Trash2 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DecorativeBubble from '../../components/ui/DecBubble';
 
@@ -107,9 +107,6 @@ export default function PostDetailScreen() {
       setStorageLoaded(true);
     });
   }, []);
-
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
 
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
@@ -340,22 +337,8 @@ export default function PostDetailScreen() {
 
           <View style={{ height: 1, backgroundColor: '#f3f4f6', marginBottom: 20 }} />
 
-          {/* Like + Comment count */}
+          {/* Comment count */}
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-            <TouchableOpacity
-              onPress={() => {
-                setLiked((v) => !v);
-                setLikeCount((c) => liked ? c - 1 : c + 1);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: liked ? '#fef2f2' : '#f9fafb', borderWidth: 1, borderColor: liked ? '#fecaca' : '#f3f4f6' }}
-              activeOpacity={0.8}
-            >
-              <Heart size={18} color={liked ? '#ef4444' : '#9ca3af'} fill={liked ? '#ef4444' : 'transparent'} />
-              <Text style={{ fontSize: 13, fontWeight: '600', color: liked ? '#ef4444' : '#6b7280' }}>
-                {likeCount > 0 ? `${likeCount} ถูกใจ` : 'ถูกใจ'}
-              </Text>
-            </TouchableOpacity>
-
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f3f4f6' }}>
               <MessageCircle size={18} color="#9ca3af" />
               <Text style={{ fontSize: 13, fontWeight: '600', color: '#6b7280' }}>
