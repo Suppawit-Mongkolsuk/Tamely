@@ -70,7 +70,7 @@ router.post('/login', authLimiter, validateRequest(LoginSchema), asyncHandler(as
 }));
 
 // POST /api/auth/logout
-router.post('/logout', (req: AuthRequest, res: Response): void => {
+router.post('/logout', (_req: AuthRequest, res: Response): void => {
   clearTokenCookie(res);
   clearAdminTokenCookie(res);
   res.json({ success: true, message: 'Logged out successfully' });
