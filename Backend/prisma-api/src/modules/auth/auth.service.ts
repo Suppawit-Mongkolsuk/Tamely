@@ -13,14 +13,14 @@ import * as adminService from '../admin/admin.service';
 /**
  * Register new user
  */
-export const registerUser = async (data: RegisterPayload) => {
-  const existingUser = await authRepository.findByEmail(data.email);
+export const registerUser = async (data: RegisterPayload) => { 
+  const existingUser = await authRepository.findByEmail(data.email); // ตรวจสอบว่ามีอีเมลนี้ในระบบแล้วหรือไม่
   if (existingUser) {
     throw new AppError(409, 'Email already registered');
   }
 
-  const hashedPassword = await hashPassword(data.password);
-  const user = await authRepository.createUser({
+  const hashedPassword = await hashPassword(data.password); // แฮชรหัสผ่านก่อนเก็บลง DB
+  const user = await authRepository.createUser({ // สร้าง user ใหม่ใน DB
     email: data.email,
     passwordHash: hashedPassword,
     name: data.displayName,
@@ -37,9 +37,9 @@ export const registerUser = async (data: RegisterPayload) => {
  * Login user
  */
 export const loginUser = async (data: LoginPayload) => {
-  const configuredAdminUsername = process.env.ADMIN_USERNAME?.trim().toLowerCase();
-  if (configuredAdminUsername && data.email.trim().toLowerCase() === configuredAdminUsername) {
-    const adminSession = await adminService.loginAdmin(data.email.trim(), data.password);
+  const configuredAdminUsername = process.env.ADMIN_USERNAME?.trim().toLowerCase(); // ดึงค่า ADMIN_USERNAME 
+  if (configuredAdminUsername && data.email.trim().toLowerCase() === configuredAdminUsername) { // เช็คว่าเป็น Admin หรือไม่
+    const adminSession = await adminService.loginAdmin(data.email.trim(), data.password); // ถ้าใช่ ให้ไปเช็คกับ adminService แทน
     return {
       token: adminSession.token,
       sessionType: 'admin' as const,

@@ -5,17 +5,17 @@ import { AppError } from '../../types';
 import * as adminRepository from './admin.repository';
 
 const getAdminCredentials = () => {
-  const username = process.env.ADMIN_USERNAME?.trim();
-  const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
+  const username = process.env.ADMIN_USERNAME?.trim(); // ดึงค่า ADMIN_USERNAME จาก environment variable และ trim whitespace
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim(); // ดึงค่า ADMIN_PASSWORD_HASH จาก environment variable และ trim whitespace  
 
-  if (!username || !passwordHash) {
+  if (!username || !passwordHash) { // ถ้าไม่มีการตั้งค่า admin  ให้โยน error ออกมา
     throw new AppError(500, 'Admin login is not configured');
   }
 
   return { username, passwordHash };
 };
 
-const getAdminProfile = () => {
+const getAdminProfile = () => { // ดึงโปรไฟล์ admin
   const { username } = getAdminCredentials();
   return { username };
 };
@@ -32,26 +32,26 @@ const assertAdminPassword = async (password: string) => {
 export const loginAdmin = async (username: string, password: string) => {
   const credentials = getAdminCredentials();
 
-  if (username !== credentials.username) {
+  if (username !== credentials.username) { // เช็คว่า username ตรงกับที่ตั้งไว้หรือไม่
     throw new AppError(401, 'Invalid admin credentials');
   }
 
-  const passwordMatches = await comparePassword(password, credentials.passwordHash);
+  const passwordMatches = await comparePassword(password, credentials.passwordHash); // เช็คว่า password ที่กรอกมา ตรงกับ hash ที่ตั้งไว้หรือไม่
   if (!passwordMatches) {
     throw new AppError(401, 'Invalid admin credentials');
   }
 
-  const admin = getAdminProfile();
-  const token = signAdminToken(admin.username);
+  const admin = getAdminProfile(); // ดึงข้อมูลโปรไฟล์ admin (ในที่นี้มีแค่ username)
+  const token = signAdminToken(admin.username); // สร้าง JWT token สำหรับ admin session
 
   return { token, admin };
 };
 
-export const getAdminSession = async () => {
+export const getAdminSession = async () => { // ฟังก์ชันนี้ใช้สำหรับตรวจสอบ session ของ admin ว่ายัง valid อยู่หรือไม่ และดึงข้อมูลโปรไฟล์ admin มาแสดง
   return getAdminProfile();
 };
 
-const getUsageStartDate = (range: '7d' | '30d' | 'all') => {
+const getUsageStartDate = (range: '7d' | '30d' | 'all') => { // ฟังก์ชันนี้ใช้สำหรับคำนวณวันที่เริ่มต้นของช่วงเวลาที่ต้องการดู usage ของ AI
   if (range === 'all') {
     return undefined;
   }

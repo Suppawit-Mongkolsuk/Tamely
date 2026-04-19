@@ -25,7 +25,7 @@ import aiRoutes from './modules/ai/ai.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import passport from './modules/oauth/oauth.config';
 import { initSocketIO } from './modules/chat/chat.gateway';
-import { ensureBucket, CHAT_FILES_BUCKET, WORKSPACE_ICONS_BUCKET } from './utils/supabase-storage';
+import { ensureBucket, AVATAR_BUCKET, POST_IMAGES_BUCKET, CHAT_FILES_BUCKET, WORKSPACE_ICONS_BUCKET } from './utils/supabase-storage';
 
 // Middlewares
 import { errorHandler } from './middlewares/error';
@@ -149,6 +149,12 @@ const startServer = (port: number) => {
     .listen(port, () => {
       console.log(`Server running on http://localhost:${port}`);
       // Ensure Supabase buckets exist on startup
+      ensureBucket(AVATAR_BUCKET, true).catch((err) => {
+        console.error('[Storage] Failed to ensure avatar bucket:', err);
+      });
+      ensureBucket(POST_IMAGES_BUCKET, true).catch((err) => {
+        console.error('[Storage] Failed to ensure post-images bucket:', err);
+      });
       ensureBucket(CHAT_FILES_BUCKET, true).catch((err) => {
         console.error('[Storage] Failed to ensure chat bucket:', err);
       });

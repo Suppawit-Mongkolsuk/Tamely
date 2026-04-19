@@ -18,7 +18,7 @@ export const createUser = async (data: {
   passwordHash: string;
   name: string;
 }) => {
-  return prisma.user.create({
+  return prisma.user.create({ // สร้าง user ใหม่ใน DB
     data: {
       email: data.email,
       passwordHash: data.passwordHash,
