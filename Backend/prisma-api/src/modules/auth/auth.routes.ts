@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { authenticate } from '../../middlewares/auth';
 import { validateRequest, asyncHandler } from '../../middlewares/validate';
 import { AuthRequest, LoginResponse } from '../../types';
@@ -16,8 +17,17 @@ import { avatarUpload } from '../../middlewares/upload.middleware';
 
 const router = Router();
 
+// ป้องกัน brute force: login/register/forgot-password จำกัด 10 ครั้ง/15 นาที ต่อ IP
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'ลองบ่อยเกินไป กรุณารอ 15 นาทีแล้วลองใหม่' },
+});
+
 // POST /api/auth/register
-router.post('/register', validateRequest(RegisterSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/register', authLimiter, validateRequest(RegisterSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const user = await authService.registerUser(req.body);
   const token = signToken(user.id);
   setTokenCookie(res, token);
@@ -26,7 +36,7 @@ router.post('/register', validateRequest(RegisterSchema), asyncHandler(async (re
 }));
 
 // POST /api/auth/login
-router.post('/login', validateRequest(LoginSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/login', authLimiter, validateRequest(LoginSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const result = await authService.loginUser(req.body);
   const rememberMe = Boolean(req.body.rememberMe);
 
@@ -80,7 +90,7 @@ router.get('/token', authenticate, asyncHandler(async (req: AuthRequest, res: Re
 }));
 
 // POST /api/auth/forgot-password
-router.post('/forgot-password', validateRequest(ForgotPasswordSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/forgot-password', authLimiter, validateRequest(ForgotPasswordSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const result = await authService.forgotPassword(req.body.email);
   res.json({ success: true, data: result });
 }));

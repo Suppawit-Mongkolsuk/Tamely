@@ -5,7 +5,8 @@
       "Bash(node -e ':*)",
       "Bash(grep *)",
       "Bash(xargs touch *)",
-      "Bash(find \"/Users/title/Documents/Mini Project/Tamely/Frontend_mobile/node_modules\" \\\\\\( -name \"*.jar\" -o -name \"*.aar\" \\\\\\) -exec touch {} \\\\;)"
+      "Bash(find \"/Users/title/Documents/Mini Project/Tamely/Frontend_mobile/node_modules\" \\\\\\( -name \"*.jar\" -o -name \"*.aar\" \\\\\\) -exec touch {} \\\\;)",
+      "Bash(npx tsc *)"
     ]
   }
 }
