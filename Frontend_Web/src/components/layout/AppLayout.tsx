@@ -7,12 +7,14 @@ import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { useGlobalNotifications } from '@/hooks/useGlobalNotifications';
 
 interface AppLayoutProps {
   onLogout: () => void;
 }
 
 export function AppLayout({ onLogout }: AppLayoutProps) {
+  useGlobalNotifications();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 

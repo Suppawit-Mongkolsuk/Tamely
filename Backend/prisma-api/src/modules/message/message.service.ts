@@ -86,7 +86,7 @@ export const sendMessage = async (
     console.error('[RoomMessage] Failed to send push notifications:', err);
   });
 
-  return message;
+  return { ...message, roomName: room.name };
 };
 
 /* ======================= DELETE ======================= */

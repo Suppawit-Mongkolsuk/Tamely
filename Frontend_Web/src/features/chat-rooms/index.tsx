@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ChatSidebar } from '@/components/chat-rooms/ChatSidebar';
 import { ChatWindow, ChatEmptyState } from '@/components/chat-rooms/ChatWindow';
 import { ChatDetailPanel } from '@/components/chat-rooms/ChatDetailPanel';
@@ -127,6 +128,7 @@ export function ChatRoomsPage() {
   const wsId = currentWorkspace?.id;
   const myId = user?.id ?? '';
   const { callState, startCall } = useWebRTCContext();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [messageInput, setMessageInput] = useState('');
@@ -273,6 +275,27 @@ export function ChatRoomsPage() {
       fetchDMs();
     }
   }, [activeTab, fetchDMs]);
+
+  // เปิดห้อง/DM จาก URL params (?room=id หรือ ?dm=id) — ใช้เมื่อ navigate มาจาก toast
+  useEffect(() => {
+    const roomId = searchParams.get('room');
+    const dmId = searchParams.get('dm');
+    if (!roomId && !dmId) return;
+
+    if (roomId) {
+      handleSelectRoom(roomId);
+      setSearchParams({}, { replace: true });
+    } else if (dmId) {
+      handleTabChange('dms');
+      // DM list อาจยังไม่โหลด — โหลดก่อนแล้วค่อย select
+      fetchDMs().then(() => {
+        handleSelectDM(dmId);
+        setSearchParams({}, { replace: true });
+      });
+    }
+  // ทำงานครั้งเดียวตอน params เปลี่ยน — ไม่ต้องใส่ handler ใน deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const {
     handleSendMessage,
