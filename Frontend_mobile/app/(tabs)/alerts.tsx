@@ -306,9 +306,22 @@ export default function AlertsScreen() {
           data={notifications}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadNotifications(true)} tintColor="#425C95" colors={['#425C95']} />}
-          renderItem={({ item }) => <NotificationCard notification={item} onPress={() => {
+          renderItem={({ item }) => <NotificationCard notification={item} onPress={async () => {
             handleMarkRead(item);
             if (item.post?.id) {
+              try {
+                const res = await fetch(`${API_BASE}/api/workspaces/${wsId}/posts?limit=50&offset=0`, {
+                  headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+                });
+                if (res.ok) {
+                  const json = await res.json();
+                  const fullPost = (json.data ?? []).find((p: any) => p.id === item.post!.id);
+                  if (fullPost) {
+                    router.push({ pathname: '/(screensDetail)/post-detail', params: { post: JSON.stringify(fullPost), token, wsId, currentUserId: userData?.id ?? '' } });
+                    return;
+                  }
+                }
+              } catch {}
               router.push({ pathname: '/(screensDetail)/post-detail', params: { post: JSON.stringify(item.post), token, wsId, currentUserId: userData?.id ?? '' } });
             }
           }} />}
