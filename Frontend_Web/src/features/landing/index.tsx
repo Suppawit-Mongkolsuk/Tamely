@@ -59,7 +59,7 @@ function savePinnedIds(userId: string, ids: string[]) {
   localStorage.setItem(pinnedKey(userId), JSON.stringify(ids));
 }
 
-export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
+export function LandingPage({ onComplete, onLogout }: LandingPageProps) { // หน้าเลือก workspace หลังจาก login สำเร็จ จะมีฟังก์ชัน onComplete ที่จะถูกเรียกเมื่อผู้ใช้เลือก workspace แล้ว เพื่อบอกให้ router นำทางไปหน้า home ได้ และมี onLogout สำหรับให้ผู้ใช้สามารถ logout ได้จากหน้านี้เลยโดยไม่ต้องกลับไปที่หน้า login ก่อน
   const {
     workspaces,
     isLoading,
@@ -70,23 +70,23 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
   } = useWorkspaceContext();
   const { user } = useAuthContext();
 
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showJoinDialog, setShowJoinDialog] = useState(false);
-  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-  const [leaveTarget, setLeaveTarget] = useState<{ id: string; name: string } | null>(null);
-  const [createName, setCreateName] = useState('');
-  const [createDescription, setCreateDescription] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false); // state สำหรับควบคุมการแสดง dialog สร้าง workspace
+  const [showJoinDialog, setShowJoinDialog] = useState(false);// state สำหรับควบคุมการแสดง dialog เข้าร่วม workspace
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);// state สำหรับควบคุมการแสดง dialog ยืนยันการออกจาก workspace
+  const [leaveTarget, setLeaveTarget] = useState<{ id: string; name: string } | null>(null); // state สำหรับเก็บ workspace ที่ผู้ใช้ต้องการออก
+  const [createName, setCreateName] = useState(''); // state สำหรับเก็บชื่อ workspace ที่ผู้ใช้กรอกใน dialog สร้าง workspace
+  const [createDescription, setCreateDescription] = useState(''); // state สำหรับเก็บคำอธิบาย workspace ที่ผู้ใช้กรอกใน dialog สร้าง workspace
+  const [inviteCode, setInviteCode] = useState(''); // state สำหรับเก็บรหัสเชิญ workspace ที่ผู้ใช้กรอกใน dialog เข้าร่วม workspace
+  const [submitting, setSubmitting] = useState(false); // state สำหรับบอกว่ากำลังส่งข้อมูลอยู่หรือไม่
   const [pinnedIds, setPinnedIds] = useState<string[]>(() =>
     getPinnedIds(user?.id ?? ''),
   );
 
-  useEffect(() => {
+  useEffect(() => { // เมื่อเข้ามาที่หน้านี้ครั้งแรก ให้ fetch workspace ของผู้ใช้มาแสดง
     fetchWorkspaces();
-  }, [fetchWorkspaces]);
+  }, [fetchWorkspaces]);// เมื่อ user เปลี่ยน ให้โหลด pinned workspace ใหม่
 
-  const handleSelectWorkspace = async (id: string) => {
+  const handleSelectWorkspace = async (id: string) => { // ฟังก์ชันนี้จะถูกเรียกเมื่อผู้ใช้คลิกเลือก workspace เพื่อเข้าไปใช้งาน
     try {
       await selectWorkspace(id);
       onComplete();
@@ -95,16 +95,16 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
     }
   };
 
-  const handleCreate = async () => {
-    if (!createName.trim()) return;
+  const handleCreate = async () => { // ฟังก์ชันนี้จะถูกเรียกเมื่อผู้ใช้กดปุ่มสร้าง workspace ใน dialog สร้าง workspace
+    if (!createName.trim()) return; // ถ้าชื่อ workspace ว่างหรือมีแต่ช่องว่าง ให้ไม่ทำอะไร
     setSubmitting(true);
     try {
-      const ws = await createWorkspace({ name: createName, description: createDescription });
-      await selectWorkspace(ws.id);
-      setShowCreateDialog(false);
+      const ws = await createWorkspace({ name: createName, description: createDescription });// เรียก API เพื่อสร้าง workspace ใหม่ด้วยชื่อและคำอธิบายที่ผู้ใช้กรอกมา
+      await selectWorkspace(ws.id);// เลือก workspace ที่เพิ่งสร้างเสร็จเพื่อเข้าไปใช้งานเลย
+      setShowCreateDialog(false); //
       setCreateName('');
       setCreateDescription('');
-      onComplete();
+      onComplete(); // เรียก onComplete เพื่อบอกให้ router นำทางไปหน้า home ได้
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'สร้าง workspace ไม่สำเร็จ');
     } finally {
@@ -116,8 +116,8 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
     if (!inviteCode.trim()) return;
     setSubmitting(true);
     try {
-      const ws = await joinWorkspace({ inviteCode });
-      await selectWorkspace(ws.id);
+      const ws = await joinWorkspace({ inviteCode });// เรียก API เพื่อเข้าร่วม workspace ด้วยรหัสเชิญที่ผู้ใช้กรอกมา
+      await selectWorkspace(ws.id);// เลือก workspace ที่เพิ่งเข้าร่วมเสร็จเพื่อเข้าไปใช้งานเลย
       setShowJoinDialog(false);
       setInviteCode('');
       onComplete();
@@ -128,7 +128,7 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
     }
   };
 
-  const togglePin = (wsId: string) => {
+  const togglePin = (wsId: string) => { // ฟังก์ชันนี้จะถูกเรียกเมื่อผู้ใช้คลิกปุ่มหมุด workspace
     setPinnedIds((prev) => {
       const next = prev.includes(wsId)
         ? prev.filter((id) => id !== wsId)
@@ -138,20 +138,20 @@ export function LandingPage({ onComplete, onLogout }: LandingPageProps) {
     });
   };
 
-  const handleLeaveConfirm = async () => {
+  const handleLeaveConfirm = async () => { // ฟังก์ชันนี้จะถูกเรียกเมื่อผู้ใช้ยืนยันการออกจาก workspace
     if (!leaveTarget || !user) return;
     setSubmitting(true);
     try {
-      await workspaceService.leaveWorkspace(leaveTarget.id, user.id);
+      await workspaceService.leaveWorkspace(leaveTarget.id, user.id);// เรียก API เพื่อออกจาก workspace
       // ลบออกจาก pinned ถ้ามี
-      setPinnedIds((prev) => {
+      setPinnedIds((prev) => { // ถ้า workspace ที่ออกไปอยู่ใน pinned ให้ลบออกจาก pinned ด้วย
         const next = prev.filter((id) => id !== leaveTarget.id);
         savePinnedIds(user?.id ?? '', next);
         return next;
       });
-      setShowLeaveDialog(false);
-      setLeaveTarget(null);
-      fetchWorkspaces();
+      setShowLeaveDialog(false); // ปิด dialog
+      setLeaveTarget(null); // เคลียร์ target
+      fetchWorkspaces(); // รีเฟรช workspace list เพื่ออัพเดตสถานะ
       toast.success(`ออกจาก "${leaveTarget.name}" แล้ว`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'ออกจาก workspace ไม่สำเร็จ');

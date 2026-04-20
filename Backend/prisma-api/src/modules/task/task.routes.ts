@@ -12,7 +12,7 @@ router.use(authenticate);
 const param = (value: string | string[] | undefined): string =>
   Array.isArray(value) ? value[0] : (value ?? '');
 
-// POST /api/workspaces/:wsId/tasks
+// POST /api/workspaces/:wsId/tasks // สร้าง task ใหม่ใน workspace
 router.post('/workspaces/:wsId/tasks', validateRequest(CreateTaskSchema), asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const task = await taskService.createTask(param(req.params.wsId), req.userId!, {
     workspaceId: param(req.params.wsId), ...req.body,
@@ -20,7 +20,7 @@ router.post('/workspaces/:wsId/tasks', validateRequest(CreateTaskSchema), asyncH
   res.status(201).json({ success: true, data: task });
 }));
 
-// GET /api/workspaces/:wsId/tasks
+// GET /api/workspaces/:wsId/tasks // ดึงรายการ task ของ workspace พร้อม filter ได้ตาม query
 router.get('/workspaces/:wsId/tasks', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const tasks = await taskService.getTasks(param(req.params.wsId), req.userId!, {
     month: req.query.month ? Number(req.query.month) : undefined,
@@ -31,13 +31,13 @@ router.get('/workspaces/:wsId/tasks', asyncHandler(async (req: AuthRequest, res:
   res.json({ success: true, data: tasks });
 }));
 
-// PATCH /api/tasks/:id
+// PATCH /api/tasks/:id // อัปเดตข้อมูล task (เช่น เปลี่ยนสถานะ เปลี่ยนผู้รับผิดชอบ)
 router.patch('/tasks/:id', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   const task = await taskService.updateTask(param(req.params.id), req.userId!, req.body);
   res.json({ success: true, data: task });
 }));
 
-// DELETE /api/tasks/:id
+// DELETE /api/tasks/:id // ลบ task (เฉพาะผู้สร้างเท่านั้นที่ลบได้)
 router.delete('/tasks/:id', asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
   await taskService.deleteTask(param(req.params.id), req.userId!);
   res.json({ success: true, message: 'Task deleted' });

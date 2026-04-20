@@ -64,25 +64,25 @@ function PageLoader() {
 
 // ── Page wrappers (รองรับ props + navigation) ────────────────────────────────
 function LoginPage() {
-  const navigate = useNavigate();
-  const { logout } = useAuthContext();
-  const { clearCurrentWorkspace } = useWorkspaceContext();
+  const navigate = useNavigate(); // ใช้สำหรับเปลี่ยนหน้าเมื่อ login สำเร็จหรือกดลิงก์ forgot password
+  const { logout } = useAuthContext() ;
+  const { clearCurrentWorkspace } = useWorkspaceContext(); // ใช้สำหรับเคลียร์ workspace ปัจจุบันเมื่อ logout (กรณีที่ user เคย login มาแล้วแต่ยังไม่ได้เลือก workspace แล้วกลับมาที่หน้า login อีกครั้ง เพื่อป้องกันข้อมูล workspace เดิมหลงเหลืออยู่)
 
-  const handleLoginComplete = (sessionType: 'user' | 'admin') => {
+  const handleLoginComplete = (sessionType: 'user' | 'admin') => { // ฟังก์ชันนี้จะถูกเรียกเมื่อ login หรือ register สำเร็จ โดย sessionType จะบอกว่าเป็น session ของ user ธรรมดาหรือ admin เพื่อให้ navigate ไปยังหน้า dashboard ที่ถูกต้อง
     if (sessionType === 'admin') {
-      navigate('/admin');
+      navigate('/admin'); // ถ้าเป็น admin ให้ไปที่หน้า admin dashboard เลย
       return;
     }
-    clearCurrentWorkspace();
-    navigate('/workspace');
+    clearCurrentWorkspace(); // เคลียร์ workspace ปัจจุบันก่อน เพราะหลังจาก login สำเร็จแล้ว user จะถูกนำไปที่หน้าเลือก workspace ซึ่งยังไม่มี workspace ไหนถูกเลือกอยู่ ถ้าไม่เคลียร์ไว้ก่อนอาจจะทำให้ข้อมูล workspace เดิมหลงเหลืออยู่ได้
+    navigate('/workspace'); // ถ้าเป็น user ธรรมดาให้ไปที่หน้าเลือก workspace ก่อน เพราะยังไม่มี workspace ไหนถูกเลือกอยู่
   };
 
   return (
     <RedirectIfAuthenticated>
-      <Suspense fallback={<PageLoader />}>
+      <Suspense fallback={<PageLoader />}> // ใช้ Suspense เพื่อแสดง loading spinner ระหว่างที่กำลังโหลดหน้า login/register อยู่
         <LoginRegisterPage
-          onComplete={handleLoginComplete}
-          onForgotPassword={() => navigate('/forgot-password')}
+          onComplete={handleLoginComplete} // ส่งฟังก์ชัน handleLoginComplete ไปให้หน้า LoginRegisterPage เพื่อให้เรียกใช้เมื่อ login หรือ register สำเร็จ
+          onForgotPassword={() => navigate('/forgot-password')} // ส่งฟังก์ชัน onForgotPassword ไปให้หน้า LoginRegisterPage เพื่อให้เรียกใช้เมื่อกดลิงก์ forgot password เพื่อ navigate ไปที่หน้า forgot password
         />
       </Suspense>
     </RedirectIfAuthenticated>
@@ -131,7 +131,7 @@ function WorkspacePage() {
   const { logout } = useAuthContext();
   const { clearCurrentWorkspace } = useWorkspaceContext();
 
-  const handleLogout = async () => {
+  const handleLogout = async () => { // ฟังก์ชันนี้จะถูกเรียกเมื่อกดปุ่ม logout ในหน้าเลือก workspace เพื่อให้ logout ก่อนแล้วค่อย navigate ไปที่หน้า login
     await logout();
     clearCurrentWorkspace();
     navigate('/login');
@@ -139,7 +139,7 @@ function WorkspacePage() {
 
   return (
     <RequireAuth>
-      <Suspense fallback={<PageLoader />}>
+      <Suspense fallback={<PageLoader />}> // ใช้ Suspense เพื่อแสดง loading spinner ระหว่างที่กำลังโหลดหน้าเลือก workspace อยู่
         <LandingPage
           onComplete={() => navigate('/home')}
           onLogout={handleLogout}

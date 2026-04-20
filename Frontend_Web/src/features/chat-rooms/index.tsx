@@ -24,7 +24,7 @@ import { useChatPresence } from './useChatPresence';
 import { useChatSelection } from './useChatSelection';
 import { useChatSockets } from './useChatSockets';
 
-function mapRoom(r: RoomResponse): ChatRoom {
+function mapRoom(r: RoomResponse): ChatRoom { // แปลงข้อมูลห้องแชทจาก API ให้เป็นรูปแบบที่ใช้ใน UI และคืนค่า object ที่มีข้อมูล id, name, workspace, unread, lastMessage, lastMessageTime เพื่อแสดงใน sidebar
   return {
     id: r.id,
     name: r.name,
@@ -35,18 +35,18 @@ function mapRoom(r: RoomResponse): ChatRoom {
   };
 }
 
-function formatRoomPreviewTime(createdAt: string): string {
+function formatRoomPreviewTime(createdAt: string): string { // ฟังก์ชันนี้ใช้สำหรับแสดงเวลาของข้อความล่าสุดใน preview ของห้องแชทใน sidebar โดยจะเรียกฟังก์ชัน formatTime ที่รับค่า createdAt ซึ่งเป็น string แล้วแปลงเป็นรูปแบบเวลาที่เหมาะสมสำหรับการแสดงใน UI เช่น "2 นาทีที่แล้ว", "เมื่อวานนี้", "3 วันก่อน" เป็นต้น
   return formatTime(createdAt);
 }
 
-function updateRoomPreview(
+function updateRoomPreview( // ฟังก์ชันนี้จะถูกเรียกเมื่อมีข้อความใหม่เข้ามาในห้องแชท เพื่ออัปเดต preview ของห้องแชทนั้นใน sidebar 
   list: ChatRoom[],
   roomId: string,
   message: Pick<MessageResponse, 'content' | 'createdAt' | 'sender'>,
   myId: string,
   openedRoomId?: string,
 ): ChatRoom[] {
-  return list.map((room) => {
+  return list.map((room) => { //วนดูทุกห้องใน list
     if (room.id !== roomId) return room;
 
     const isOpened = openedRoomId === roomId;
@@ -61,9 +61,9 @@ function updateRoomPreview(
   });
 }
 
-type ChatMessageResponse = MessageResponse | DMMessageResponse;
+type ChatMessageResponse = MessageResponse | DMMessageResponse;// ประเภทของข้อความที่สามารถเป็นได้ทั้งข้อความในห้องแชทปกติและข้อความใน DM conversation ซึ่งมีโครงสร้างข้อมูลที่คล้ายกันแต่มีบางฟิลด์ที่แตกต่างกัน เช่น conversationId ใน DMMessageResponse และ roomId ใน MessageResponse
 
-function mapChatMessage(m: ChatMessageResponse, myId: string): Message {
+function mapChatMessage(m: ChatMessageResponse, myId: string): Message { // แปลงข้อมูลข้อความจาก API ให้เป็นรูปแบบที่ใช้ใน UI และคืนค่า object ที่มีข้อมูล id, sender, avatar, content, timestamp, isOwn, type เพื่อแสดงในหน้าต่างแชท
   const d = new Date(m.createdAt);
   return {
     id: m.id,
@@ -82,7 +82,7 @@ function mapChatMessage(m: ChatMessageResponse, myId: string): Message {
   };
 }
 
-function mapDMConversation(conv: DMConversationResponse, myId: string): DirectMessage {
+function mapDMConversation(conv: DMConversationResponse, myId: string): DirectMessage { // แปลงข้อมูล DM conversation จาก API ให้เป็นรูปแบบที่ใช้ใน UI และคืนค่า object ที่มีข้อมูล id, userId, userName, avatar, avatarUrl, status, unread, lastMessage, lastMessageTime เพื่อแสดงใน sidebar ของ DM conversations
   // อีกฝ่ายคือ user ที่ไม่ใช่เรา
   const other = conv.userA.id === myId ? conv.userB : conv.userA;
   const initials = getInitials(other.Name);
@@ -101,7 +101,7 @@ function mapDMConversation(conv: DMConversationResponse, myId: string): DirectMe
   };
 }
 
-function updateDMPreview(
+function updateDMPreview( // ฟังก์ชันนี้จะถูกเรียกเมื่อมีข้อความใหม่เข้ามาใน DM conversation เพื่ออัปเดต preview ของ DM conversation นั้นใน sidebar โดยจะรับ list ของ DM conversation ทั้งหมด msg ที่มีข้อมูล content, createdAt, sender, conversationId และ myId ของผู้ใช้ ถ้า openedConversationId ตรงกับ conversationId แสดงว่าเรากำลังเปิด DM conversation นั้นอยู่ ก็จะไม่เพิ่มค่า unread แต่ถ้าไม่ตรงกันและ sender ไม่ใช่เรา ก็จะเพิ่มค่า unread ขึ้น 1
   list: DirectMessage[],
   msg: DMMessageResponse,
   myId: string,
@@ -123,11 +123,11 @@ function updateDMPreview(
 }
 
 export function ChatRoomsPage() {
-  const { currentWorkspace } = useWorkspaceContext();
+  const { currentWorkspace } = useWorkspaceContext(); 
   const { user } = useAuthContext();
   const wsId = currentWorkspace?.id;
-  const myId = user?.id ?? '';
-  const { callState, startCall } = useWebRTCContext();
+  const myId = user?.id ?? '';// ดึงข้อมูล workspace และ user จาก context เพื่อใช้ในการเรียก API และแสดงข้อมูลต่างๆ ในหน้าแชท
+  const { callState, startCall } = useWebRTCContext(); // ดึงข้อมูลสถานะการโทรและฟังก์ชันสำหรับเริ่มการโทรจาก context เพื่อใช้ในการจัดการการโทรเสียงในหน้าแชท
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -141,7 +141,7 @@ export function ChatRoomsPage() {
   // mute state — re-render เมื่อ toggle
   const [mutedIds, setMutedIds] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem(`tamely_muted_${myId}`);
+      const raw = localStorage.getItem(`tamely_muted_${myId}`); // ดึง muted IDs จาก localStorage มาเก็บใน state เพื่อให้สามารถเช็คได้ว่าห้องหรือ DM ไหนถูก mute อยู่บ้าง และเพื่อให้การ toggle mute สามารถอัพเดตได้ทันที
       return new Set(raw ? (JSON.parse(raw) as string[]) : []);
     } catch {
       return new Set();
@@ -149,8 +149,8 @@ export function ChatRoomsPage() {
   });
 
   const isFirstRoomLoad = useRef(true);
-  const canCreateRoom = canDo(currentWorkspace, PERMISSIONS.MANAGE_CHANNELS);
-  const { workspaceMembers, onlineStatus, myWorkspaceRole } = useChatPresence(wsId, myId);
+  const canCreateRoom = canDo(currentWorkspace, PERMISSIONS.MANAGE_CHANNELS);// เช็คสิทธิ์ในการสร้างห้องแชทใหม่ใน workspace นี้เพื่อแสดงหรือซ่อนปุ่มสร้างห้องใน UI
+  const { workspaceMembers, onlineStatus, myWorkspaceRole } = useChatPresence(wsId, myId); // ดึงข้อมูลสมาชิกใน workspace นี้ สถานะออนไลน์ของสมาชิก และบทบาทของผู้ใช้ใน workspace นี้จาก custom hook เพื่อใช้แสดงข้อมูลในหน้าแชทและจัดการสิทธิ์ต่างๆ เช่น การเชิญสมาชิกเข้าห้อง การลบสมาชิกออกจากห้อง เป็นต้น
   const {
     isCreateRoomDialogOpen,
     setIsCreateRoomDialogOpen,
@@ -168,7 +168,7 @@ export function ChatRoomsPage() {
     clearInviteSelection,
     inviteSearchQuery,
     setInviteSearchQuery,
-  } = useChatDialogs();
+  } = useChatDialogs(); 
 
   const {
     messages,
@@ -179,7 +179,7 @@ export function ChatRoomsPage() {
     fetchDMMessages,
     resetMessages,
     loadMoreMessages,
-  } = useChatMessages({
+  } = useChatMessages({  // จัดการ state ของข้อความในห้องและ DM รวมถึงฟังก์ชันสำหรับโหลดข้อความจาก API และโหลดเพิ่มเติมเมื่อ scroll
     myId,
     setDirectMessages,
     mapChatMessage,
@@ -195,19 +195,19 @@ export function ChatRoomsPage() {
     handleTabChange,
     handleSelectDM,
     handleSelectRoom,
-  } = useChatSelection({
+  } = useChatSelection({ // จัดการ state ของการเลือกห้องและ DM รวมถึง tab ที่ active อยู่ และ view บน mobile
     setRooms,
     setDirectMessages,
     onResetMessages: resetMessages,
   });
 
-  const fetchRooms = useCallback(async () => {
+  const fetchRooms = useCallback(async () => { // โหลดห้องเเชท 
     if (!wsId) return;
     try {
-      const data = await chatService.getRooms(wsId);
-      setRooms(data.map(mapRoom));
+      const data = await chatService.getRooms(wsId); // เรียก API เพื่อดึงข้อมูลห้องแชททั้งหมดใน workspace นี้มาแสดงใน sidebar
+      setRooms(data.map(mapRoom)); // แปลงข้อมูลห้องแชทจาก API ให้เป็นรูปแบบที่ใช้ใน UI และเก็บไว้ใน state
       // auto-select ห้องแรกเฉพาะครั้งแรกที่โหลด
-      if (data.length > 0 && isFirstRoomLoad.current) {
+      if (data.length > 0 && isFirstRoomLoad.current) { 
         isFirstRoomLoad.current = false;
         setSelectedRoom(data[0].id);
       }
@@ -216,10 +216,10 @@ export function ChatRoomsPage() {
     }
   }, [wsId]);
 
-  const fetchRoomDetail = useCallback(async (roomId: string) => {
+  const fetchRoomDetail = useCallback(async (roomId: string) => { // โหลดรายละเอียดของห้องแชท เช่น รายชื่อสมาชิก เพื่อแสดงใน detail panel
     try {
-      const detail = await chatService.getRoomById(roomId);
-      setMembers(
+      const detail = await chatService.getRoomById(roomId); // เรียก API เพื่อดึงข้อมูลรายละเอียดของห้องแชทที่ถูกเลือกมา เช่น รายชื่อสมาชิกในห้อง สิทธิ์ของผู้ใช้ในห้อง เป็นต้น
+      setMembers( // แปลงข้อมูลสมาชิกในห้องจาก API ให้เป็นรูปแบบที่ใช้ใน UI และเก็บไว้ใน state เพื่อแสดงใน detail panel
         (detail.members ?? []).map((m) => ({
           id: m.user.id,
           name: m.user.Name,
@@ -235,7 +235,7 @@ export function ChatRoomsPage() {
     }
   }, []);
 
-  const fetchDMs = useCallback(async () => {
+  const fetchDMs = useCallback(async () => { // โหลด DM list เมื่อ switch ไป DM tab
     if (!wsId) return;
     try {
       const data = await dmService.getConversations(wsId);
@@ -245,7 +245,7 @@ export function ChatRoomsPage() {
     }
   }, [wsId, myId]);
 
-  const { socketRef } = useChatSockets({
+  const { socketRef } = useChatSockets({// จัดการ WebSocket connection สำหรับรับข้อความใหม่แบบ real-time และอัพเดต preview ใน sidebarเมื่อมีข้อความใหม่เข้ามา
     selectedRoom,
     selectedDM,
     myId,
@@ -335,10 +335,10 @@ export function ChatRoomsPage() {
     memberToRemove,
   });
 
-  const currentRoom = rooms.find((r) => r.id === selectedRoom);
-  const currentDM = directMessages.find((d) => d.id === selectedDM);
+  const currentRoom = rooms.find((r) => r.id === selectedRoom);// หา object ห้องแชทที่ถูกเลือกจาก list ของห้องแชททั้งหมด เพื่อส่งข้อมูลไปแสดงใน ChatWindow และ ChatDetailPanel
+  const currentDM = directMessages.find((d) => d.id === selectedDM);// หา object DM conversation ที่ถูกเลือกจาก list ของ DM conversation ทั้งหมด เพื่อส่งข้อมูลไปแสดงใน ChatWindow และ ChatDetailPanel 
   const hasSelection = !!selectedRoom || !!selectedDM;
-  const isCallBusy = callState.status !== 'idle' && callState.status !== 'ended';
+  const isCallBusy = callState.status !== 'idle' && callState.status !== 'ended';// เช็คว่าสถานะการโทรไม่ว่างหรือไม่ เพื่อใช้ในการ disable ปุ่มโทรใน UI
 
   // Visibility classes สำหรับ mobile:
   // Desktop (md+): ทุก panel แสดงพร้อมกัน

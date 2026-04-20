@@ -21,10 +21,10 @@ export function ResetPasswordPage({ token, onBack, onSuccess }: ResetPasswordPag
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(false); // สถานะว่ารีเซ็ตสำเร็จแล้วหรือยัง
 
   // Password strength (สีแสดงความยาก)
-  const strength = (() => {
+  const strength = (() => { // ฟังก์ชันนี้จะประเมินความแข็งแกร่งของรหัสผ่านใหม่ และคืนค่าเป็น object ที่มี label, color, width สำหรับแสดงผลใน UI
     if (newPassword.length === 0) return null;
     const hasLower = /[a-z]/.test(newPassword);
     const hasUpper = /[A-Z]/.test(newPassword);
@@ -36,7 +36,7 @@ export function ResetPasswordPage({ token, onBack, onSuccess }: ResetPasswordPag
     return { label: 'แข็งแกร่ง', color: 'bg-green-500', width: 'w-full' };
   })();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => { // ฟังก์ชันนี้จะถูกเรียกเมื่อผู้ใช้ submit form
     e.preventDefault();
     setError(null);
 

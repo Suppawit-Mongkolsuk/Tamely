@@ -11,7 +11,7 @@ export function useChatDialogs() {
   const [selectedUsersToInvite, setSelectedUsersToInvite] = useState<string[]>([]);
   const [inviteSearchQuery, setInviteSearchQuery] = useState('');
 
-  const handleInviteDialogChange = useCallback((open: boolean) => {
+  const handleInviteDialogChange = useCallback((open: boolean) => { // ฟังก์ชันนี้จะถูกเรียกเมื่อเปิดหรือปิด dialog สำหรับเชิญสมาชิกใหม่เข้าห้องแชท
     setIsInviteMemberDialogOpen(open);
     if (!open) {
       setSelectedUsersToInvite([]);
@@ -19,23 +19,23 @@ export function useChatDialogs() {
     }
   }, []);
 
-  const openRemoveMemberDialog = useCallback((member: Member) => {
+  const openRemoveMemberDialog = useCallback((member: Member) => { // ฟังก์ชันนี้จะถูกเรียกเมื่อคลิกปุ่มลบสมาชิกในรายการสมาชิกของห้องแชท
     setMemberToRemove(member);
     setIsRemoveMemberDialogOpen(true);
   }, []);
 
-  const closeRemoveMemberDialog = useCallback(() => {
+  const closeRemoveMemberDialog = useCallback(() => { // ฟังก์ชันนี้จะถูกเรียกเมื่อปิด dialog สำหรับยืนยันการลบสมาชิกออกจากห้องแชท
     setIsRemoveMemberDialogOpen(false);
     setMemberToRemove(null);
   }, []);
 
-  const toggleInviteUser = useCallback((id: string) => {
+  const toggleInviteUser = useCallback((id: string) => { // ฟังก์ชันนี้จะถูกเรียกเมื่อคลิกเลือกหรือยกเลิกการเลือกผู้ใช้ในรายการผู้ใช้ที่สามารถเชิญเข้าห้องแชทได้
     setSelectedUsersToInvite((prev) =>
       prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
     );
   }, []);
 
-  const clearInviteSelection = useCallback(() => {
+  const clearInviteSelection = useCallback(() => { // ฟังก์ชันนี้จะถูกเรียกเมื่อยืนยันการเชิญสมาชิกใหม่เข้าห้องแชทเสร็จแล้ว เพื่อเคลียร์การเลือกผู้ใช้และค้นหาใน dialog
     setSelectedUsersToInvite([]);
   }, []);
 

@@ -12,7 +12,7 @@ import type {
   LoginResponseData,
 } from '@/types';
 
-export function useAuth() {
+export function useAuth() { // Hook นี้จะถูกใช้ภายใน AuthProvider เพื่อจัดการ auth state และฟังก์ชันต่างๆ เช่น login, logout, register เป็นต้น
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

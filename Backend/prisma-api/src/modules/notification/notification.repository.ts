@@ -20,7 +20,7 @@ const notificationSelect = {
 
 /* ======================= CREATE ======================= */
 
-export const createMany = async (
+export const createMany = async ( // ฟังก์ชันนี้ใช้สำหรับสร้าง notification หลายรายการในครั้งเดียว โดยรับข้อมูลเป็น array ของ notification ที่ต้องการสร้าง
   notifications: {
     workspaceId: string;
     userId: string;
@@ -32,9 +32,9 @@ export const createMany = async (
     content: string;
   }[],
 ) => {
-  if (notifications.length === 0) return;
+  if (notifications.length === 0) return; // ถ้าไม่มี notification ที่ต้องสร้าง ก็ไม่ต้องทำอะไร
 
-  return prisma.notification.createMany({
+  return prisma.notification.createMany({ // ส่งออกคำสั่งสร้าง notification หลายรายการในครั้งเดียว
     data: notifications,
     skipDuplicates: true,
   });
@@ -107,7 +107,7 @@ export const findMembersByNames = async (
   return prisma.workspaceMember.findMany({
     where: {
       workspaceId,
-      user: { Name: { in: names, mode: 'insensitive' } },
+      user: { Name: { in: names, mode: 'insensitive' } }, // ค้นหาชื่อผู้ใช้ที่ตรงกับที่ถูก @mention โดยไม่สนใจตัวพิมพ์เล็ก/ใหญ่
     },
     select: { userId: true },
   });

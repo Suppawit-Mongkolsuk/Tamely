@@ -16,7 +16,7 @@ interface UseChatMessagesParams {
   mapChatMessage: (message: ChatMessageResponse, myId: string) => Message;
 }
 
-export function useChatMessages({
+export function useChatMessages({ // Hook นี้จะถูกใช้ใน ChatRoomDetail เพื่อจัดการ state ของข้อความในห้องแชทหรือ DM conversation ที่เปิดอยู่ รวมถึงฟังก์ชันสำหรับดึงข้อความจาก API, รีเซ็ตข้อความเมื่อเปลี่ยนห้องแชทหรือ DM, และโหลดข้อความเก่าเมื่อเลื่อนขึ้นไปด้านบนของหน้าข้อความ
   myId,
   setDirectMessages,
   mapChatMessage,
@@ -51,9 +51,9 @@ export function useChatMessages({
     [mapChatMessage, myId],
   );
 
-  const fetchDMMessages = useCallback(
+  const fetchDMMessages = useCallback( // ฟังก์ชันนี้จะถูกเรียกเมื่อมีการเปิด DM conversation เพื่อดึงข้อความใน DM นี้มาแสดง
     async (conversationId: string, offset = 0) => {
-      if (offset === 0) setIsLoadingMessages(true);
+      if (offset === 0) setIsLoadingMessages(true); 
       try {
         const res = await dmService.getMessages(conversationId, {
           limit: CHAT_MESSAGE_PAGE_SIZE,
@@ -79,18 +79,18 @@ export function useChatMessages({
     [mapChatMessage, myId, setDirectMessages],
   );
 
-  const resetMessages = useCallback(() => {
+  const resetMessages = useCallback(() => { // ฟังก์ชันนี้จะถูกเรียกเมื่อเปลี่ยนห้องแชทหรือ DM conversation เพื่อเคลียร์ข้อความเก่าออกจากหน้าและรีเซ็ตสถานะการโหลด
     setMessages([]);
     setHasMore(false);
     setMessageOffset(0);
   }, []);
 
-  const loadMoreMessages = useCallback(
+  const loadMoreMessages = useCallback( // ฟังก์ชันนี้จะถูกเรียกเมื่อเลื่อนขึ้นไปด้านบนของหน้าข้อความเพื่อโหลดข้อความเก่าเพิ่มเติม
     async (activeTab: ChatTab, selectedRoom: string, selectedDM: string) => {
       if (activeTab === 'rooms' && selectedRoom) {
-        await fetchRoomMessages(selectedRoom, messageOffset);
+        await fetchRoomMessages(selectedRoom, messageOffset);// ถ้าอยู่ในห้องแชทปกติและมีห้องแชทที่ถูกเลือก → ดึงข้อความเก่าในห้องแชทนี้มาเพิ่ม
       } else if (activeTab === 'dms' && selectedDM) {
-        await fetchDMMessages(selectedDM, messageOffset);
+        await fetchDMMessages(selectedDM, messageOffset);// ถ้าอยู่ใน DM conversation และมี DM ที่ถูกเลือก → ดึงข้อความเก่าใน DM นี้มาเพิ่ม
       }
     },
     [fetchDMMessages, fetchRoomMessages, messageOffset],

@@ -23,14 +23,14 @@ const commentSelect = {
 
 /* ======================= WORKSPACE MEMBER ======================= */
 
-export const findWorkspaceMember = async (workspaceId: string, userId: string) => {
+export const findWorkspaceMember = async (workspaceId: string, userId: string) => { // ดึงข้อมูลสมาชิกใน workspace เพื่อใช้ในการตรวจสอบสิทธิ์การเข้าถึงโพสต์และคอมเมนต์ โดยจะคืนค่า userId และ role ของสมาชิกใน workspace นั้นๆ
   return prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
     select: { userId: true, role: true },
   });
 };
 
-export const findWorkspaceMemberWithUser = async (workspaceId: string, userId: string) => {
+export const findWorkspaceMemberWithUser = async (workspaceId: string, userId: string) => { // ดึงข้อมลู user มาเเสดงเพื่อ @
   return prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
     select: {
@@ -61,25 +61,25 @@ export const create = async (
 
 /* ======================= READ ======================= */
 
-export const findMany = async (
+export const findMany = async ( // ดึงรายการโพสต์ใน workspace พร้อมข้อมูลจำนวนคอมเมนต์
   workspaceId: string,
-  options: { limit: number; offset: number },
+  options: { limit: number; offset: number }, // รับ parameter limit และ offset เพื่อใช้ในการแบ่งหน้า (pagination) ของผลลัพธ์โพสต์
 ) => {
   const [posts, total] = await Promise.all([
     prisma.post.findMany({
       where: { workspaceId },
       select: postSelect,
-      orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }], // เรียงโพสต์ที่ปักหมุดไว้ก่อน แล้วค่อยเรียงตามวันที่สร้างจากใหม่ไปเก่า
       take: options.limit,
       skip: options.offset,
     }),
     prisma.post.count({ where: { workspaceId } }),
   ]);
 
-  return { posts, total };
+  return { posts, total }; // คืนค่าโพสต์ที่ดึงมาและจำนวนโพสต์ทั้งหมดใน workspace เพื่อใช้ในการแสดงผลและการแบ่งหน้า (pagination)
 };
 
-export const findById = async (postId: string) => {
+export const findById = async (postId: string) => { // ดึงข้อมูลโพสต์ตาม id โดยจะรวม workspaceId และ authorId เพื่อใช้ในการตรวจสอบสิทธิ์
   return prisma.post.findUnique({
     where: { id: postId },
     select: { id: true, workspaceId: true, authorId: true },
@@ -88,11 +88,11 @@ export const findById = async (postId: string) => {
 
 /* ======================= UPDATE ======================= */
 
-export const update = async (postId: string, data: TypePayloadUpdatePost) => {
+export const update = async (postId: string, data: TypePayloadUpdatePost) => { 
   return prisma.post.update({
     where: { id: postId },
     data,
-    select: postSelect,
+    select: postSelect, // คืนค่าโพสต์ที่ถูกแก้ไขแล้ว โดยใช้ postSelect เพื่อเลือกเฉพาะฟิลด์ที่ต้องการแสดงผล
   });
 };
 
@@ -100,7 +100,7 @@ export const updatePin = async (postId: string, isPinned: boolean) => {
   return prisma.post.update({
     where: { id: postId },
     data: { isPinned },
-    select: { id: true, isPinned: true },
+    select: { id: true, isPinned: true }, // คืนค่าเฉพาะ id และสถานะ isPinned ของโพสต์ที่ถูกปักหมุดหรือยกเลิกปักหมุด
   });
 };
 
@@ -117,14 +117,14 @@ export const findComments = async (
   options: { limit: number; offset: number },
 ) => {
   const [comments, total] = await Promise.all([
-    prisma.postComment.findMany({
+    prisma.postComment.findMany({ // ดึงรายการคอมเมนต์ของโพสต์ 
       where: { postId },
       select: commentSelect,
       orderBy: { createdAt: 'asc' },
       take: options.limit,
       skip: options.offset,
     }),
-    prisma.postComment.count({ where: { postId } }),
+    prisma.postComment.count({ where: { postId } }), // นับจำนวนคอมเมนต์ทั้งหมดของโพสต์ 
   ]);
 
   return { comments, total };

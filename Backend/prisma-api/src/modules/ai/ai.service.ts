@@ -131,7 +131,7 @@ type PublicAiChatResult = {
   };
 };
 
-const getOpenAIClient = () => {
+const getOpenAIClient = () => { // ฟังก์ชันนี้จะสร้าง instance ของ OpenAI client โดยใช้ API key จาก environment variable และตรวจสอบว่ามีการตั้งค่า API key หรือไม่ ถ้าไม่มีจะโยน error ออกมา
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new AppError(500, 'OPENAI_API_KEY is not configured');
@@ -208,7 +208,7 @@ const toAssistantMessageParam = (
   ...(message.refusal ? { refusal: message.refusal } : {}),
 });
 
-const executeGetTasks = async (
+const executeGetTasks = async ( //ดึงรายการ task งานของ workspace ตามช่วงวันที่หรือสถานะที่ระบุ 
   workspaceId: string,
   args: { date_filter?: string; status?: string },
 ): Promise<string> => {
@@ -498,13 +498,13 @@ const executeGetAllRoomsMessages = async (
 };
 
 export const getSessionList = async (workspaceId: string, userId: string) => {
-  const member = await repository.findWorkspaceMember(workspaceId, userId);
+  const member = await repository.findWorkspaceMember(workspaceId, userId); // Check if user is a member of the workspace
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
-  if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) {
+  if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) { // เช็ค permission ว่ามีสิทธิ์ใช้ AI หรือไม่
     throw new AppError(403, 'Insufficient permissions');
   }
-  const sessions = await repository.getSessionList(workspaceId, userId);
-    return sessions.map((s: { id: string; title: string; isPinned: boolean; updatedAt: Date }) => ({
+  const sessions = await repository.getSessionList(workspaceId, userId); // ดึง session list ของ user ใน workspace นั้นๆ
+    return sessions.map((s: { id: string; title: string; isPinned: boolean; updatedAt: Date }) => ({ // แปลงข้อมูล session ให้เหลือแค่ id, title, isPinned, updatedAt
     sessionId: s.id,
     title: s.title,
     isPinned: s.isPinned,
@@ -532,7 +532,7 @@ export const togglePinSession = async (workspaceId: string, userId: string, sess
 };
 
 export const deleteSession = async (workspaceId: string, userId: string, sessionId: string) => {
-  const member = await repository.findWorkspaceMember(workspaceId, userId);
+  const member = await repository.findWorkspaceMember(workspaceId, userId); // Check if user is a member of the workspace
   if (!member) throw new AppError(403, 'You are not a member of this workspace');
   if (!(await hasPermission(workspaceId, userId, PERMISSIONS.USE_AI))) {
     throw new AppError(403, 'Insufficient permissions');
@@ -540,7 +540,7 @@ export const deleteSession = async (workspaceId: string, userId: string, session
   await repository.deleteSession(sessionId, userId);
 };
 
-export const getSessionMessages = async (
+export const getSessionMessages = async ( // ดึงข้อความใน session แชทนั้นๆ มาแสดง
   workspaceId: string,
   userId: string,
   sessionId: string,
@@ -552,7 +552,7 @@ export const getSessionMessages = async (
   }
 
   const queries = await repository.getSessionMessages(workspaceId, userId, sessionId);
-  return queries.flatMap((q) => [
+  return queries.flatMap((q) => [ // แปลงข้อมูล query ให้เหลือแค่ role, content, createdAt
     { role: 'user' as const, content: q.question, createdAt: q.createdAt },
     { role: 'assistant' as const, content: q.answer, createdAt: q.createdAt },
   ]);
@@ -587,30 +587,30 @@ export const processAiChat = async (params: {
     throw new AppError(403, 'Insufficient permissions');
   }
 
-  const workspace = await repository.findWorkspaceById(params.workspaceId);
+  const workspace = await repository.findWorkspaceById(params.workspaceId); // ดึงข้อมูล workspace มาใช้ใน system prompt
   if (!workspace) {
     throw new AppError(404, 'Workspace not found');
   }
 
-  const [accessibleRooms, currentUser] = await Promise.all([
+  const [accessibleRooms, currentUser] = await Promise.all([ // ดึงรายชื่อห้องที่ user เข้าถึงได้มาใช้ใน system prompt และดึงข้อมูล user มาใช้ใน system prompt ด้วย
     repository.getAccessibleRooms(params.workspaceId, params.userId),
     repository.findUserById(params.userId),
   ]);
 
-  const roomListText =
+  const roomListText = // สร้างข้อความรายชื่อห้องที่เข้าถึงได้สำหรับใส่ใน system prompt
     accessibleRooms.length > 0
       ? accessibleRooms
           .map((room) => `- ${sanitizeRoomName(room.name)} (id: ${room.id})`)
           .join('\n')
       : '- ไม่มีห้องที่เข้าถึงได้';
 
-  const today = new Date().toLocaleDateString('th-TH', {
+  const today = new Date().toLocaleDateString('th-TH', { // แปลงวันที่เป็นรูปแบบไทยสำหรับใส่ใน system prompt
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
 
-  const currentMessages: ChatCompletionMessageParam[] = [
+  const currentMessages: ChatCompletionMessageParam[] = [ // สร้าง system prompt สำหรับ AI โดยใส่ข้อมูลวันที่, ชื่อ workspace, รายชื่อห้องที่เข้าถึงได้ และชื่อ user ลงไป
     {
       role: 'system',
       content: buildSystemPrompt(today, workspace.name, roomListText, currentUser?.Name ?? 'ไม่ทราบชื่อ'),
@@ -622,13 +622,13 @@ export const processAiChat = async (params: {
     { role: 'user', content: params.message },
   ];
 
-  const openai = getOpenAIClient();
-  const toolsUsed: string[] = [];
-  const tracker: UsageTracker = { totalTokens: 0 };
-  let taskCreated: PublicAiChatResult['taskCreated'];
-  let finalReply = '';
+  const openai = getOpenAIClient(); // สร้าง instance ของ OpenAI client
+  const toolsUsed: string[] = []; 
+  const tracker: UsageTracker = { totalTokens: 0 }; 
+  let taskCreated: PublicAiChatResult['taskCreated']; // ตัวแปรนี้จะเก็บข้อมูล task ที่ถูกสร้างขึ้นถ้ามี เพื่อส่งกลับในผลลัพธ์สุดท้าย
+  let finalReply = ''; // ตัวแปรนี้จะเก็บข้อความตอบกลับสุดท้ายที่ได้จาก AI หลังจากผ่านการเรียก tool หลายๆ รอบแล้ว
 
-  for (let i = 0; i < MAX_TOOL_LOOPS; i += 1) {
+  for (let i = 0; i < MAX_TOOL_LOOPS; i += 1) { // ลูปนี้จะทำหน้าที่เรียก AI และตรวจสอบว่ามีการเรียก tool หรือไม่  โดยจะทำซ้ำแบบนี้ได้สูงสุด MAX_TOOL_LOOPS รอบ เพื่อป้องกันการวนลูปไม่รู้จบ
     const response = await openai.chat.completions.create({
       model: AI_MODEL,
       messages: currentMessages,
@@ -637,24 +637,24 @@ export const processAiChat = async (params: {
       max_tokens: 1500,
     });
 
-    addUsage(response.usage, tracker);
+    addUsage(response.usage, tracker); // บันทึกจำนวน tokens ที่ใช้ไปใน tracker
 
-    const choice = response.choices[0];
+    const choice = response.choices[0]; // ดึง choice แรกจาก response มาใช้ในการตรวจสอบว่ามีการเรียก tool หรือไม่ และเก็บข้อความตอบกลับจาก AI
     if (!choice) {
       break;
     }
 
-    if (choice.finish_reason === 'stop') {
+    if (choice.finish_reason === 'stop') { // ถ้า AI ตอบกลับมาแบบปกติ ไม่มีการเรียก tool ใดๆ ให้เก็บข้อความตอบกลับนั้นไว้ใน finalReply และออกจากลูปได้เลย
       finalReply = choice.message.content?.trim() ?? '';
       break;
     }
 
-    if (choice.finish_reason !== 'tool_calls') {
+    if (choice.finish_reason !== 'tool_calls') { // ถ้า AI ตอบกลับมาแบบอื่นที่ไม่ใช่การเรียก tool เช่น การตอบกลับที่ถูกตัดตอนเพราะเกิน max_tokens หรือเหตุผลอื่นๆ ให้เก็บข้อความตอบกลับนั้นไว้ใน finalReply และออกจากลูปได้เลย
       finalReply = choice.message.content?.trim() ?? '';
       break;
     }
 
-    const toolCalls = choice.message.tool_calls ?? [];
+    const toolCalls = choice.message.tool_calls ?? []; // ดึงข้อมูลการเรียก tool จาก AI มาเก็บไว้ในตัวแปร toolCalls ถ้าไม่มีให้เป็น array ว่าง
     if (toolCalls.length === 0) {
       finalReply = choice.message.content?.trim() ?? '';
       break;
@@ -662,7 +662,7 @@ export const processAiChat = async (params: {
 
     const toolResults: ChatCompletionToolMessageParam[] = [];
 
-    for (const toolCall of toolCalls) {
+    for (const toolCall of toolCalls) { // ลูปนี้จะทำหน้าที่ประมวลผลการเรียก tool แต่ละอันที่ AI ส่งมา โดยจะตรวจสอบว่าเป็นการเรียก function หรือไม่ และเรียกฟังก์ชันที่เหมาะสมตามชื่อ tool ที่ AI ต้องการใช้
       if (toolCall.type !== 'function') {
         continue;
       }
@@ -677,14 +677,14 @@ export const processAiChat = async (params: {
       try {
         const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
 
-        if (toolName === 'get_tasks') {
+        if (toolName === 'get_tasks') { // ถ้า toolName เป็น 'get_tasks' ให้เรียกฟังก์ชัน executeGetTasks
           toolResult = await executeGetTasks(params.workspaceId, toolArgs);
         } else if (toolName === 'create_task') {
           const result = await executeCreateTask(params.workspaceId, params.userId, toolArgs);
           taskCreated = result.task;
           toolResult = result.message;
         } else if (toolName === 'get_room_messages') {
-          const canAccess = await repository.canUserAccessRoom(
+          const canAccess = await repository.canUserAccessRoom( // เช็คว่าผู้ใช้มีสิทธิ์เข้าถึงห้องที่ต้องการดึงข้อความหรือไม่
             toolArgs.room_id,
             params.userId,
             params.workspaceId,
@@ -693,14 +693,14 @@ export const processAiChat = async (params: {
           if (!canAccess) {
             toolResult = 'ERROR: ผู้ใช้ไม่มีสิทธิ์เข้าถึงห้องนี้';
           } else {
-            toolResult = await executeGetRoomMessages(
+            toolResult = await executeGetRoomMessages( // ถ้าผู้ใช้มีสิทธิ์เข้าถึงห้องนั้น ให้เรียกฟังก์ชัน executeGetRoomMessages เพื่อดึงข้อความจากห้องนั้นมาใช้ในการสรุปหรือวิเคราะห์ต่อไป
               params.workspaceId,
               params.userId,
               toolArgs,
               tracker,
             );
           }
-        } else if (toolName === 'get_all_rooms_messages') {
+        } else if (toolName === 'get_all_rooms_messages') { // ถ้า toolName เป็น 'get_all_rooms_messages' ให้เรียกฟังก์ชัน executeGetAllRoomsMessages เพื่อดึงข้อความจากทุกห้องที่ user เข้าถึงได้ใน workspace มาใช้ในการสรุปหรือวิเคราะห์ต่อไป
           toolResult = await executeGetAllRoomsMessages(
             params.workspaceId,
             params.userId,
@@ -714,7 +714,7 @@ export const processAiChat = async (params: {
             : 'ERROR: เกิดข้อผิดพลาดระหว่างเรียกใช้งาน tool';
       }
 
-      toolResults.push({
+      toolResults.push({ // นำผลลัพธ์จากการเรียก tool มาเก็บไว้ในรูปแบบที่สามารถส่งกลับไปให้ AI ได้ โดยระบุ role เป็น 'tool' และเชื่อมโยงกับ tool_call_id ที่ AI ส่งมา เพื่อให้ AI สามารถรับรู้ได้ว่านี่คือผลลัพธ์จากการเรียก tool อันไหน
         role: 'tool',
         tool_call_id: toolCall.id,
         content: toolResult,
@@ -724,14 +724,14 @@ export const processAiChat = async (params: {
     currentMessages.push(toAssistantMessageParam(choice.message), ...toolResults);
   }
 
-  if (!finalReply) {
+  if (!finalReply) { // ถ้าไม่ได้ไรกับมา
     finalReply = 'ขออภัยครับ ตอนนี้ผมไม่สามารถตอบกลับได้ กรุณาลองใหม่อีกครั้ง';
   }
 
   // สร้าง / อัพเดท AiSession (upsert) พร้อมกับ log
-  if (params.sessionId) {
+  if (params.sessionId) { 
     repository
-      .createSession({
+      .createSession({ // สร้าง / อัพเดท AiSession (upsert) พร้อมกับ log
         id: params.sessionId,
         workspaceId: params.workspaceId,
         userId: params.userId,
@@ -741,7 +741,7 @@ export const processAiChat = async (params: {
   }
 
   repository
-    .logAiQuery({
+    .logAiQuery({ // บันทึกการใช้งาน AI ลงในระบบ log ของเรา โดยเก็บข้อมูลที่จำเป็นเช่น workspaceId, userId, sessionId, question, answer และ tokensUsed เพื่อใช้ในการวิเคราะห์ภายหลังได้
       workspaceId: params.workspaceId,
       userId: params.userId,
       sessionId: params.sessionId,

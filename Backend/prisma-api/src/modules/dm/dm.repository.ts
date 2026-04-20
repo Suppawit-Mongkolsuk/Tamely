@@ -107,15 +107,15 @@ export const findMessages = async (
   return { messages: messages.reverse(), total };
 };
 
-export const createMessage = async (
+export const createMessage = async ( // สร้างข้อความใหม่ใน conversation พร้อมอัพเดต timestamp
   conversationId: string,
   senderId: string,
   content: string,
   type: MessageType = MessageType.TEXT,
   fileData?: { fileUrl: string; fileName: string; fileSize: number },
 ) => {
-  const [message] = await prisma.$transaction([
-    prisma.directMessage.create({
+  const [message] = await prisma.$transaction([ // ทำ 2 อย่างนี้ใน transaction เดียว
+    prisma.directMessage.create({ // สร้างข้อความใหม่
       data: {
         conversationId,
         senderId,

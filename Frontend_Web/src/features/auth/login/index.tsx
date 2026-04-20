@@ -21,16 +21,16 @@ interface LoginRegisterPageProps {
   onForgotPassword: () => void;
 }
 
-export function LoginRegisterPage({
+export function LoginRegisterPage({ 
   onComplete,
   onForgotPassword,
-}: LoginRegisterPageProps) {
-  const { login, register, isLoading, error } = useAuthContext();
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [formData, setFormData] = useState({
+}: LoginRegisterPageProps) { // หน้านี้เป็นหน้าที่รวมทั้งฟอร์ม login และ register ไว้ด้วยกัน โดยมีการสลับฟอร์มด้วย state isLoginxt เมื่อผู้ใช้ submit form
+  const { login, register, isLoading, error } = useAuthContext(); // ใช้ฟังก์ชัน login และ register จาก context สำหรับเรียก API และ state isLoading กับ error สำหรับแสดงสถานะการโหลดและข้อผิดพลาดที่เกิดขึ้น
+  const [isLogin, setIsLogin] = useState(true); // state สำหรับสลับระหว่างฟอร์ม login กับ register โดยเริ่มต้นเป็น login
+  const [showPassword, setShowPassword] = useState(false); // state สำหรับสลับการแสดงรหัสผ่านเป็นข้อความปกติหรือเป็นจุด โดยเริ่มต้นเป็นไม่แสดง (เป็นจุด)
+  const [formError, setFormError] = useState<string | null>(null); // state สำหรับเก็บข้อความข้อผิดพลาดของฟอร์ม
+  const [rememberMe, setRememberMe] = useState(false); // state สำหรับเก็บสถานะการจำผู้ใช้
+  const [formData, setFormData] = useState({ // state สำหรับเก็บข้อมูลที่ผู้ใช้กรอกในฟอร์ม
     displayName: '',
     email: '',
     password: '',
@@ -41,9 +41,9 @@ export function LoginRegisterPage({
   const isValidEmail = (email: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 
-  React.useEffect(() => {
-    adminService.getMe()
-      .then(() => {
+  React.useEffect(() => { // เมื่อหน้าโหลดขึ้นมา จะเรียก API 
+    adminService.getMe() // ตรวจสอบว่า user เป็น admin หรือไม่  
+      .then(() => { // ถ้า สำเร็จเเสดงว่าเป็น
         onComplete('admin');
       })
       .catch(() => {
@@ -51,8 +51,8 @@ export function LoginRegisterPage({
       });
   }, [onComplete]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => { // ฟังก์ชันนี้จะถูกเรียกเมื่อผู้ใช้ submit form
+    e.preventDefault(); // ป้องกันการรีเฟรชหน้าเมื่อ submit form
     setFormError(null);
 
     // === Frontend Validation ===
@@ -74,14 +74,14 @@ export function LoginRegisterPage({
     }
 
     try {
-      if (isLogin) {
+      if (isLogin) { // ถ้าเป็นฟอร์ม login ให้เรียก API login
         // === Login ===
         const result = await login({
           email: formData.email,
           password: formData.password,
           rememberMe,
         });
-        onComplete(result.sessionType);
+        onComplete(result.sessionType); // เมื่อ login สำเร็จ จะเรียกฟังก์ชัน onComplete ที่ส่งมาจาก props เพื่อบอกว่า login หรือ register สำเร็จแล้ว และ sessionType ว่าเป็นของ user ธรรมดาหรือ
       } else {
         // === Register ===
         if (!formData.displayName || formData.displayName.trim().length < 2) {
@@ -93,16 +93,16 @@ export function LoginRegisterPage({
           return;
         }
 
-        await register({
+        await register({ // ถ้าเป็นฟอร์ม register ให้เรียก API register
           email: formData.email,
           password: formData.password,
           displayName: formData.displayName.trim(),
         });
-        onComplete('user');
+        onComplete('user'); // เมื่อ register สำเร็จ จะเรียกฟังก์ชัน onComplete ที่ส่งมาจาก props เพื่อบอกว่า login หรือ register สำเร็จแล้ว และ sessionType ว่าเป็นของ user ธรรมดาหรือ admin
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด';
-      setFormError(message);
+      setFormError(message); 
     }
   };
 

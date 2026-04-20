@@ -70,16 +70,16 @@ export function useChatActions({
   closeLeaveRoomDialog,
   memberToRemove,
 }: UseChatActionsParams) {
-  const handleSendMessage = useCallback(
+  const handleSendMessage = useCallback( // ฟังก์ชันนี้จะถูกเรียกเมื่อส่งข้อความใหม่ในห้องแชทหรือ DM conversation ที่เลือกอยู่ โดยจะเช็คก่อนว่ามีการเชื่อมต่อ WebSocket อยู่หรือไม่ ถ้ามีจะส่งข้อความผ่าน WebSocket เพื่อให้ผู้ใช้คนอื่นที่อยู่ในห้องแชทหรือ DM conversation เดียวกันได้รับข้อความแบบ real-time แต่ถ้าไม่มีการเชื่อมต่อ WebSocket จะส่งข้อความผ่าน API ปกติ และอัปเดตข้อความในหน้าให้ทันที
     (messageInput: string, clearInput: () => void) => {
       if (!messageInput.trim()) return;
       const socket = socketRef.current;
 
-      if (activeTab === 'dms' && selectedDM) {
+      if (activeTab === 'dms' && selectedDM) { // ถ้าอยู่ใน tab ของ DM และมี DM conversation ที่ถูกเลือกอยู่
         if (socket?.connected) {
-          socket.emit('send_dm', { conversationId: selectedDM, content: messageInput });
+          socket.emit('send_dm', { conversationId: selectedDM, content: messageInput }); // ส่งข้อความผ่าน WebSocket โดยระบุ conversationId ของ DM conversation ที่จะส่งข้อความไป และเนื้อหาของข้อความ
         } else {
-          void dmService.sendMessage(selectedDM, messageInput).then((msg) => {
+          void dmService.sendMessage(selectedDM, messageInput).then((msg) => {// เมื่อส่งข้อความผ่าน API แล้ว ให้รีเฟรช preview ของ DM conversation ที่ถูกส่งข้อความไป และเพิ่มข้อความใหม่เข้าไปใน list ของข้อความที่แสดงในหน้า
             setMessages((prev) => [...prev, mapChatMessage(msg, myId)]);
           });
         }

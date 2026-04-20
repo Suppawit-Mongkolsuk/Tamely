@@ -6,7 +6,7 @@ import { getIO } from '../chat/chat.gateway';
 
 /* ======================= CONSTANTS ======================= */
 
-const ROLE_ALIASES: Record<string, WorkspaceRole> = {
+const ROLE_ALIASES: Record<string, WorkspaceRole> = { // กำหนดชื่อที่ผู้ใช้สามารถพิมพ์เพื่อ @mention บทบาทต่างๆ ใน workspace ได้ โดยแปลงเป็น role จริงที่ระบบใช้
   owner: WorkspaceRole.OWNER,
   admin: WorkspaceRole.ADMIN,
   moderator: WorkspaceRole.MODERATOR,
@@ -51,7 +51,7 @@ export const parseMentions = (
 
 /* ======================= RESOLVE & CREATE NOTIFICATIONS ======================= */
 
-export const processAndCreateMentionNotifications = async (params: {
+export const processAndCreateMentionNotifications = async (params: { // ฟังก์ชันนี้จะถูกเรียกเมื่อมีการสร้างโพสต์หรือคอมเมนต์ใหม่ และมีการ @mention ในข้อความ เพื่อสร้าง notification ให้กับผู้ที่ถูกแท็กถึง
   workspaceId: string;
   senderId: string;
   senderName: string;
@@ -60,13 +60,13 @@ export const processAndCreateMentionNotifications = async (params: {
   commentId?: string;
   context: 'post' | 'comment';
 }) => {
-  const { workspaceId, senderId, senderName, text, postId, commentId, context } = params;
+  const { workspaceId, senderId, senderName, text, postId, commentId, context } = params;// ดึงข้อมูลที่จำเป็นออกจาก params ที่รับเข้ามา
 
-  const { userNames, roleNames } = parseMentions(text);
+  const { userNames, roleNames } = parseMentions(text); // แยกชื่อผู้ใช้และชื่อบทบาทที่ถูก @mention ออกจากข้อความ
 
-  if (userNames.length === 0 && roleNames.length === 0) return;
+  if (userNames.length === 0 && roleNames.length === 0) return; // ไม่มีการ @mention ใดๆ ในข้อความ
 
-  const notifications: {
+  const notifications: { // เตรียมข้อมูลสำหรับสร้าง notification หลายรายการในครั้งเดียว
     workspaceId: string;
     userId: string;
     senderId: string;
@@ -75,21 +75,21 @@ export const processAndCreateMentionNotifications = async (params: {
     postId?: string;
     commentId?: string;
     content: string;
-  }[] = [];
+  }[] = []; // array ที่จะเก็บข้อมูล notification ที่ต้องสร้าง
 
   const contextLabel = context === 'post' ? 'โพสต์' : 'คอมเมนต์';
 
-  // 1. Resolve @UserName mentions
-  if (userNames.length > 0) {
-    const members = await notificationRepository.findMembersByNames(workspaceId, userNames);
+  // 1. Resolve @UserName mentions // ดึงข้อมูลสมาชิกที่มีชื่อผู้ใช้ตรงกับที่ถูก @mention มาเพื่อสร้าง notification
+  if (userNames.length > 0) {  // ถ้ามีการ @mention แบบระบุชื่อผู้ใช้ 
+    const members = await notificationRepository.findMembersByNames(workspaceId, userNames); // หาสมาชิกใน workspace ที่มีชื่อผู้ใช้ตรงกับที่ถูก @mention
 
-    for (const member of members) {
-      if (member.userId === senderId) continue;
+    for (const member of members) { // สำหรับสมาชิกแต่ละคนที่ถูก @mention
+      if (member.userId === senderId) continue; // ข้ามถ้าสมาชิกคนนั้นเป็นผู้ส่งโพสต์/คอมเมนต์เอง
 
-      notifications.push({
+      notifications.push({ // เพิ่มข้อมูล notification สำหรับสมาชิกคนนั้น
         workspaceId,
         userId: member.userId,
-        senderId,
+        senderId, // ผู้ที่ทำการ @mention
         type: MentionTargetType.USER,
         postId: postId ?? undefined,
         commentId: commentId ?? undefined,
@@ -99,23 +99,23 @@ export const processAndCreateMentionNotifications = async (params: {
   }
 
   // 2. Resolve @Role mentions
-  if (roleNames.length > 0) {
-    const resolvedRoles = roleNames
+  if (roleNames.length > 0) { // ถ้ามีการ @mention แบบระบุชื่อบทบาท
+    const resolvedRoles = roleNames //แปลงชื่อ role ที่ผู้ใช้พิมพ์ ให้กลายเป็น role จริงที่ระบบใช้
       .map((name) => ROLE_ALIASES[name.toLowerCase()])
-      .filter((r): r is WorkspaceRole => r !== undefined);
+      .filter((r): r is WorkspaceRole => r !== undefined); // กรองเอาเฉพาะ role ที่สามารถแปลงได้เท่านั้น
 
-    if (resolvedRoles.length > 0) {
-      const members = await notificationRepository.findMembersByRoles(workspaceId, resolvedRoles);
-      const existingUserIds = new Set(notifications.map((n) => n.userId));
+    if (resolvedRoles.length > 0) { // ถ้ามี role ที่สามารถแปลงได้อย่างน้อยหนึ่งบทบาท
+      const members = await notificationRepository.findMembersByRoles(workspaceId, resolvedRoles); // หาสมาชิกใน workspace ที่มีบทบาทตรงกับที่ถูก @mention
+      const existingUserIds = new Set(notifications.map((n) => n.userId)); //เอา userId ของ notification ที่มีอยู่ก่อนแล้ว มาเก็บไว้ใน Set เพื่อป้องกันการสร้าง notification ซ้ำ
 
-      for (const member of members) {
-        if (member.userId === senderId) continue;
-        if (existingUserIds.has(member.userId)) continue;
+      for (const member of members) { // สำหรับสมาชิกแต่ละคนที่มีบทบาทตรงกับที่ถูก @mention
+        if (member.userId === senderId) continue; // ข้ามถ้าสมาชิกคนนั้นเป็นผู้ส่งโพสต์/คอมเมนต์เอง
+        if (existingUserIds.has(member.userId)) continue; // ข้ามถ้าสมาชิกคนนั้นมี notification อยู่แล้วจากการ @mention แบบระบุชื่อผู้ใช้ 
 
-        const roleName = resolvedRoles.find((r) => r === member.role);
-        if (!roleName) continue;
+        const roleName = resolvedRoles.find((r) => r === member.role); // หา role ที่ตรงกับบทบาทของสมาชิกคนนั้น เพื่อใช้ในข้อความ notification
+        if (!roleName) continue; // ข้ามถ้าไม่พบ role ที่ตรงกับสมาชิก
 
-        notifications.push({
+        notifications.push({ // เพิ่มข้อมูล notification สำหรับสมาชิกคนนั้น
           workspaceId,
           userId: member.userId,
           senderId,
@@ -126,41 +126,41 @@ export const processAndCreateMentionNotifications = async (params: {
           content: `${senderName} แท็ก @${roleName} ใน${contextLabel}`,
         });
 
-        existingUserIds.add(member.userId);
+        existingUserIds.add(member.userId); //หลังจาก push notification แล้ว ก็เพิ่ม userId นี้เข้า Set ทันที
       }
     }
   }
 
   // 3. Batch insert + notify
-  if (notifications.length > 0) {
+  if (notifications.length > 0) { // ถ้ามี notification ที่ต้องสร้างอย่างน้อยหนึ่งรายการ
     await notificationRepository.createMany(notifications);
 
-    const receiverIds = [...new Set(notifications.map((n) => n.userId))];
+    const receiverIds = [...new Set(notifications.map((n) => n.userId))];  // ดึง userId ของผู้รับ notification ทั้งหมด เเบบไม่ซ้ำกัน เพื่อใช้ในการส่ง push notification
 
-    // push notification (fire and forget)
+    // ส่ง push notification ให้ผู้รับทุกคน (fire and forget)
     pushToUsers(
-      receiverIds,
+      receiverIds, // ส่ง push notification ให้ใครที่ถูกแท็กถึงทั้งหมด
       'มีการแท็กถึงคุณ',
       `${senderName} แท็กคุณใน${contextLabel}`,
-      { type: 'mention' },
+      { type: 'mention' }, // ข้อมูลเพิ่มเติมที่ส่งไปกับ push notification 
     ).catch((err) => {
       console.error('[Notification] Failed to send mention push notification:', err);
     });
 
     // in-app notification ผ่าน socket สำหรับ user ที่แอปเปิดอยู่
-    const io = getIO();
-    if (io) {
-      for (const notif of notifications) {
-        io.to(`user:${notif.userId}`).emit('new_notification', {
-          id: `${Date.now()}-${notif.userId}`,
-          senderName,
-          content: notif.content,
+    const io = getIO(); // ดึงตัว Socket.IO instance ออกมาใช้ 
+    if (io) { // ถ้า io มีค่า 
+      for (const notif of notifications) { // วนส่ง in-app notification ผ่าน socket ให้กับผู้รับแต่ละคน โดยใช้ userId ในการระบุห้องที่ต้องส่ง
+        io.to(`user:${notif.userId}`).emit('new_notification', { // ส่ง event 'new_notification' พร้อมข้อมูล notification ไปยังห้องของผู้รับแต่ละคน
+          id: `${Date.now()}-${notif.userId}`, // สร้าง id ชั่วคราวสำหรับ notification 
+          senderName, // ชื่อผู้ส่ง
+          content: notif.content, // ข้อความที่จะแสดงใน in-app notification
         });
       }
     }
   }
 
-  return notifications;
+  return notifications; // return ข้อมูล notification ที่ถูกสร้างขึ้นไป
 };
 
 /* ======================= READ ======================= */

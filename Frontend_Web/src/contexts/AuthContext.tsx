@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuthContext() {
-  const context = useContext(AuthContext);
+  const context = useContext(AuthContext); // ใช้ context นี้ใน component ใดก็ได้ที่อยู่ภายใต้ AuthProvider เพื่อเข้าถึง auth state และฟังก์ชันต่างๆ เช่น login, logout, register เป็นต้น
   if (!context) {
     throw new Error('useAuthContext must be used within AuthProvider');
   }

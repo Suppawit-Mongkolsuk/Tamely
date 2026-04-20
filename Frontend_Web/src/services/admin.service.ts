@@ -16,7 +16,7 @@ export const adminService = {
   },
 
   async getMe(): Promise<AdminUser> {
-    const response = await apiClient.get<ApiSuccessResponse<AdminUser>>('/admin/me');
+    const response = await apiClient.get<ApiSuccessResponse<AdminUser>>('/admin/me'); // ถ้า user ไม่ใช่ admin จะโดนบล็อกที่ backend และโยน error มา
     return response.data;
   },
 

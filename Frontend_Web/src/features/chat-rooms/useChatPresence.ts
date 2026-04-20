@@ -10,7 +10,7 @@ export function useChatPresence(wsId: string | undefined, myId: string) {
     'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER'
   >('MEMBER');
 
-  const fetchWorkspaceMembers = useCallback(async () => {
+  const fetchWorkspaceMembers = useCallback(async () => { // ฟังก์ชันนี้จะถูกเรียกเมื่อ component mount และเมื่อ wsId หรือ myId เปลี่ยน เพื่อดึงข้อมูลสมาชิกทั้งหมดใน workspace และสถานะออนไลน์ของสมาชิกแต่ละคน รวมถึงบทบาทของผู้ใช้ใน workspace
     if (!wsId) return;
     try {
       const data = await workspaceService.getMembers(wsId);
@@ -31,7 +31,7 @@ export function useChatPresence(wsId: string | undefined, myId: string) {
   useEffect(() => {
     const socket = connectSocket();
 
-    const queryInitialStatus = () => {
+    const queryInitialStatus = () => { // ฟังก์ชันนี้จะถูกเรียกเมื่อ socket เชื่อมต่อ เพื่อดึงสถานะออนไลน์ของสมาชิกทั้งหมดใน workspace
       if (workspaceMembers.length === 0) return;
       const userIds = workspaceMembers.map((member) => member.userId);
       socket.emit('get_online_status', userIds, (statusMap: Record<string, boolean>) => {
@@ -39,11 +39,11 @@ export function useChatPresence(wsId: string | undefined, myId: string) {
       });
     };
 
-    const handleOnline = ({ userId }: { userId: string }) => {
+    const handleOnline = ({ userId }: { userId: string }) => { // เมื่อได้รับ event ว่าผู้ใช้คนไหนออนไลน์ ให้อัปเดตสถานะออนไลน์ของผู้ใช้นั้นใน state
       setOnlineStatus((prev) => ({ ...prev, [userId]: true }));
     };
 
-    const handleOffline = ({ userId }: { userId: string }) => {
+    const handleOffline = ({ userId }: { userId: string }) => { // เมื่อได้รับ event ว่าผู้ใช้คนไหนออฟไลน์ ให้อัปเดตสถานะออนไลน์ของผู้ใช้นั้นใน state
       setOnlineStatus((prev) => ({ ...prev, [userId]: false }));
     };
 

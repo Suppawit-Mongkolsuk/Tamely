@@ -9,62 +9,62 @@ import { assertWorkspaceActive } from '../../utils/workspace.helpers';
 
 /* ======================= READ ======================= */
 
-export const getMessages = async (
+export const getMessages = async ( // ฟังก์ชันนี้จะถูกเรียกเมื่อมีการดึงข้อความในห้องแชท
   roomId: string,
   userId: string,
   options: { limit?: number; offset?: number; before?: string },
 ) => {
   const room = await messageRepository.findRoom(roomId);
-  if (!room) throw new AppError(404, 'Room not found');
-  await assertWorkspaceActive(room.workspaceId);
+  if (!room) throw new AppError(404, 'Room not found'); // ตรวจสอบว่าห้องแชทที่ต้องการดึงข้อความมีอยู่จริงหรือไม่
+  await assertWorkspaceActive(room.workspaceId);// ตรวจสอบว่า workspace ที่ห้องนี้อยู่ยัง active อยู่หรือไม่
 
   const roomMember = await messageRepository.findRoomMember(roomId, userId);
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
-  const limit = Math.min(options.limit ?? 50, 100);
+  const limit = Math.min(options.limit ?? 50, 100); // กำหนดค่าเริ่มต้นของ limit เป็น 50 และจำกัดไม่ให้เกิน 100 เพื่อป้องกันการดึงข้อมูลจำนวนมากเกินไปในครั้งเดียว
   const offset = options.offset ?? 0;
 
-  const { messages, total } = await messageRepository.findMany(roomId, {
+  const { messages, total } = await messageRepository.findMany(roomId, { // ดึงข้อความในห้องแชทตามเงื่อนไขที่กำหนด เช่น limit, offset 
     limit,
     offset,
-    before: options.before,
+    before: options.before, // ถ้ามีการระบุค่า before จะดึงข้อความที่สร้างก่อนเวลาที่ระบุเท่านั้น เพื่อให้สามารถทำ pagination แบบเลื่อนลงไปดูข้อความเก่าได้
   });
 
-  if (offset === 0) {
-    const latestReadAt = messages[messages.length - 1]?.createdAt ?? new Date();
+  if (offset === 0) { // ถ้าเป็นการดึงหน้าข้อมูลแรก (offset = 0) ให้ถือว่าผู้ใช้ได้ดูข้อความล่าสุดแล้ว จึงอัปเดตสถานะการอ่านของห้องแชทนี้ให้เป็นล่าสุด
+    const latestReadAt = messages[messages.length - 1]?.createdAt ?? new Date(); // กำหนดเวลาอ่านล่าสุดเป็นเวลาของข้อความสุดท้ายที่ดึงมา 
     await messageRepository.updateRoomReadState(roomId, userId, latestReadAt);
   }
 
-  return { data: messages, total, limit, offset };
+  return { data: messages, total, limit, offset }; // ส่งกลับข้อมูลข้อความที่ดึงมา พร้อมกับข้อมูล pagination เช่น total, limit และ offset เพื่อให้ client สามารถแสดงผลได้อย่างถูกต้อง
 };
 
 /* ======================= CREATE ======================= */
 
-export const sendMessage = async (
+export const sendMessage = async ( // ฟังก์ชันนี้จะถูกเรียกเมื่อมีการส่งข้อความในห้องแชท
   roomId: string,
   senderId: string,
   content: string,
   type: MessageType = MessageType.TEXT,
   fileData?: { fileUrl: string; fileName: string; fileSize: number },
 ) => {
-  if (!content || content.trim().length === 0) {
+  if (!content || content.trim().length === 0) { // ตรวจสอบว่าข้อความไม่ว่างเปล่า
     throw new AppError(400, 'Message content cannot be empty');
   }
-  if (content.length > 4000) {
+  if (content.length > 4000) { // ตรวจสอบว่าข้อความไม่ยาวเกินไป
     throw new AppError(400, 'Message content cannot exceed 4000 characters');
   }
 
-  const room = await messageRepository.findRoom(roomId);
+  const room = await messageRepository.findRoom(roomId); // ตรวจสอบว่าห้องแชทที่ส่งข้อความไปมีอยู่จริงหรือไม่
   if (!room) throw new AppError(404, 'Room not found');
-  await assertWorkspaceActive(room.workspaceId);
+  await assertWorkspaceActive(room.workspaceId); // ตรวจสอบว่า workspace ที่ห้องนี้อยู่ยัง active อยู่หรือไม่
 
-  const roomMember = await messageRepository.findRoomMember(roomId, senderId);
+  const roomMember = await messageRepository.findRoomMember(roomId, senderId); // ตรวจสอบว่าผู้ส่งเป็นสมาชิกของห้องนี้หรือไม่
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
-  const allowed = await hasPermission(room.workspaceId, senderId, PERMISSIONS.SEND_MESSAGES);
+  const allowed = await hasPermission(room.workspaceId, senderId, PERMISSIONS.SEND_MESSAGES); // ตรวจสอบว่าผู้ส่งมีสิทธิ์ในการส่งข้อความใน workspace นี้หรือไม่
   if (!allowed) throw new AppError(403, 'Insufficient permissions');
 
-  const message = await messageRepository.create(roomId, senderId, content, type, fileData);
+  const message = await messageRepository.create(roomId, senderId, content, type, fileData); // สร้างข้อความใหม่ในห้องแชทพร้อมบันทึกลงฐานข้อมูล
 
   // ส่ง push notification ให้สมาชิกในห้องทุกคน ยกเว้นผู้ส่ง (fire and forget)
   prisma.roomMember.findMany({
@@ -86,7 +86,7 @@ export const sendMessage = async (
     console.error('[RoomMessage] Failed to send push notifications:', err);
   });
 
-  return { ...message, roomName: room.name };
+  return { ...message, roomName: room.name };// ส่งกลับข้อมูลข้อความที่ถูกสร้างใหม่พร้อมชื่อห้องแชทเพื่อให้ client สามารถแสดงได้ทันที
 };
 
 /* ======================= DELETE ======================= */
@@ -105,7 +105,7 @@ export const deleteMessage = async (messageId: string, userId: string) => {
   await messageRepository.remove(messageId);
 };
 
-export const markAsRead = async (
+export const markAsRead = async ( // ฟังก์ชันนี้จะถูกเรียกเมื่อมีการอัปเดตสถานะการอ่านของห้องแชทนี้ให้เป็นล่าสุด (ใช้เมื่อ user เปิดห้องแชทนี้แล้ว เพื่อให้รู้ว่าข้อความไหนที่อ่านแล้วบ้าง)
   roomId: string,
   userId: string,
   readAt: Date = new Date(),
@@ -117,5 +117,5 @@ export const markAsRead = async (
   const roomMember = await messageRepository.findRoomMember(roomId, userId);
   if (!roomMember) throw new AppError(403, 'You are not a member of this room');
 
-  await messageRepository.updateRoomReadState(roomId, userId, readAt);
+  await messageRepository.updateRoomReadState(roomId, userId, readAt) ;// อัปเดตสถานะการอ่านของห้องแชทนี้ให้เป็นเวลาที่ระบุ (โดยปกติจะใช้เวลาปัจจุบัน) เพื่อให้รู้ว่าข้อความไหนที่อ่านแล้วบ้าง
 };

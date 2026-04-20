@@ -116,10 +116,10 @@ export const addRoomMember = async (
   const room = await roomRepository.findByIdSimple(roomId);
   if (!room) throw new AppError(404, 'Room not found');
 
-  await assertManageChannelsPermission(room.workspaceId, requesterId);
-  await assertWorkspaceMember(room.workspaceId, targetUserId);
+  await assertManageChannelsPermission(room.workspaceId, requesterId); // ตรวจสอบสิทธิ์ก่อนว่า requester มีสิทธิ์จัดการห้องนี้หรือไม่
+  await assertWorkspaceMember(room.workspaceId, targetUserId); // ตรวจสอบว่า targetUser เป็นสมาชิกของ workspace หรือไม่
 
-  const existing = await roomRepository.findRoomMember(roomId, targetUserId);
+  const existing = await roomRepository.findRoomMember(roomId, targetUserId); // ตรวจสอบว่า targetUser เป็นสมาชิกของห้องนี้อยู่แล้วหรือไม่
   if (existing) throw new AppError(409, 'User is already a member of this room');
 
   return roomRepository.createRoomMember(roomId, targetUserId);

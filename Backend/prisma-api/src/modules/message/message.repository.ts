@@ -17,27 +17,27 @@ const messageSelect = {
 
 /* ======================= READ ======================= */
 
-export const findMany = async (
+export const findMany = async ( // ฟังก์ชันนี้ใช้สำหรับดึงข้อความในห้องแชท โดยสามารถระบุเงื่อนไขต่างๆ เช่น limit, offset และ before เพื่อทำ pagination ได้
   roomId: string,
   options: { limit: number; offset: number; before?: string },
 ) => {
   const where: Record<string, unknown> = { roomId };
-  if (options.before) {
+  if (options.before) { // ถ้าระบุ ค่า before จะเพิ่มเงื่อนไขในการดึงข้อความที่สร้างก่อนเวลาที่ระบุเท่านั้น
     where.createdAt = { lt: new Date(options.before) };
   }
 
   const [messages, total] = await Promise.all([
-    prisma.message.findMany({
+    prisma.message.findMany({ // ดึงข้อความจากฐานข้อมูลตามเงื่อนไขที่กำหนด
       where,
       select: messageSelect,
       orderBy: { createdAt: 'desc' },
       take: options.limit,
       skip: options.offset,
     }),
-    prisma.message.count({ where }),
+    prisma.message.count({ where }), // นับจำนวนข้อความทั้งหมดที่ตรงกับเงื่อนไข 
   ]);
 
-  return { messages: messages.reverse(), total };
+  return { messages: messages.reverse(), total }; // เนื่องจากดึงข้อความมาเรียงจากใหม่ไปเก่า จึงต้อง reverse กลับเพื่อให้แสดงผลจากเก่าไปใหม่
 };
 
 /* ======================= CREATE ======================= */
@@ -94,7 +94,7 @@ export const findRoom = async (roomId: string) => {
   });
 };
 
-export const findRoomMember = async (roomId: string, userId: string) => {
+export const findRoomMember = async (roomId: string, userId: string) => { // ตรวจสอบว่าผู้ใช้เป็นสมาชิกของห้องแชทนี้หรือไม่ และดึงข้อมูลการอ่านล่าสุดของผู้ใช้ในห้องนี้
   return prisma.roomMember.findUnique({
     where: { roomId_userId: { roomId, userId } },
     select: { roomId: true, userId: true, lastReadAt: true },

@@ -166,8 +166,8 @@ export async function uploadPostImage(
   originalName: string,
 ): Promise<string> {
   const ext = originalName.split('.').pop() || 'jpg';
-  const filePath = `${postId}/${Date.now()}.${ext}`;
-  return uploadToStorage(POST_IMAGES_BUCKET, filePath, fileBuffer, mimeType);
+  const filePath = `${postId}/${Date.now()}.${ext}`; // สร้าง path สำหรับไฟล์รูปภาพของโพสต์ โดยใช้ postId เป็นโฟลเดอร์หลัก และ timestamp เป็นส่วนหนึ่งของชื่อไฟล์ เพื่อป้องกันการชนกันของชื่อไฟล์
+  return uploadToStorage(POST_IMAGES_BUCKET, filePath, fileBuffer, mimeType); // เรียกฟังก์ชันหลักเพื่ออัปโหลดไฟล์ไปยัง bucket 'post-images' และคืน public URL กลับมา
 }
 
 /**
